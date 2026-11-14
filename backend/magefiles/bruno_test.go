@@ -3,10 +3,15 @@
 package main
 
 import (
+	"encoding/pem"
 	"io/fs"
 	"maps"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -138,4 +143,90 @@ func readTree(t *testing.T, root string) map[string]string {
 		t.Fatal(err)
 	}
 	return files
+}
+
+func TestBrunoPreflight(t *testing.T) {
+	t.Parallel()
+
+	healthy := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(healthy.Close)
+	failing := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(failing.Close)
+	stopped := httptest.NewTLSServer(http.NotFoundHandler())
+	stopped.Close()
+
+	// All httptest servers share the same self-signed certificate.
+	cert := filepath.Join(t.TempDir(), "server.crt")
+	writeTree(t, filepath.Dir(cert), map[string]string{
+		"server.crt": string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: healthy.Certificate().Raw})),
+		"empty.crt":  "not a certificate",
+	})
+	emptyCert := filepath.Join(filepath.Dir(cert), "empty.crt")
+
+	npxFound := func(string) (string, error) { return "npx", nil }
+	npxMissing := func(string) (string, error) { return "", exec.ErrNotFound }
+
+	tests := []struct {
+		name     string
+		base     string
+		cert     string
+		lookPath func(string) (string, error)
+		wantErr  string // substring of the error; empty: no error
+	}{
+		{"API up", healthy.URL, cert, npxFound, ""},
+		{"trailing slash in the base URL", healthy.URL + "/", cert, npxFound, ""},
+		{"certificate missing", healthy.URL, filepath.Join(t.TempDir(), "missing.crt"), npxFound, `run "mage cert"`},
+		{"certificate without PEM data", healthy.URL, emptyCert, npxFound, "no PEM data"},
+		{"npx missing", healthy.URL, cert, npxMissing, "install Node.js"},
+		{"API down", stopped.URL, cert, npxFound, `start it with "mage dockerUp"`},
+		{"healthz not OK", failing.URL, cert, npxFound, "answered 500"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := brunoPreflight(tt.base, tt.cert, tt.lookPath)
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("brunoPreflight() error = %v, want nil", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("brunoPreflight() error = %v, want it to contain %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckLocalBaseURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		raw     string
+		wantErr bool
+	}{
+		{"", false},
+		{"https://localhost", false},
+		{"https://localhost:8443", false},
+		{"https://127.0.0.1:8443/", false},
+		{"http://localhost:8443", true},
+		{"https://example.com", true},
+		{"https://localhost.example.com", true},
+		{"https://localhost/api", true},
+		{"https://localhost?x=1", true},
+		{"https://user@localhost", true},
+		{"localhost:8443", true},
+		{"://bad", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.raw, func(t *testing.T) {
+			t.Parallel()
+			if err := checkLocalBaseURL(tt.raw); (err != nil) != tt.wantErr {
+				t.Errorf("checkLocalBaseURL(%q) error = %v, want error: %v", tt.raw, err, tt.wantErr)
+			}
+		})
+	}
 }

@@ -2,7 +2,7 @@
 
 # ---- build -------------------------------------------------------------------
 # Mantenha a versão alinhada ao go.mod e ao CI (ver README, "Versão do Go").
-FROM golang:1.24 AS build
+FROM golang:1.27 AS build
 
 WORKDIR /src
 

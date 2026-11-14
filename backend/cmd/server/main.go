@@ -231,8 +231,9 @@ func seed(ctx context.Context, cfg config.Config, getenv func(string) string, lo
 	}
 
 	users := service.NewUsers(repository.NewUsers(db), sec, sec)
+	//nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
 	admin, err := users.CreateFirstAdmin(ctx, creds.AdminLogin, creds.AdminPassword)
-	if err != nil {
+	if err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
 		return err
 	}
 	logger.Info("administrador criado", slog.String("login", admin.Login))

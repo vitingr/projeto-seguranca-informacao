@@ -23,6 +23,9 @@ env:
   GO_VERSION: "1.27.x"
   GOLANGCI_LINT_VERSION: v2.14.0
   GOVULNCHECK_VERSION: v1.9.0
+  # Node.js runs the Bruno and Redocly CLIs through npx (versions pinned in
+  # backend/magefiles).
+  NODE_VERSION: "24"
 
 # The backend lives in backend/ inside the repository; every run step uses it
 # as the working directory.
@@ -81,6 +84,77 @@ jobs:
         run: go tool cover -func=coverage.out
       - name: Magefile tests
         run: go test -race -tags mage ./magefiles
+
+  # The contract is valid OpenAPI 3.1 and the generated Bruno folders match it.
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Lint the contract
+        run: go tool mage contractLint
+      - name: Check that the Bruno collection matches the contract
+        run: |
+          go tool mage bruno
+          # --porcelain also lists new untracked files, which git diff misses.
+          if [ -n "$(git status --porcelain -- bruno/)" ]; then
+            echo "::error::bruno/ does not match api/openapi.json: run 'mage bruno' and commit the result"
+            git status --porcelain -- bruno/
+            git diff -- bruno/
+            exit 1
+          fi
+
+  # Runs the Bruno assertions against the full stack (app + PostgreSQL).
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Create .env with a generated database password
+        run: |
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::${password}"
+          sed "s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=${password}/" .env.example > .env
+      - name: Generate the TLS certificate
+        run: go tool mage cert
+      - name: Start the stack
+        run: go tool mage dockerUp
+      - name: Apply the migrations
+        run: go tool mage migrateUp
+      - name: Run the Bruno collection
+        run: go tool mage brunoRun
+      - name: Upload the Bruno report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bruno-report
+          path: backend/bruno-report.xml
+          if-no-files-found: ignore
+      - name: Show the container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: go tool mage dockerDown
 
   build:
     runs-on: ubuntu-latest

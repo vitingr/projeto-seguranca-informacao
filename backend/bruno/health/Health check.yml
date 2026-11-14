@@ -1,0 +1,58 @@
+info:
+  name: Health check
+  type: http
+  seq: 1
+  tags:
+    - health
+
+http:
+  method: GET
+  url: "{{baseUrl}}/healthz"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: The process is up.
+    request:
+      url: "{{baseUrl}}/healthz"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "status": "ok"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/healthz"
+      method: GET
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: Reports that the process is serving HTTPS. It does not query the database.

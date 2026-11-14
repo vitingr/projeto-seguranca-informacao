@@ -1,0 +1,10 @@
+info:
+  name: auth
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: CSRF token, login, logout and the current user.
+  type: text/markdown

@@ -1,0 +1,44 @@
+# Hand-written: "mage bruno" never touches this file.
+opencollection: 1.0.0
+
+info:
+  name: backend_si
+  version: "1"
+
+docs:
+  content: |-
+    Generated from api/openapi.json by "mage bruno". The tag folders are
+    generated and must not be edited by hand; opencollection.yml,
+    environments/ and tests/ are hand-written. "mage brunoRun" runs tests/.
+  type: text/markdown
+
+request:
+  scripts:
+    - type: tests
+      code: |-
+        // Checks that apply to every response.
+        const body = res.getBody();
+        const hasBody = body !== undefined && body !== null && body !== "";
+
+        if (hasBody) {
+          test("Content-Type is JSON", function () {
+            expect(res.getHeader("content-type")).to.equal("application/json; charset=utf-8");
+          });
+        }
+
+        test("Content-Security-Policy is present", function () {
+          expect(res.getHeader("content-security-policy")).to.be.a("string").and.not.be.empty;
+        });
+
+        if (res.getStatus() >= 400) {
+          test("request_id matches X-Request-Id", function () {
+            expect(body.request_id).to.equal(res.getHeader("x-request-id"));
+          });
+        }
+
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

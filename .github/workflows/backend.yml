@@ -79,6 +79,8 @@ jobs:
         run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
       - name: Resumo de cobertura
         run: go tool cover -func=coverage.out
+      - name: Magefile tests
+        run: go test -race -tags mage ./magefiles
 
   build:
     runs-on: ubuntu-latest

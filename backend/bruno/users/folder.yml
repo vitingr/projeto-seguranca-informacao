@@ -1,0 +1,10 @@
+info:
+  name: users
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: User registration.
+  type: text/markdown

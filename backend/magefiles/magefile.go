@@ -26,11 +26,11 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-// Versões fixadas das ferramentas executadas com "go run". São as últimas
-// versões compatíveis com Go 1.24 (ver README, seção "Versão do Go").
+// Pinned versions of the tools run with "go run". Upgrade them on purpose,
+// checking that each one supports the go version in go.mod.
 const (
-	gooseModule   = "github.com/pressly/goose/v3/cmd/goose@v3.26.0"
-	govulnModule  = "golang.org/x/vuln/cmd/govulncheck@v1.1.4"
+	gooseModule   = "github.com/pressly/goose/v3/cmd/goose@v3.29.0"
+	govulnModule  = "golang.org/x/vuln/cmd/govulncheck@v1.9.0"
 	gooseNoDriver = "no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_vertica no_ydb"
 
 	binaryPath = "bin/backend_si"

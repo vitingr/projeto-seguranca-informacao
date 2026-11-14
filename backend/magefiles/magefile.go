@@ -44,6 +44,14 @@ const (
 // the repository root, so local and CI lint results match.
 const golangciLintVersion = "2.14.0"
 
+// Contract files and the pinned npm package that lints them. Packages run with
+// npx are pinned to an exact version, never a range or a dist-tag.
+const (
+	contractFile  = "api/openapi.json"
+	redoclyConfig = "redocly.yaml"
+	redoclyCLI    = "@redocly/cli@2.72.1"
+)
+
 // Build compila o binário em bin/backend_si.
 func Build() error {
 	return sh.RunV("go", "build", "-trimpath", "-o", binaryPath, "./cmd/server")
@@ -94,6 +102,12 @@ func checkGolangciLint() error {
 // Vuln procura vulnerabilidades conhecidas com o govulncheck.
 func Vuln() error {
 	return sh.RunV("go", "run", govulnModule, "./...")
+}
+
+// ContractLint validates api/openapi.json as OpenAPI 3.1 with the pinned
+// Redocly CLI (config in redocly.yaml). Requires Node.js with npx.
+func ContractLint() error {
+	return sh.RunV("npx", "--yes", redoclyCLI, "lint", contractFile, "--config", redoclyConfig)
 }
 
 // CI executa fmt, lint, vuln e test em sequência.

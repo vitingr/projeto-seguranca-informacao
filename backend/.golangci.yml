@@ -1,0 +1,169 @@
+# Configuração do golangci-lint (formato v2).
+# Documentação: https://golangci-lint.run/docs/configuration/file/
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  # Inclui o Magefile (arquivos com //go:build mage) na análise.
+  build-tags:
+    - mage
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unparam
+    - unused
+
+  settings:
+    depguard:
+      # Regras de dependência entre pacotes:
+      #   web → service → repository → domain
+      #   security é transversal e só importa domain
+      #   nenhum pacote interno importa web
+      rules:
+        domain:
+          files: ["**/internal/domain/**"]
+          deny:
+            - pkg: backend_si/internal
+              desc: domain é o núcleo e não importa outros pacotes internos
+        config:
+          files: ["**/internal/config/**"]
+          deny:
+            - pkg: backend_si/internal
+              desc: config é independente das demais camadas
+        repository:
+          files: ["**/internal/repository/**"]
+          deny:
+            - pkg: backend_si/internal/service
+              desc: repository não conhece casos de uso
+            - pkg: backend_si/internal/security
+              desc: repository não importa security (security define a interface que ele implementa)
+            - pkg: backend_si/internal/config
+              desc: configuração é injetada pelo composition root
+        service:
+          files: ["**/internal/service/**"]
+          deny:
+            - pkg: backend_si/internal/config
+              desc: configuração é injetada pelo composition root
+        security:
+          files: ["**/internal/security/**"]
+          deny:
+            - pkg: backend_si/internal/service
+              desc: security é transversal e só pode importar domain
+            - pkg: backend_si/internal/repository
+              desc: security é transversal e só pode importar domain
+            - pkg: backend_si/internal/config
+              desc: security é transversal e só pode importar domain
+        web:
+          files: ["**/internal/web/**"]
+          deny:
+            - pkg: backend_si/internal/repository
+              desc: web acessa dados apenas através de service
+            - pkg: backend_si/internal/config
+              desc: configuração é injetada pelo composition root
+        no-web:
+          files: ["**/internal/**", "!**/internal/web/**"]
+          deny:
+            - pkg: backend_si/internal/web
+              desc: nenhum pacote interno importa web
+        crypto-rand:
+          files: ["$all"]
+          deny:
+            - pkg: math/rand
+              desc: use crypto/rand
+            - pkg: math/rand/v2
+              desc: use crypto/rand
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # micro-otimização; prejudica a legibilidade das structs
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam # structs de configuração são passadas por valor de propósito
+        - unnamedResult
+
+    gosec:
+      excludes: []
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: var-declaration
+        - name: var-naming
+        # unused-parameter fica desligada na etapa 1: os stubs da API de
+        # segurança mantêm os nomes dos parâmetros para documentação.
+        # TODO(etapa 2): reativar.
+
+    misspell:
+      locale: US
+      # Comentários estão em português; estas palavras são falsos positivos
+      # do dicionário em inglês.
+      ignore-rules:
+        - comando
+        - controles
+        - correspondente
+        - problemas
+
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # O Magefile executa ferramentas externas com argumentos montados no
+      # próprio código (sem entrada do usuário).
+      # G304: os caminhos de arquivo do Magefile são constantes do projeto.
+      - path: magefiles/
+        linters: [gosec]
+        text: "G204|G304"
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      module-path: backend_si
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - backend_si

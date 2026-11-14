@@ -1,0 +1,219 @@
+package security
+
+// Testes do comportamento de negação por padrão (fail closed) da etapa 1.
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"backend_si/internal/domain"
+)
+
+func TestPolicyConstructors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		policy     Policy
+		wantZero   bool
+		wantPublic bool
+		wantRoles  []domain.Role
+	}{
+		{"valor zero", Policy{}, true, false, nil},
+		{"Public", Public(), false, true, nil},
+		{"RequireRole admin", RequireRole(domain.RoleAdmin), false, false, []domain.Role{domain.RoleAdmin}},
+		{"RequireRole remove duplicados", RequireRole(domain.RoleComum, domain.RoleComum), false, false, []domain.Role{domain.RoleComum}},
+		{"RequireRole sem papéis equivale a zero", RequireRole(), true, false, nil},
+		{"RequireRole com papel inválido equivale a zero", RequireRole("root"), true, false, nil},
+		{"RequireRole descarta inválidos", RequireRole("root", domain.RoleAdmin), false, false, []domain.Role{domain.RoleAdmin}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := tt.policy.IsZero(); got != tt.wantZero {
+				t.Errorf("IsZero() = %v, want %v", got, tt.wantZero)
+			}
+			if got := tt.policy.IsPublic(); got != tt.wantPublic {
+				t.Errorf("IsPublic() = %v, want %v", got, tt.wantPublic)
+			}
+			got := tt.policy.Roles()
+			if len(got) != len(tt.wantRoles) {
+				t.Fatalf("Roles() = %v, want %v", got, tt.wantRoles)
+			}
+			for i := range got {
+				if got[i] != tt.wantRoles[i] {
+					t.Errorf("Roles() = %v, want %v", got, tt.wantRoles)
+				}
+			}
+		})
+	}
+}
+
+func TestPolicyRolesReturnsCopy(t *testing.T) {
+	t.Parallel()
+
+	p := RequireRole(domain.RoleComum)
+	p.Roles()[0] = domain.RoleAdmin
+	if p.Roles()[0] != domain.RoleComum {
+		t.Fatal("Roles() deve retornar uma cópia; a política foi alterada externamente")
+	}
+}
+
+func TestAuthorizeDeniesByDefault(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		policy     Policy
+		wantCalled bool
+	}{
+		{"política zero nega", Policy{}, false},
+		{"RequireRole() vazio nega", RequireRole(), false},
+		{"pública permite", Public(), true},
+		{"admin nega (stub)", RequireRole(domain.RoleAdmin), false},
+		{"comum nega (stub)", RequireRole(domain.RoleComum), false},
+		{"qualquer autenticado nega (stub)", RequireRole(domain.RoleAdmin, domain.RoleComum), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			s := newTestSecurity(t, nil)
+			for _, method := range []string{http.MethodGet, http.MethodPost} {
+				var called bool
+				rr := httptest.NewRecorder()
+				s.Authorize(tt.policy)(okHandler(&called)).ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), method, "/x", http.NoBody))
+
+				if called != tt.wantCalled {
+					t.Errorf("%s: handler executado = %v, want %v", method, called, tt.wantCalled)
+				}
+				if !tt.wantCalled && rr.Code < 300 {
+					t.Errorf("%s: negação respondeu %d (sucesso)", method, rr.Code)
+				}
+			}
+		})
+	}
+}
+
+func TestCSRFRejectsUnsafeMethods(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		method     string
+		wantCalled bool
+	}{
+		{http.MethodGet, true},
+		{http.MethodHead, true},
+		{http.MethodOptions, true},
+		{http.MethodPost, false},
+		{http.MethodPut, false},
+		{http.MethodPatch, false},
+		{http.MethodDelete, false},
+		{"PROPFIND", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			t.Parallel()
+			s := newTestSecurity(t, nil)
+			var called bool
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, "/login", http.NoBody)
+			s.CSRF(okHandler(&called)).ServeHTTP(rr, req)
+
+			if called != tt.wantCalled {
+				t.Errorf("handler executado = %v, want %v", called, tt.wantCalled)
+			}
+			if !tt.wantCalled && rr.Code != http.StatusForbidden {
+				t.Errorf("status = %d, want 403", rr.Code)
+			}
+		})
+	}
+}
+
+func TestSessionStubNeverAuthenticates(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	req.AddCookie(&http.Cookie{
+		Name:     SessionCookieName,
+		Value:    "qualquer-valor",
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	var principalFound bool
+	s.Session(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, principalFound = PrincipalFrom(r.Context())
+	})).ServeHTTP(httptest.NewRecorder(), req)
+
+	if principalFound {
+		t.Fatal("stub de sessão não pode autenticar ninguém")
+	}
+	if CSRFToken(req) != "" {
+		t.Fatal("stub não deve emitir token CSRF")
+	}
+}
+
+func TestPrincipalFromRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+	}{
+		{"contexto vazio", context.Background()},
+		{"usuário zero", context.WithValue(context.Background(), principalKey{}, Principal{Role: domain.RoleAdmin})},
+		{"papel inválido", context.WithValue(context.Background(), principalKey{}, Principal{UserID: 1, Role: "root"})},
+		{"tipo errado", context.WithValue(context.Background(), principalKey{}, "admin")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if _, ok := PrincipalFrom(tt.ctx); ok {
+				t.Fatal("PrincipalFrom aceitou um principal inválido")
+			}
+		})
+	}
+}
+
+func TestStubsFailClosed(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, nil)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", http.NoBody)
+
+	tests := []struct {
+		name    string
+		call    func() error
+		wantErr []error
+	}{
+		{"HashPassword", func() error { _, err := s.HashPassword("senha"); return err }, []error{domain.ErrNotImplemented}},
+		{"VerifyPassword", func() error { return s.VerifyPassword("$argon2id$...", "senha") }, []error{domain.ErrInvalidCredentials}},
+		{"VerifyPassword hash vazio", func() error { return s.VerifyPassword("", "") }, []error{domain.ErrInvalidCredentials}},
+		{"StartSession", func() error { return s.StartSession(rr, req, domain.User{ID: 1, Role: domain.RoleAdmin}) }, []error{domain.ErrNotImplemented}},
+		{"EndSession", func() error { return s.EndSession(rr, req) }, []error{domain.ErrNotImplemented}},
+		{"DecodeJSON", func() error { var v struct{}; return s.DecodeJSON(rr, req, &v) }, []error{domain.ErrInvalidInput}},
+		{"ValidateLogin", func() error { return s.ValidateLogin("admin") }, []error{domain.ErrInvalidInput}},
+		{"ValidatePassword", func() error { return s.ValidatePassword("uma senha longa o bastante") }, []error{domain.ErrInvalidInput}},
+		{"ParseRole admin", func() error { _, err := s.ParseRole("admin"); return err }, []error{domain.ErrInvalidInput}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.call()
+			if err == nil {
+				t.Fatal("stub retornou sucesso; deveria falhar fechado")
+			}
+			for _, want := range tt.wantErr {
+				if !errors.Is(err, want) {
+					t.Errorf("erro %v não encapsula %v", err, want)
+				}
+			}
+		})
+	}
+}

@@ -1,0 +1,8 @@
+# Text files are stored and checked out with LF on every OS, so gofumpt,
+# "mage bruno" and the committed files always agree. Git detects binary
+# files (such as favicon.ico) and leaves them untouched.
+* text=auto eol=lf
+
+# Windows batch scripts need CRLF to run correctly in cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf

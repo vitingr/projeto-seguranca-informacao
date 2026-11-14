@@ -1,0 +1,69 @@
+# Ambiente de desenvolvimento: aplicação + PostgreSQL.
+# Segredos vêm do arquivo .env (copie de .env.example). Prefira "mage dockerUp",
+# que também define APP_UID/APP_GID (necessário para ler a chave TLS).
+name: backend_si
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
+    volumes:
+      # A partir do PostgreSQL 18 o volume deve ser montado em /var/lib/postgresql.
+      - pgdata:/var/lib/postgresql
+    ports:
+      # Publicado só no loopback, para migrations e seed executados no host.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    build: .
+    image: backend_si:dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Nunca root. Por padrão o usuário nonroot da imagem; "mage dockerUp"
+    # usa o UID/GID do host para ler certs/server.key (permissão 0600).
+    user: "${APP_UID:-65532}:${APP_GID:-65532}"
+    environment:
+      APP_ADDR: ":8443"
+      APP_TLS_CERT_FILE: /certs/server.crt
+      APP_TLS_KEY_FILE: /certs/server.key
+      # A senha entra na URL sem codificação: use apenas caracteres seguros
+      # (ex.: hexadecimal gerado com "openssl rand -hex 24").
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-10}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-5}
+      SESSION_IDLE_TIMEOUT: ${SESSION_IDLE_TIMEOUT:-15m}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-15s}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      # https://localhost → porta 8443 do contêiner (só no loopback).
+      - "127.0.0.1:443:8443"
+    healthcheck:
+      test: ["CMD", "/backend_si", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pgdata:

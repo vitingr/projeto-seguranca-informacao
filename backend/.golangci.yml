@@ -152,9 +152,12 @@ linters:
       # O Magefile executa ferramentas externas com argumentos montados no
       # próprio código (sem entrada do usuário).
       # G304: os caminhos de arquivo do Magefile são constantes do projeto.
+      # G702/G704: the only external value is BRUNO_BASE_URL, set by the
+      # developer for "mage brunoRun" and restricted to https on localhost or
+      # 127.0.0.1 by checkLocalBaseURL before it reaches npx or the HTTP check.
       - path: magefiles/
         linters: [gosec]
-        text: "G204|G304"
+        text: "G204|G304|G702|G704"
 
 formatters:
   enable:

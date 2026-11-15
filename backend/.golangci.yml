@@ -129,11 +129,9 @@ linters:
         - name: time-naming
         - name: unexported-return
         - name: unreachable-code
+        - name: unused-parameter
         - name: var-declaration
         - name: var-naming
-        # unused-parameter fica desligada na etapa 1: os stubs da API de
-        # segurança mantêm os nomes dos parâmetros para documentação.
-        # TODO(etapa 2): reativar.
 
     misspell:
       locale: US

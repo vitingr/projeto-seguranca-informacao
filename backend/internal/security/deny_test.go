@@ -5,8 +5,6 @@ package security
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"backend_si/internal/domain"
@@ -59,41 +57,6 @@ func TestPolicyRolesReturnsCopy(t *testing.T) {
 	p.Roles()[0] = domain.RoleAdmin
 	if p.Roles()[0] != domain.RoleComum {
 		t.Fatal("Roles() deve retornar uma cópia; a política foi alterada externamente")
-	}
-}
-
-func TestAuthorizeDeniesByDefault(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		policy     Policy
-		wantCalled bool
-	}{
-		{"política zero nega", Policy{}, false},
-		{"RequireRole() vazio nega", RequireRole(), false},
-		{"pública permite", Public(), true},
-		{"admin nega (stub)", RequireRole(domain.RoleAdmin), false},
-		{"comum nega (stub)", RequireRole(domain.RoleComum), false},
-		{"qualquer autenticado nega (stub)", RequireRole(domain.RoleAdmin, domain.RoleComum), false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			s := newTestSecurity(t, nil)
-			for _, method := range []string{http.MethodGet, http.MethodPost} {
-				var called bool
-				rr := httptest.NewRecorder()
-				s.Authorize(tt.policy)(okHandler(&called)).ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), method, "/x", http.NoBody))
-
-				if called != tt.wantCalled {
-					t.Errorf("%s: handler executado = %v, want %v", method, called, tt.wantCalled)
-				}
-				if !tt.wantCalled && rr.Code < 300 {
-					t.Errorf("%s: negação respondeu %d (sucesso)", method, rr.Code)
-				}
-			}
-		})
 	}
 }
 

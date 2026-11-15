@@ -248,4 +248,13 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
 
-docs: Creates a user with the given role. Only administrators can register users.
+docs: |-
+  Creates a user with the given role. Only administrators can register users.
+
+  **400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a `Content-Type` other than `application/json`, an unknown field, or a field of the wrong JSON type (such as `"papel": 1`).
+
+  **422** (`unprocessable_entity`): the body is well-formed but a value is invalid: `login` does not match the login pattern (after lowercasing), `senha` has fewer than 15 or more than 128 characters, `papel` is not exactly `admin` or `comum`, or a field is missing.
+
+  **409** (`conflict`): the login is already taken, including by a login that differs only in case.
+
+  The response carries the normalized (lowercase) login.

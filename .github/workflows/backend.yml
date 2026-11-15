@@ -144,6 +144,8 @@ jobs:
         run: go tool mage dockerUp
       - name: Apply the migrations
         run: go tool mage migrateUp
+      - name: Run the integration tests against PostgreSQL
+        run: go tool mage testIntegration
       - name: Create the seed administrator
         run: go tool mage seed
       - name: Run the Bruno collection

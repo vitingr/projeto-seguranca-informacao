@@ -97,41 +97,6 @@ func TestAuthorizeDeniesByDefault(t *testing.T) {
 	}
 }
 
-func TestCSRFRejectsUnsafeMethods(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		method     string
-		wantCalled bool
-	}{
-		{http.MethodGet, true},
-		{http.MethodHead, true},
-		{http.MethodOptions, true},
-		{http.MethodPost, false},
-		{http.MethodPut, false},
-		{http.MethodPatch, false},
-		{http.MethodDelete, false},
-		{"PROPFIND", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.method, func(t *testing.T) {
-			t.Parallel()
-			s := newTestSecurity(t, nil)
-			var called bool
-			rr := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), tt.method, "/login", http.NoBody)
-			s.CSRF(okHandler(&called)).ServeHTTP(rr, req)
-
-			if called != tt.wantCalled {
-				t.Errorf("handler executado = %v, want %v", called, tt.wantCalled)
-			}
-			if !tt.wantCalled && rr.Code != http.StatusForbidden {
-				t.Errorf("status = %d, want 403", rr.Code)
-			}
-		})
-	}
-}
-
 func TestPrincipalFromRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 

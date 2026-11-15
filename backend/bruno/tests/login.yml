@@ -22,9 +22,15 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        test("status is 403", function () {
-          expect(res.getStatus()).to.equal(403);
+        // The token and the session cookie from csrf pass the CSRF check;
+        // the credentials do not exist, so the answer is the generic 401.
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
         });
-        test("error is forbidden", function () {
-          expect(res.getBody().error).to.equal("forbidden");
+        test("error is unauthorized", function () {
+          expect(res.getBody().error).to.equal("unauthorized");
+        });
+        test("does not start a session", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
         });

@@ -7,6 +7,7 @@ toolchain go1.27.4
 require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/magefile/mage v1.17.2
+	golang.org/x/text v0.43.0
 )
 
 require (
@@ -14,7 +15,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	golang.org/x/sync v0.25.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
 )
 
 tool github.com/magefile/mage

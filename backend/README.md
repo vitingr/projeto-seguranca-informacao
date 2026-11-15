@@ -105,6 +105,7 @@ Every dependency is listed here with the reason it is needed.
 |---|---|
 | `github.com/jackc/pgx/v5` | PostgreSQL driver, used through `database/sql` (`pgx/v5/stdlib`). It is the most complete pure-Go PostgreSQL driver and maps unique-violation errors through `pgconn`. |
 | `github.com/magefile/mage` | Task runner written in Go, run as a module tool (`go tool mage`), so there is no Makefile or extra binary. |
+| `golang.org/x/text` | Only `unicode/norm`: passwords are normalized to NFKC before they are validated and hashed, so visually equivalent inputs give the same hash. It was already in the module graph through `pgx`; the standard library has no Unicode normalization. |
 
 **Tools run with `go run`** (versions pinned in `magefiles/magefile.go`)
 

@@ -56,10 +56,6 @@ func errorCode(status int) string {
 		return "not_found"
 	case http.StatusConflict:
 		return "conflict"
-	case http.StatusRequestEntityTooLarge:
-		return "payload_too_large"
-	case http.StatusUnsupportedMediaType:
-		return "unsupported_media_type"
 	case http.StatusUnprocessableEntity:
 		return "unprocessable_entity"
 	default:

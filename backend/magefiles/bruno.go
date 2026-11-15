@@ -3,11 +3,20 @@
 package main
 
 import (
+	"cmp"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/fs"
+	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/magefile/mage/sh"
 )
@@ -17,6 +26,10 @@ const (
 	brunoCLI        = "@usebruno/cli@4.3.0"
 	brunoDir        = "bruno"
 	brunoCollection = "backend_si"
+	brunoTests      = "tests"             // the only folder "mage brunoRun" runs
+	brunoEnv        = "local"             // environment in bruno/environments
+	brunoBaseURL    = "https://localhost" // baseUrl of the local environment
+	brunoReport     = "bruno-report.xml"  // JUnit report written by "mage brunoRun"
 )
 
 // brunoHandWritten are the entries of bruno/ that "mage bruno" never touches.
@@ -44,6 +57,91 @@ func Bruno() error {
 		return fmt.Errorf("import the contract with the Bruno CLI: %w", err)
 	}
 	return syncGenerated(filepath.Join(tmp, brunoCollection), brunoDir, brunoHandWritten)
+}
+
+// BrunoRun runs the assertions in bruno/tests against the running API and
+// writes bruno-report.xml (JUnit). It targets https://localhost, which is the
+// API started by "mage dockerUp". Set BRUNO_BASE_URL for another address,
+// such as https://localhost:8443 for "mage run". Requires Node.js with npx.
+func BrunoRun() error {
+	override := os.Getenv("BRUNO_BASE_URL")
+	if err := checkLocalBaseURL(override); err != nil {
+		return err
+	}
+	base := cmp.Or(override, brunoBaseURL)
+	if err := brunoPreflight(base, certFile, exec.LookPath); err != nil {
+		return err
+	}
+
+	args := []string{
+		"--yes", brunoCLI, "run", brunoTests,
+		"--env", brunoEnv,
+		"--cacert", filepath.Join("..", certFile),
+		"--ignore-truststore",
+		"--reporter-junit", filepath.Join("..", brunoReport),
+	}
+	if override != "" {
+		args = append(args, "--env-var", "baseUrl="+override)
+	}
+	// The Bruno CLI must run from the collection folder.
+	cmd := exec.CommandContext(context.Background(), "npx", args...)
+	cmd.Dir = brunoDir
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("bruno run failed (report in %s): %w", brunoReport, err)
+	}
+	return nil
+}
+
+// checkLocalBaseURL accepts an empty value (the default base URL) or an https
+// URL on localhost or 127.0.0.1, the only hosts the development certificate
+// is valid for.
+func checkLocalBaseURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.User != nil {
+		return fmt.Errorf("BRUNO_BASE_URL=%q must look like https://localhost:8443 (https, localhost or 127.0.0.1, no path)", raw)
+	}
+	return nil
+}
+
+// brunoPreflight fails, with what to do next, when the collection cannot run:
+// the certificate is missing, npx is not installed, or the API does not
+// answer GET /healthz at base.
+func brunoPreflight(base, cert string, lookPath func(string) (string, error)) error {
+	pemData, err := os.ReadFile(cert)
+	if err != nil {
+		return fmt.Errorf("certificate %s not found: run \"mage cert\" first: %w", cert, err)
+	}
+	if _, err = lookPath("npx"); err != nil {
+		return fmt.Errorf("npx not found: install Node.js (LTS) to run the Bruno CLI: %w", err)
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pemData) {
+		return fmt.Errorf("certificate %s has no PEM data: delete certs/ and run \"mage cert\"", cert)
+	}
+	client := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}},
+	}
+	healthURL := strings.TrimSuffix(base, "/") + "/healthz"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, healthURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("invalid base URL %q: %w", base, err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("the API is not answering %s: start it with \"mage dockerUp\" (or set BRUNO_BASE_URL for \"mage run\"): %w", healthURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s answered %d instead of 200: check the API logs", healthURL, resp.StatusCode)
+	}
+	return nil
 }
 
 // syncGenerated makes dst hold the generated entries of src: it removes every

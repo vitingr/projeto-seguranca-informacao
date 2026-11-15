@@ -3,6 +3,7 @@
 *.test
 *.out
 coverage.*
+/bruno-report.xml
 
 # Certificados e chaves locais (gerados por "mage cert")
 /certs/

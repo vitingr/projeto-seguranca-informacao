@@ -1,0 +1,25 @@
+info:
+  name: logout-anonymous
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/logout"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Anonymous with a valid CSRF token: the CSRF check passes and
+        // Authorize answers 401.
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
+        });
+        test("error is unauthorized", function () {
+          expect(res.getBody().error).to.equal("unauthorized");
+        });

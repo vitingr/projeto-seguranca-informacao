@@ -1,0 +1,34 @@
+info:
+  name: login-comum
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The Argon2id hash stored by the registration verifies.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the comum user", function () {
+          const body = res.getBody();
+          expect(body.user_id).to.equal(bru.getVar("comumUserId"));
+          expect(body.login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
+          expect(body.role).to.equal("comum");
+        });

@@ -1,0 +1,22 @@
+info:
+  name: me-admin
+  type: http
+  seq: 14
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/me"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the admin", function () {
+          const body = res.getBody();
+          expect(body.user_id).to.equal(bru.getVar("adminUserId"));
+          expect(body.role).to.equal("admin");
+        });

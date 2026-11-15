@@ -1,0 +1,18 @@
+# Hand-written. Run by "mage brunoRun" after the root requests of tests/
+# (bru run tests tests/access-matrix, 003 D-15).
+#
+# The 15-cell access matrix (003 D-2), one caller at a time, with the shared
+# cookie jar: anonymous (2-6) -> seed admin (9-11, 14-15) -> the comum user
+# that the admin registers in 11 (19-23). Requests 12 and 13 check the 409
+# and 422 of POST /api/cadastro.
+#
+# The comum credentials come from BRUNO_COMUM_LOGIN and BRUNO_COMUM_PASSWORD,
+# which "mage brunoRun" generates with crypto/rand for every run (003 D-13),
+# so each run leaves one e2e.* user: see the README to delete them. Every POST
+# sends the current CSRF token, so a 401 or 403 comes from Authorize.
+info:
+  name: access-matrix
+  type: folder
+
+request:
+  auth: inherit

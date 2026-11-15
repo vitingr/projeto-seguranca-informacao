@@ -1,0 +1,22 @@
+info:
+  name: me-comum
+  type: http
+  seq: 22
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/me"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the comum user", function () {
+          const body = res.getBody();
+          expect(body.user_id).to.equal(bru.getVar("comumUserId"));
+          expect(body.role).to.equal("comum");
+        });

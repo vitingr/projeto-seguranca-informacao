@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/pem"
+	"fmt"
 	"io/fs"
 	"maps"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -260,6 +262,11 @@ func TestBrunoSeedEnv(t *testing.T) {
 		{"password empty in .env", map[string]string{"SEED_ADMIN_LOGIN": "admin", "SEED_ADMIN_PASSWORD": ""}, noEnv, nil, `run "mage seed"`},
 		{"login missing", map[string]string{"SEED_ADMIN_PASSWORD": "x"}, noEnv, nil, "SEED_ADMIN_LOGIN is empty"},
 		{
+			"login with the test user prefix",
+			map[string]string{"SEED_ADMIN_LOGIN": "E2E.admin", "SEED_ADMIN_PASSWORD": "from-dotenv"},
+			noEnv, nil, `must not start with "e2e."`,
+		},
+		{
 			"empty in the environment hides .env", dotEnv,
 			func(k string) (string, bool) { return "", k == "SEED_ADMIN_PASSWORD" },
 			nil, "SEED_ADMIN_PASSWORD is empty",
@@ -282,5 +289,59 @@ func TestBrunoSeedEnv(t *testing.T) {
 				t.Fatalf("brunoSeedEnv() = %v, %v, want %v", got, err, tt.want)
 			}
 		})
+	}
+}
+
+// loginRule is the login rule of internal/security (^[a-z0-9._-]{3,64}$).
+var loginRule = regexp.MustCompile(`^[a-z0-9._-]{3,64}$`)
+
+func TestBrunoComumEnv(t *testing.T) {
+	t.Parallel()
+
+	parse := func(env []string) (login, password string) {
+		t.Helper()
+		if len(env) != 2 {
+			t.Fatalf("brunoComumEnv() has %d entries, want 2", len(env))
+		}
+		var ok bool
+		if login, ok = strings.CutPrefix(env[0], "BRUNO_COMUM_LOGIN="); !ok {
+			t.Fatalf("first entry is not BRUNO_COMUM_LOGIN")
+		}
+		if password, ok = strings.CutPrefix(env[1], "BRUNO_COMUM_PASSWORD="); !ok {
+			t.Fatalf("second entry is not BRUNO_COMUM_PASSWORD")
+		}
+		return login, password
+	}
+
+	login, password := parse(brunoComumEnv())
+	if !loginRule.MatchString(login) || !strings.HasPrefix(login, brunoComumPrefix) || len(login) != 30 {
+		t.Errorf("login %q must match the login rule, start with %q and have 30 characters", login, brunoComumPrefix)
+	}
+	if strings.HasPrefix(login, "bruno.") {
+		t.Errorf("login %q uses the bruno. prefix", login)
+	}
+	if n := len(password); n < 15 || n > 128 {
+		t.Errorf("password has %d characters, want 15 to 128", n)
+	}
+
+	login2, password2 := parse(brunoComumEnv())
+	if login2 == login || password2 == password {
+		t.Error("two calls returned the same credentials")
+	}
+
+	for _, override := range []string{"", "https://localhost:8443"} {
+		args := brunoRunArgs(override)
+		for _, a := range args {
+			if strings.Contains(a, login) || strings.Contains(a, password) {
+				t.Errorf("bru argument %q carries a credential", a)
+			}
+		}
+		// D-15: the root requests, then the access matrix.
+		if i := slices.Index(args, "run"); i < 0 || len(args) < i+3 || args[i+1] != brunoTests || args[i+2] != brunoMatrix {
+			t.Errorf("args = %v, want run %s %s", args, brunoTests, brunoMatrix)
+		}
+		if got := fmt.Sprint(args); override != "" && !strings.Contains(got, "baseUrl="+override) {
+			t.Errorf("args = %v, want the baseUrl override", args)
+		}
 	}
 }

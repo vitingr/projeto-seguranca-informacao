@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+
+	"backend_si/internal/domain"
 )
 
 // ErrorRenderer escreve a resposta genérica de erro para o status informado.
@@ -44,14 +46,43 @@ func (s *Security) recoverPanic(w http.ResponseWriter, r *http.Request) {
 
 // RespondError registra err no log e responde com o erro genérico
 // correspondente, sem expor a mensagem do erro ao usuário.
+//
+// Domain errors map to their status (see statusFor); anything else, nil
+// included, is 500. 5xx is logged at Error and 4xx at Warn (003 D-6).
 func (s *Security) RespondError(w http.ResponseWriter, r *http.Request, err error) {
-	// TODO(etapa 2): mapear erros de domínio para status adequados
-	// (ErrInvalidInput → 400, ErrNotFound → 404, ErrConflict → 409).
-	// Até lá, todo erro vira 500 genérico: falha fechada, sem vazar detalhes.
-	s.logger.ErrorContext(r.Context(), "security: erro ao processar requisição",
+	status := statusFor(err)
+	level := slog.LevelWarn
+	if status >= http.StatusInternalServerError {
+		level = slog.LevelError
+	}
+	s.logger.Log(r.Context(), level, "security: erro ao processar requisição",
 		slog.Any("error", err),
 		slog.String("method", r.Method),
 		slog.String("path", r.URL.Path),
+		slog.Int("status", status),
 	)
-	s.renderError(w, r, http.StatusInternalServerError)
+	s.renderError(w, r, status)
 }
+
+// statusFor maps a domain error to its HTTP status, checked in this order
+// with errors.Is: ErrInvalidInput → 400, ErrNotFound → 404, ErrConflict →
+// 409. Any other error, and nil, is 500 (fail closed).
+func statusFor(err error) int {
+	switch {
+	case err == nil:
+		return http.StatusInternalServerError
+	case errors.Is(err, domain.ErrInvalidInput):
+		return http.StatusBadRequest
+	case errors.Is(err, domain.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, domain.ErrConflict):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// errInvalidSessionUser is returned by StartSession for a user that cannot
+// hold a session. It is an internal invariant, not a client error, so it
+// wraps no domain error and RespondError answers 500 (003 D-4).
+var errInvalidSessionUser = errors.New("security: start session: invalid user")

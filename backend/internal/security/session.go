@@ -158,7 +158,7 @@ func (s *Security) expiresAt(createdAt, now time.Time) time.Time {
 // GET /api/csrf again, because the CSRF token changes (D-4).
 func (s *Security) StartSession(w http.ResponseWriter, r *http.Request, user domain.User) error {
 	if user.ID == 0 || !user.Role.Valid() {
-		return fmt.Errorf("security: start session: invalid user: %w", domain.ErrInvalidInput)
+		return errInvalidSessionUser
 	}
 	if err := s.deleteCurrent(r.Context()); err != nil {
 		return fmt.Errorf("security: start session: %w", err)

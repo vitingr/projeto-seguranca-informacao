@@ -73,6 +73,10 @@ func defaultMessage(status int) string {
 		return "Você não tem permissão para acessar este recurso."
 	case http.StatusNotFound:
 		return "Recurso não encontrado."
+	case http.StatusConflict:
+		return "O recurso já existe."
+	case http.StatusUnprocessableEntity:
+		return "Dados inválidos. Revise os campos e tente novamente."
 	default:
 		return "Ocorreu um erro inesperado. Tente novamente mais tarde."
 	}

@@ -297,8 +297,10 @@ func TestWriteErrorNeverLeaksDetails(t *testing.T) {
 
 	statuses := []int{
 		http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden,
-		http.StatusNotFound, http.StatusInternalServerError, http.StatusTeapot,
+		http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity,
+		http.StatusInternalServerError, http.StatusTeapot,
 	}
+	generic := defaultMessage(http.StatusInternalServerError)
 	for _, status := range statuses {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			t.Parallel()
@@ -316,6 +318,12 @@ func TestWriteErrorNeverLeaksDetails(t *testing.T) {
 				if k != "error" && k != "message" && k != "request_id" {
 					t.Errorf("campo inesperado na resposta de erro: %q", k)
 				}
+			}
+			// Every mapped status has its own Portuguese message (003 D-5);
+			// only unmapped ones fall back to the generic 500 text.
+			mapped := status != http.StatusInternalServerError && status != http.StatusTeapot
+			if mapped && body["message"] == generic {
+				t.Errorf("status %d uses the generic 500 message", status)
 			}
 		})
 	}

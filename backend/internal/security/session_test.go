@@ -593,6 +593,14 @@ func TestStartSessionFailures(t *testing.T) {
 			if hasSessionCookie(rr) || store.size() != 0 {
 				t.Error("a failed StartSession must not set a cookie or store a session")
 			}
+			// D-4: an invalid user is an internal error, so login answers 500
+			// after the RespondError mapping, never 400.
+			if errors.Is(err, domain.ErrInvalidInput) {
+				t.Errorf("StartSession() = %v, must not wrap ErrInvalidInput", err)
+			}
+			if got := statusFor(err); got != http.StatusInternalServerError {
+				t.Errorf("statusFor(StartSession error) = %d, want 500", got)
+			}
 		})
 	}
 }

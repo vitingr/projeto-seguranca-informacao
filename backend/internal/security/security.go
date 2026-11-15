@@ -61,6 +61,9 @@ type Security struct {
 	hashSlots   chan struct{}
 	reqTimeout  time.Duration
 	now         func() time.Time
+	// crossOrigin is the Fetch Metadata check of CSRF (D-5), with no
+	// trusted origins and no bypass patterns.
+	crossOrigin *http.CrossOriginProtection
 }
 
 // ErrInvalidOptions é encapsulado pelos erros de validação de New.
@@ -120,10 +123,13 @@ func New(opts Options) (*Security, error) {
 		hashSlots:   make(chan struct{}, slots),
 		reqTimeout:  opts.RequestTimeout,
 		now:         now,
+		crossOrigin: http.NewCrossOriginProtection(),
 	}, nil
 }
 
 // deny registra a negação e responde com o erro genérico.
+//
+//nolint:unparam // Authorize passes 401 for anonymous callers from task 6 on (D-1); remove then.
 func (s *Security) deny(w http.ResponseWriter, r *http.Request, status int, reason string) {
 	s.logger.WarnContext(r.Context(), "security: acesso negado",
 		slog.String("reason", reason),

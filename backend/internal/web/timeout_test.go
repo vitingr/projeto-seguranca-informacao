@@ -26,10 +26,12 @@ func (waitingAuth) Authenticate(ctx context.Context, _, _ string) (domain.User, 
 	return domain.User{}, fmt.Errorf("service: authenticate: %w", ctx.Err())
 }
 
-// TestLoginAnswersJSON500AtRequestDeadline checks D-21 at the web layer:
-// over HTTP/1.1, a login stuck in the hash wait gets the generic JSON 500
-// at the RequestTimeout deadline, before the server WriteTimeout cuts the
-// connection.
+// TestLoginAnswersJSON500AtRequestDeadline checks D-21 through the full
+// NewHandler chain: over HTTP/1.1, a login with a valid session and CSRF
+// token that is stuck in the hash wait gets the generic JSON 500 at the
+// RequestTimeout deadline, before the server WriteTimeout cuts the
+// connection. It fails if RequestTimeout is not in the NewHandler chain:
+// the client would then wait until its own 10s limit.
 func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	t.Parallel()
 
@@ -40,7 +42,7 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	logger := slog.New(NewLogHandler(slog.NewJSONHandler(io.Discard, nil)))
 	sec, err := security.New(security.Options{
 		Logger:                 logger,
-		Sessions:               nopStore{},
+		Sessions:               newMemSessions(),
 		RenderError:            WriteError,
 		SessionIdleTimeout:     time.Minute,
 		SessionAbsoluteTimeout: time.Hour,
@@ -49,10 +51,11 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &handlers{sec: sec, auth: waitingAuth{}, users: fakeUsers{}}
-	// The login handler with the outer part of the NewHandler chain; the
-	// CSRF stub still blocks the route in the full chain.
-	ts := httptest.NewUnstartedServer(chain(http.HandlerFunc(h.login), requestID, sec.Recover, sec.RequestTimeout))
+	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewUnstartedServer(app)
 	ts.Config.ReadTimeout = writeTimeout
 	ts.Config.WriteTimeout = writeTimeout
 	ts.StartTLS()
@@ -65,12 +68,40 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
+
+	// GET /api/csrf: anonymous session cookie and token.
+	csrfReq, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/api/csrf", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csrfResp, err := client.Do(csrfReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var csrf csrfResponse
+	err = json.NewDecoder(csrfResp.Body).Decode(&csrf)
+	_ = csrfResp.Body.Close()
+	if err != nil || csrf.CSRFToken == "" {
+		t.Fatalf("GET /api/csrf: %+v, %v", csrf, err)
+	}
+	var session *http.Cookie
+	for _, c := range csrfResp.Cookies() {
+		if c.Name == security.SessionCookieName {
+			session = c
+		}
+	}
+	if session == nil {
+		t.Fatal("GET /api/csrf did not set the session cookie")
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ts.URL+"/api/login",
 		strings.NewReader(`{"login":"admin","senha":"a long enough password"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(security.CSRFHeaderName, csrf.CSRFToken)
+	req.AddCookie(session)
 
 	start := time.Now()
 	resp, err := client.Do(req)
@@ -84,7 +115,7 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 		t.Fatalf("protocol = %s, want HTTP/1.1", resp.Proto)
 	}
 	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 500", resp.StatusCode)
+		t.Errorf("status = %d, want 500 (403 means the session or token was not accepted)", resp.StatusCode)
 	}
 	if ct := resp.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
 		t.Errorf("Content-Type = %q", ct)

@@ -5,8 +5,9 @@ Go and stores users and server-side sessions in PostgreSQL.
 
 Users log in with a login and password (Argon2id hashes) and get a
 server-side session in a cookie. State-changing requests need a CSRF token,
-and each route declares which roles may call it. User registration through
-the API (`POST /api/cadastro`) is not implemented yet and fails closed.
+and each route declares which roles may call it (see
+[Access control](#access-control)). Administrators register users through
+`POST /api/cadastro`.
 
 ## Prerequisites
 
@@ -56,7 +57,7 @@ Run `go tool mage -l` for the full list.
 | `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs `bruno/tests` against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. |
+| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers one `e2e.*` comum user (see [Test users](#test-users-left-by-mage-brunorun)). |
 
 ## API contract and Bruno collection
 
@@ -81,9 +82,71 @@ The only exception is the 404 catch-all, which stays out of the contract.
   the assertions that `mage brunoRun` runs, in `seq` order with a shared
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
+  `tests/access-matrix/` runs next (`bru run tests tests/access-matrix`; `-r`
+  would run subfolders first): the 15 cells of the
+  [access matrix](#access-control), anonymous, then as the seed
+  administrator, who registers a comum user, then as that user.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
+
+## Access control
+
+Each route declares its policy in `internal/web/routes.go` (and `x-policy`
+in the contract). Anything not allowed is denied: anonymous callers of a
+restricted route get 401, callers with the wrong role get 403.
+
+| Endpoint | anonymous | comum | admin |
+|---|---|---|---|
+| `GET /api/administradores` | 401 | 403 | 200 |
+| `GET /api/usuarios` | 401 | 200 | 403 |
+| `POST /api/cadastro` | 401 | 403 | 201 |
+| `GET /api/me` | 401 | 200 | 200 |
+| `POST /api/logout` | 401 | 204 | 204 |
+
+Administrators do not reach `/api/usuarios`: it is the comum users' area.
+The Go test `TestAccessMatrix` (`internal/web`) and the Bruno folder
+`tests/access-matrix` both cover the 15 cells.
+
+The role is read from the database on every request, with the session. A
+role changed in the `users` table applies to the user's next request, with
+no new login.
+
+**Registration** (`POST /api/cadastro`, admin only) answers:
+- 201 with `{user_id, login, role}`. The login is lowercased; the password
+  is stored as an Argon2id hash.
+- 400 `bad_request` when the body is not well-formed: malformed JSON, a
+  `Content-Type` other than `application/json`, an unknown field, or a
+  field of the wrong JSON type (`"papel": 1`).
+- 422 `unprocessable_entity` when the body is well-formed but a value is
+  invalid: the login pattern, the password length (15 to 128), a `papel`
+  other than exactly `admin` or `comum`, or a missing field.
+- 409 `conflict` when the login is taken, also by a login that differs only
+  in case.
+
+Every registration is logged at Info as `user registered`, with the
+administrator's `actor_user_id`, the new `user_id` and the `role`. The log
+never has the login or the password.
+
+### Test users left by `mage brunoRun`
+
+The access matrix registers a comum user through the seed administrator.
+`mage brunoRun` generates its login (`e2e.` and 26 random characters) and
+password with `crypto/rand` for every run and passes them to Bruno as the
+`BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
+as arguments. So every run leaves one `e2e.*` user in the database.
+`mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
+cleanup below never matches the seed administrator.
+
+To delete them, with the `POSTGRES_USER` and `POSTGRES_DB` values of
+`.env`:
+
+```sh
+docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
+  -c "DELETE FROM users WHERE login LIKE 'e2e.%';"
+```
+
+Their sessions are deleted with them (`ON DELETE CASCADE`).
 
 ## Sessions and security settings
 

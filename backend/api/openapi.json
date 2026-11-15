@@ -1,0 +1,401 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "backend_si API",
+    "version": "0.1.0",
+    "description": "JSON API consumed by the frontend.\n\nThis contract describes the **planned** behavior of every route (successes and errors). While the security stubs are in place, every restricted route and every state-changing request is denied with 403.\n\n**Session.** The session lives on the server and is identified by the `__Host-session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`). `GET /api/csrf` starts an anonymous session when there is none; a successful login replaces it with a new one.\n\n**CSRF.** Every state-changing request must send the token returned by `GET /api/csrf` in the `X-CSRF-Token` header.\n\n**Access policy.** Each operation declares the `x-policy` extension: `\"public\"`, or the list of roles allowed to call it (`admin`, `comum`). Anonymous callers of a restricted operation get 401; authenticated callers without an allowed role get 403.\n\n**Errors.** Every error response has the `ErrorResponse` body. `request_id` matches the `X-Request-Id` response header."
+  },
+  "servers": [
+    {
+      "url": "https://localhost",
+      "description": "local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness check."
+    },
+    {
+      "name": "auth",
+      "description": "CSRF token, login, logout and the current user."
+    },
+    {
+      "name": "users",
+      "description": "User registration."
+    },
+    {
+      "name": "areas",
+      "description": "Role-restricted areas."
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "tags": ["health"],
+        "summary": "Health check",
+        "description": "Reports that the process is serving HTTPS. It does not query the database.",
+        "x-policy": "public",
+        "responses": {
+          "200": {
+            "description": "The process is up.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StatusResponse" },
+                "example": { "status": "ok" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/csrf": {
+      "get": {
+        "operationId": "getCsrfToken",
+        "tags": ["auth"],
+        "summary": "Get CSRF token",
+        "description": "Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none.",
+        "x-policy": "public",
+        "responses": {
+          "200": {
+            "description": "The session's CSRF token.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CsrfResponse" },
+                "example": {
+                  "csrf_token": "vF3k9Q0xR2l1d7cJmZpT8w",
+                  "header": "X-CSRF-Token"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "operationId": "login",
+        "tags": ["auth"],
+        "summary": "Log in",
+        "description": "Checks the credentials and starts a new authenticated session. Unknown users and wrong passwords get the same 401 response.",
+        "x-policy": "public",
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "example": {
+                "login": "admin",
+                "senha": "correct-horse-battery-staple"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged in. A new session cookie is set.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" },
+                "example": { "user_id": 1, "login": "admin", "role": "admin" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": ["auth"],
+        "summary": "Log out",
+        "description": "Deletes the current session. The request has no body.",
+        "x-policy": ["admin", "comum"],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "responses": {
+          "204": { "description": "Logged out. The session no longer exists." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "getCurrentUser",
+        "tags": ["auth"],
+        "summary": "Get current user",
+        "description": "Returns who is authenticated and with which role.",
+        "x-policy": ["admin", "comum"],
+        "responses": {
+          "200": {
+            "description": "The authenticated user. `login` is omitted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" },
+                "example": { "user_id": 1, "role": "admin" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/cadastro": {
+      "post": {
+        "operationId": "registerUser",
+        "tags": ["users"],
+        "summary": "Register user",
+        "description": "Creates a user with the given role. Only administrators can register users.",
+        "x-policy": ["admin"],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CadastroRequest" },
+              "example": {
+                "login": "maria.silva",
+                "senha": "another-long-passphrase",
+                "papel": "comum"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" },
+                "example": { "user_id": 2, "login": "maria.silva", "role": "comum" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores": {
+      "get": {
+        "operationId": "getAdminArea",
+        "tags": ["areas"],
+        "summary": "Admin area",
+        "description": "Area restricted to administrators.",
+        "x-policy": ["admin"],
+        "responses": {
+          "200": {
+            "description": "Access granted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AreaResponse" },
+                "example": { "area": "administradores" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/usuarios": {
+      "get": {
+        "operationId": "getUserArea",
+        "tags": ["areas"],
+        "summary": "User area",
+        "description": "Area restricted to the `comum` role. Administrators do not have access.",
+        "x-policy": ["comum"],
+        "responses": {
+          "200": {
+            "description": "Access granted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AreaResponse" },
+                "example": { "area": "usuarios" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "description": "CSRF token returned by `GET /api/csrf`.",
+        "schema": { "type": "string" },
+        "example": "{{csrfToken}}"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The body is not valid JSON, has unknown fields, is not `application/json` or is too large.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "bad_request",
+              "message": "A requisição não pôde ser processada.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Not authenticated, or invalid credentials on login.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "unauthorized",
+              "message": "Autenticação necessária.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Missing or invalid CSRF token, or a role that the operation does not allow.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "forbidden",
+              "message": "Você não tem permissão para acessar este recurso.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The login is already in use.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "conflict",
+              "message": "Este login já está em uso.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "Invalid login, password or role.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "unprocessable_entity",
+              "message": "Dados inválidos. Revise os campos e tente novamente.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected error. Details go to the log, never to the client.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "internal",
+              "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["login", "senha"],
+        "properties": {
+          "login": { "type": "string", "description": "Login (case-insensitive)." },
+          "senha": { "type": "string", "description": "Password.", "format": "password" }
+        }
+      },
+      "CadastroRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["login", "senha", "papel"],
+        "properties": {
+          "login": { "type": "string", "description": "Login of the new user." },
+          "senha": { "type": "string", "description": "Password of the new user.", "format": "password" },
+          "papel": { "$ref": "#/components/schemas/Role" }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": ["user_id", "role"],
+        "properties": {
+          "user_id": { "type": "integer", "format": "int64" },
+          "login": { "type": "string", "description": "Omitted by `GET /api/me`." },
+          "role": { "$ref": "#/components/schemas/Role" }
+        }
+      },
+      "CsrfResponse": {
+        "type": "object",
+        "required": ["csrf_token", "header"],
+        "properties": {
+          "csrf_token": { "type": "string" },
+          "header": { "type": "string", "description": "Header that must carry the token.", "const": "X-CSRF-Token" }
+        }
+      },
+      "AreaResponse": {
+        "type": "object",
+        "required": ["area"],
+        "properties": {
+          "area": { "type": "string" }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error", "message"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Stable error code, such as `bad_request`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `unprocessable_entity` or `internal`."
+          },
+          "message": { "type": "string", "description": "Generic message that is safe to show to the user." },
+          "request_id": { "type": "string", "description": "Same value as the `X-Request-Id` header. Omitted in rare cases." }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": ["admin", "comum"]
+      }
+    }
+  }
+}

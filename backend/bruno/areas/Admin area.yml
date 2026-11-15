@@ -36,7 +36,7 @@ examples:
             "area": "administradores"
           }
   - name: 401 Response
-    description: Not authenticated, or invalid credentials on login.
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
     request:
       url: "{{baseUrl}}/api/administradores"
       method: GET
@@ -55,7 +55,7 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
   - name: 403 Response
-    description: Missing or invalid CSRF token, or a role that the operation does not allow.
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
     request:
       url: "{{baseUrl}}/api/administradores"
       method: GET

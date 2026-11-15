@@ -3,7 +3,7 @@
   "info": {
     "title": "backend_si API",
     "version": "0.1.0",
-    "description": "JSON API consumed by the frontend.\n\nThis contract describes the **planned** behavior of every route (successes and errors). While the security stubs are in place, every restricted route and every state-changing request is denied with 403.\n\n**Session.** The session lives on the server and is identified by the `__Host-session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`). `GET /api/csrf` starts an anonymous session when there is none; a successful login replaces it with a new one.\n\n**CSRF.** Every state-changing request must send the token returned by `GET /api/csrf` in the `X-CSRF-Token` header.\n\n**Access policy.** Each operation declares the `x-policy` extension: `\"public\"`, or the list of roles allowed to call it (`admin`, `comum`). Anonymous callers of a restricted operation get 401; authenticated callers without an allowed role get 403.\n\n**Errors.** Every error response has the `ErrorResponse` body. `request_id` matches the `X-Request-Id` response header."
+    "description": "JSON API consumed by the frontend.\n\nThis contract describes the behavior of every route (successes and errors).\n\n**Session.** The session lives on the server and is identified by the `__Host-session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Max-Age`). Only `GET /api/csrf` creates a session: it starts an anonymous one when there is none. A successful login replaces it with a new session (new cookie and new CSRF token), and logout deletes it. A session ends after `SESSION_IDLE_TIMEOUT` without requests (default 15 minutes) or `SESSION_ABSOLUTE_TIMEOUT` after login (default 8 hours), whichever comes first; the next request is then anonymous.\n\n**CSRF.** Every state-changing request (any method other than GET, HEAD and OPTIONS) must send the session cookie and the token returned by `GET /api/csrf` in the `X-CSRF-Token` header. The token changes at login: call `GET /api/csrf` again after logging in. Browser requests are also checked with Fetch Metadata: `Sec-Fetch-Site` must be `same-origin` or `none`, and without it an `Origin` that does not match the host is rejected. Clients that send neither header (curl, Bruno) only need the token.\n\n**Access policy.** Each operation declares the `x-policy` extension: `\"public\"`, or the list of roles allowed to call it (`admin`, `comum`). Anonymous callers of a restricted operation get 401; authenticated callers without an allowed role get 403.\n\n**Errors.** Every error response has the `ErrorResponse` body. `request_id` matches the `X-Request-Id` response header."
   },
   "servers": [
     {
@@ -56,16 +56,22 @@
         "operationId": "getCsrfToken",
         "tags": ["auth"],
         "summary": "Get CSRF token",
-        "description": "Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none.",
+        "description": "Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none; this is the only route that creates sessions. Call it again after login, because the token changes.",
         "x-policy": "public",
         "responses": {
           "200": {
             "description": "The session's CSRF token.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Only when the request had no valid session: the cookie of the new anonymous session (`__Host-session=<token>; Path=/; HttpOnly; Secure; SameSite=Lax`).",
+                "schema": { "type": "string" }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CsrfResponse" },
                 "example": {
-                  "csrf_token": "vF3k9Q0xR2l1d7cJmZpT8w",
+                  "csrf_token": "MZXW6YTBOI4DCMRTGQ2TMNZYHE",
                   "header": "X-CSRF-Token"
                 }
               }
@@ -98,6 +104,12 @@
         "responses": {
           "200": {
             "description": "Logged in. A new session cookie is set.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "The cookie of the new authenticated session, which replaces the anonymous one. The CSRF token changes too: call `GET /api/csrf` again.",
+                "schema": { "type": "string" }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/UserResponse" },
@@ -121,7 +133,15 @@
         "x-policy": ["admin", "comum"],
         "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
         "responses": {
-          "204": { "description": "Logged out. The session no longer exists." },
+          "204": {
+            "description": "Logged out. The session no longer exists.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Expires the session cookie (`__Host-session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`).",
+                "schema": { "type": "string" }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "500": { "$ref": "#/components/responses/InternalError" }
@@ -251,7 +271,7 @@
     },
     "responses": {
       "BadRequest": {
-        "description": "The body is not valid JSON, has unknown fields, is not `application/json` or is too large.",
+        "description": "The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/ErrorResponse" },
@@ -264,7 +284,7 @@
         }
       },
       "Unauthorized": {
-        "description": "Not authenticated, or invalid credentials on login.",
+        "description": "Not authenticated (no session, or the session expired), or invalid credentials on login.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/ErrorResponse" },
@@ -277,7 +297,7 @@
         }
       },
       "Forbidden": {
-        "description": "Missing or invalid CSRF token, or a role that the operation does not allow.",
+        "description": "Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/ErrorResponse" },

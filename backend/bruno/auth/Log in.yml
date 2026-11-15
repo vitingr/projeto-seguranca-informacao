@@ -60,7 +60,7 @@ examples:
             "role": "admin"
           }
   - name: 400 Response
-    description: The body is not valid JSON, has unknown fields, is not `application/json` or is too large.
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
     request:
       url: "{{baseUrl}}/api/login"
       method: POST
@@ -90,7 +90,7 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
   - name: 401 Response
-    description: Not authenticated, or invalid credentials on login.
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
     request:
       url: "{{baseUrl}}/api/login"
       method: POST
@@ -120,7 +120,7 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
   - name: 403 Response
-    description: Missing or invalid CSRF token, or a role that the operation does not allow.
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
     request:
       url: "{{baseUrl}}/api/login"
       method: POST

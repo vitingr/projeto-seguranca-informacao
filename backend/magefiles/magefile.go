@@ -71,7 +71,12 @@ func Test() error {
 	if err := sh.RunV("go", "test", "-race", "-covermode=atomic", "-coverprofile=coverage.out", "./..."); err != nil {
 		return err
 	}
-	return sh.RunV("go", "tool", "cover", "-func=coverage.out")
+	if err := sh.RunV("go", "tool", "cover", "-func=coverage.out"); err != nil {
+		return err
+	}
+	// The magefile helpers have their own tests behind the mage build tag,
+	// which "./..." does not include.
+	return sh.RunV("go", "test", "-race", "-tags", "mage", "./magefiles")
 }
 
 // Fmt formata o código com gofumpt e goimports (via golangci-lint fmt).

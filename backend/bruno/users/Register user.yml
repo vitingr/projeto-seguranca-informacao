@@ -1,0 +1,251 @@
+info:
+  name: Register user
+  type: http
+  seq: 1
+  tags:
+    - users
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  body:
+    type: json
+    data: |-
+      {
+        "login": "maria.silva",
+        "senha": "another-long-passphrase",
+        "papel": "comum"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 201 Response
+    description: User created.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "user_id": 2,
+            "login": "maria.silva",
+            "role": "comum"
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, has unknown fields, is not `application/json` or is too large.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated, or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 409 Response
+    description: The login is already in use.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "conflict",
+            "message": "Este login já está em uso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 422 Response
+    description: Invalid login, password or role.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unprocessable_entity",
+            "message": "Dados inválidos. Revise os campos e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/cadastro"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "login": "maria.silva",
+            "senha": "another-long-passphrase",
+            "papel": "comum"
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: Creates a user with the given role. Only administrators can register users.

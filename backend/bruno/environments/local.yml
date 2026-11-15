@@ -1,0 +1,6 @@
+# Hand-written, seeded from the contract's servers.
+# For "mage run" (port 8443), set BRUNO_BASE_URL=https://localhost:8443.
+name: local
+variables:
+  - name: baseUrl
+    value: https://localhost

@@ -22,7 +22,7 @@ import (
 type fakeAuth struct{}
 
 func (fakeAuth) Authenticate(context.Context, string, string) (domain.User, error) {
-	return domain.User{ID: 1, Role: domain.RoleAdmin}, nil // nunca deve ser alcançado na etapa 1
+	return domain.User{ID: 1, Role: domain.RoleAdmin}, nil
 }
 
 type fakeUsers struct{}
@@ -371,8 +371,7 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 				return req
 			}
 
-			// The handler directly: the CSRF stub blocks the route until it
-			// is implemented.
+			// The handler directly, without the CSRF check.
 			rr := httptest.NewRecorder()
 			h.login(rr, newReq())
 			if rr.Code != tt.wantStatus {

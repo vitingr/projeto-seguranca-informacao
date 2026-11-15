@@ -14,7 +14,4 @@ var (
 	// ErrInvalidCredentials indica falha de autenticação, sem distinguir
 	// usuário inexistente de senha incorreta.
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	// ErrNotImplemented é retornado pelos stubs da etapa 1. Todo stub falha
-	// fechado com este erro.
-	ErrNotImplemented = errors.New("not implemented")
 )

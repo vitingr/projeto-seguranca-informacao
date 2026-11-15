@@ -32,6 +32,31 @@ are ticked there, but none of it goes into `git add` or a commit.
 
 Run `mage ci` before every commit. Any failure blocks the commit.
 
+## Autonomy
+
+When I ask you to follow a stack to the end, implement its tasks in order
+without stopping for approval between them.
+
+You may decide on your own, recording each decision in the deviations log
+of the feature's `plan.md`:
+- small deviations in signatures, names or code organization;
+- extra tests, and fixes to comments and documentation;
+- fixes to lint, test or CI failures that you caused yourself.
+
+Stop and ask me only if you would:
+- change an acceptance criterion or a security behavior defined in the
+  spec;
+- add a dependency that is not in the plan;
+- leave `mage ci` or `mage brunoRun` failing after a few attempts to fix
+  it;
+- need a push, `gt submit` or anything else outside this machine.
+
+In `.env`, you may check the length of a secret, but never show its value.
+
+When the stack is done, send me one summary with the branches created, the
+results of `mage ci` and `mage brunoRun`, and the list of every deviation
+from the plan.
+
 ## Branches, commits and PRs (Graphite)
 
 Always use the `gt` CLI instead of `git commit`, `git switch`,

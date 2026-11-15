@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -111,11 +112,12 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	}()
 
 	sec, err := security.New(security.Options{
-		Logger:             logger,
-		Sessions:           repository.NewSessions(db),
-		RenderError:        web.WriteError,
-		SessionIdleTimeout: cfg.SessionIdleTimeout,
-		RequestTimeout:     requestTimeout,
+		Logger:                 logger,
+		Sessions:               repository.NewSessions(db),
+		RenderError:            web.WriteError,
+		SessionIdleTimeout:     cfg.SessionIdleTimeout,
+		SessionAbsoluteTimeout: cfg.SessionAbsoluteTimeout,
+		RequestTimeout:         requestTimeout,
 	})
 	if err != nil {
 		return err
@@ -135,6 +137,16 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+
+	// D-9: purge expired sessions every idle timeout. The deferred wait runs
+	// before db.Close, so the purge never uses a closed pool.
+	purgeCtx, stopPurge := context.WithCancel(ctx)
+	var purge sync.WaitGroup
+	purge.Go(func() { sec.PurgeExpiredSessions(purgeCtx, cfg.SessionIdleTimeout) })
+	defer func() {
+		stopPurge()
+		purge.Wait()
+	}()
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -233,11 +245,12 @@ func seed(ctx context.Context, cfg config.Config, getenv func(string) string, lo
 	defer func() { _ = db.Close() }()
 
 	sec, err := security.New(security.Options{
-		Logger:             logger,
-		Sessions:           repository.NewSessions(db),
-		RenderError:        web.WriteError,
-		SessionIdleTimeout: cfg.SessionIdleTimeout,
-		RequestTimeout:     requestTimeout,
+		Logger:                 logger,
+		Sessions:               repository.NewSessions(db),
+		RenderError:            web.WriteError,
+		SessionIdleTimeout:     cfg.SessionIdleTimeout,
+		SessionAbsoluteTimeout: cfg.SessionAbsoluteTimeout,
+		RequestTimeout:         requestTimeout,
 	})
 	if err != nil {
 		return err

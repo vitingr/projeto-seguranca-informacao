@@ -65,9 +65,16 @@ func (h *handlers) healthz(w http.ResponseWriter, _ *http.Request) {
 // csrf entrega o token CSRF da sessão atual (anônima ou autenticada). O
 // frontend deve enviá-lo no cabeçalho security.CSRFHeaderName em toda
 // requisição que altera estado, inclusive no login.
+//
+// Without a session it creates an anonymous one (D-8).
 func (h *handlers) csrf(w http.ResponseWriter, r *http.Request) {
+	token, err := h.sec.CSRFToken(w, r)
+	if err != nil {
+		h.sec.RespondError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, csrfResponse{
-		CSRFToken: security.CSRFToken(r),
+		CSRFToken: token,
 		Header:    security.CSRFHeaderName,
 	})
 }
@@ -89,7 +96,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.sec.StartSession(w, r, user); err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
+	if err := h.sec.StartSession(w, r, user); err != nil {
 		h.sec.RespondError(w, r, err)
 		return
 	}
@@ -98,7 +105,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
-	if err := h.sec.EndSession(w, r); err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
+	if err := h.sec.EndSession(w, r); err != nil {
 		h.sec.RespondError(w, r, err)
 		return
 	}

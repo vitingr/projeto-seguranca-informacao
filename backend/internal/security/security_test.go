@@ -39,11 +39,12 @@ func renderStatus(w http.ResponseWriter, _ *http.Request, status int) {
 func newTestSecurityWith(t *testing.T, mutate func(o *Options)) *Security {
 	t.Helper()
 	opts := Options{
-		Logger:             slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		Sessions:           fakeStore{},
-		RenderError:        renderStatus,
-		SessionIdleTimeout: 15 * time.Minute,
-		RequestTimeout:     time.Minute,
+		Logger:                 slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Sessions:               fakeStore{},
+		RenderError:            renderStatus,
+		SessionIdleTimeout:     15 * time.Minute,
+		SessionAbsoluteTimeout: 8 * time.Hour,
+		RequestTimeout:         time.Minute,
 	}
 	mutate(&opts)
 	s, err := New(opts)
@@ -59,11 +60,12 @@ func newTestSecurity(t *testing.T, logOut io.Writer) *Security {
 		logOut = io.Discard
 	}
 	s, err := New(Options{
-		Logger:             slog.New(slog.NewJSONHandler(logOut, nil)),
-		Sessions:           fakeStore{},
-		RenderError:        renderStatus,
-		SessionIdleTimeout: 15 * time.Minute,
-		RequestTimeout:     time.Minute,
+		Logger:                 slog.New(slog.NewJSONHandler(logOut, nil)),
+		Sessions:               fakeStore{},
+		RenderError:            renderStatus,
+		SessionIdleTimeout:     15 * time.Minute,
+		SessionAbsoluteTimeout: 8 * time.Hour,
+		RequestTimeout:         time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New() erro inesperado: %v", err)
@@ -83,7 +85,7 @@ func TestNewValidatesOptions(t *testing.T) {
 	t.Parallel()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	valid := Options{Logger: logger, Sessions: fakeStore{}, RenderError: renderStatus, SessionIdleTimeout: time.Minute, RequestTimeout: time.Minute}
+	valid := Options{Logger: logger, Sessions: fakeStore{}, RenderError: renderStatus, SessionIdleTimeout: time.Minute, SessionAbsoluteTimeout: time.Hour, RequestTimeout: time.Minute}
 
 	tests := []struct {
 		name    string
@@ -96,6 +98,9 @@ func TestNewValidatesOptions(t *testing.T) {
 		{"sem renderer", func(o *Options) { o.RenderError = nil }, "RenderError"},
 		{"timeout zero", func(o *Options) { o.SessionIdleTimeout = 0 }, "SessionIdleTimeout"},
 		{"timeout negativo", func(o *Options) { o.SessionIdleTimeout = -time.Second }, "SessionIdleTimeout"},
+		{"absolute timeout zero", func(o *Options) { o.SessionAbsoluteTimeout = 0 }, "SessionAbsoluteTimeout"},
+		{"absolute timeout below idle", func(o *Options) { o.SessionAbsoluteTimeout = 30 * time.Second }, "SessionAbsoluteTimeout"},
+		{"absolute timeout equal to idle", func(o *Options) { o.SessionAbsoluteTimeout = time.Minute }, ""},
 		{"request timeout zero", func(o *Options) { o.RequestTimeout = 0 }, "RequestTimeout"},
 		{"negative request timeout", func(o *Options) { o.RequestTimeout = -time.Second }, "RequestTimeout"},
 		{"negative hash slots", func(o *Options) { o.MaxConcurrentHashes = -1 }, "MaxConcurrentHashes"},
@@ -227,4 +232,9 @@ func TestRespondErrorHidesDetails(t *testing.T) {
 	if !strings.Contains(logs.String(), "corrompida") {
 		t.Error("o erro deve ser registrado no log")
 	}
+}
+
+// newJSONLogger returns a JSON logger that writes to w.
+func newJSONLogger(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(w, nil))
 }

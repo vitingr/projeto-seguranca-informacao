@@ -32,6 +32,9 @@ type Options struct {
 	RenderError ErrorRenderer
 	// SessionIdleTimeout é o tempo máximo de inatividade. Obrigatório (> 0).
 	SessionIdleTimeout time.Duration
+	// SessionAbsoluteTimeout is the maximum lifetime of a session from its
+	// creation, whatever its activity (D-18). Required (>= idle timeout).
+	SessionAbsoluteTimeout time.Duration
 	// Argon2 define os parâmetros de hash; o valor zero usa DefaultArgon2Params.
 	// A custom value must be within the limits that VerifyPassword accepts.
 	Argon2 Argon2Params
@@ -53,6 +56,7 @@ type Security struct {
 	sessions    SessionStore
 	renderError ErrorRenderer
 	idleTimeout time.Duration
+	absTimeout  time.Duration
 	argon2      Argon2Params
 	hashSlots   chan struct{}
 	reqTimeout  time.Duration
@@ -76,6 +80,9 @@ func New(opts Options) (*Security, error) {
 	}
 	if opts.SessionIdleTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("%w: SessionIdleTimeout deve ser positivo", ErrInvalidOptions))
+	}
+	if opts.SessionAbsoluteTimeout <= 0 || opts.SessionAbsoluteTimeout < opts.SessionIdleTimeout {
+		errs = append(errs, fmt.Errorf("%w: SessionAbsoluteTimeout must be positive and at least SessionIdleTimeout", ErrInvalidOptions))
 	}
 	if opts.RequestTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("%w: RequestTimeout must be positive", ErrInvalidOptions))
@@ -108,6 +115,7 @@ func New(opts Options) (*Security, error) {
 		sessions:    opts.Sessions,
 		renderError: opts.RenderError,
 		idleTimeout: opts.SessionIdleTimeout,
+		absTimeout:  opts.SessionAbsoluteTimeout,
 		argon2:      params,
 		hashSlots:   make(chan struct{}, slots),
 		reqTimeout:  opts.RequestTimeout,

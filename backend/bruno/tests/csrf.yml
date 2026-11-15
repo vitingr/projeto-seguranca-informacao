@@ -22,3 +22,16 @@ runtime:
         test("names the CSRF header", function () {
           expect(res.getBody().header).to.equal("X-CSRF-Token");
         });
+        test("returns a CSRF token", function () {
+          expect(res.getBody().csrf_token).to.match(/^[A-Z2-7]{26}$/);
+        });
+        test("creates an anonymous session cookie", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          const session = cookies.find((c) => c.startsWith("__Host-session="));
+          expect(session, "Set-Cookie: __Host-session").to.be.a("string");
+          expect(session).to.include("HttpOnly");
+          expect(session).to.include("Secure");
+          expect(session).to.include("SameSite=Lax");
+          expect(session).to.include("Path=/");
+          expect(session).to.not.match(/Max-Age|Expires/i);
+        });

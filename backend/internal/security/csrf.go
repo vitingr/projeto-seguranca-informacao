@@ -29,13 +29,6 @@ func (s *Security) CSRF(next http.Handler) http.Handler {
 	})
 }
 
-// CSRFToken retorna o token CSRF da sessão da requisição, entregue ao
-// frontend por GET /api/csrf.
-func CSRFToken(r *http.Request) string {
-	// TODO(etapa 2): ler o token da sessão no contexto.
-	return ""
-}
-
 func isSafeMethod(method string) bool {
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:

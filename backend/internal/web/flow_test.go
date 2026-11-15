@@ -337,3 +337,44 @@ func TestLogoutNeedsTokenAndSession(t *testing.T) {
 		t.Errorf("anonymous logout with a valid token: status = %d, want 401", rr.Code)
 	}
 }
+
+// TestRoleChangeAppliesOnNextRequest covers 003 D-12: the role is read on
+// every request, so a change takes effect with the same cookie and no new
+// login.
+func TestRoleChangeAppliesOnNextRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		login              string
+		userID             domain.UserID
+		newRole            domain.Role
+		before, afterwards int
+	}{
+		{"comum to admin", comumLogin, 2, domain.RoleAdmin, http.StatusForbidden, http.StatusOK},
+		{"admin to comum", flowLogin, 1, domain.RoleComum, http.StatusOK, http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f := newFlowApp(t)
+			cookie, _ := f.loginAs(t, tt.login)
+
+			if rr := f.send(t, http.MethodGet, "/api/administradores", "", cookie, nil); rr.Code != tt.before {
+				t.Fatalf("before the change: status = %d, want %d", rr.Code, tt.before)
+			}
+			f.sessions.setRole(tt.userID, tt.newRole)
+			if rr := f.send(t, http.MethodGet, "/api/administradores", "", cookie, nil); rr.Code != tt.afterwards {
+				t.Errorf("after the change: status = %d, want %d", rr.Code, tt.afterwards)
+			}
+			rr := f.send(t, http.MethodGet, "/api/me", "", cookie, nil)
+			var me userResponse
+			if err := json.Unmarshal(rr.Body.Bytes(), &me); err != nil || me.Role != tt.newRole {
+				t.Errorf("me after the change = %+v, %v; want role %s", me, err, tt.newRole)
+			}
+			if n := f.sessions.count(); n != 1 {
+				t.Errorf("%d sessions, want 1 (no new login)", n)
+			}
+		})
+	}
+}

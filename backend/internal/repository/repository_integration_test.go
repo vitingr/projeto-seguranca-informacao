@@ -109,3 +109,45 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 		t.Fatalf("sessão removida ainda existe: %v", err)
 	}
 }
+
+// TestRoleChangeIntegration covers 003 D-12: a role changed in the database
+// is what the next Sessions.Get returns, in both directions, with no new
+// session.
+func TestRoleChangeIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	users, sessions := NewUsers(db), NewSessions(db)
+
+	login := "it_" + rand.Text()[:10]
+	t.Cleanup(func() {
+		// Sessions go with the user (ON DELETE CASCADE).
+		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
+			t.Errorf("cleanup: delete test user %s: %v", login, err)
+		}
+	})
+
+	id, err := users.Create(ctx, domain.User{Login: login, PasswordHash: "$argon2id$fake", Role: domain.RoleComum}) //nolint:gosec // fake hash fixture, not a real credential
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	hash := sha256.Sum256([]byte(rand.Text()))
+	sess := domain.Session{TokenHash: hash[:], UserID: id, CSRFToken: "c", CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Minute)}
+	if err := sessions.Create(ctx, sess); err != nil {
+		t.Fatalf("Create session: %v", err)
+	}
+
+	for _, role := range []domain.Role{domain.RoleComum, domain.RoleAdmin, domain.RoleComum} {
+		res, err := db.ExecContext(ctx, `UPDATE users SET role = $1 WHERE id = $2`, string(role), int64(id))
+		if err != nil {
+			t.Fatalf("UPDATE role to %s: %v", role, err)
+		}
+		if n, rowsErr := res.RowsAffected(); rowsErr != nil || n != 1 {
+			t.Fatalf("UPDATE role to %s affected %d rows, %v", role, n, rowsErr)
+		}
+		got, err := sessions.Get(ctx, hash[:])
+		if err != nil || got.UserID != id || got.Role != role {
+			t.Fatalf("Get after role %s = %+v, %v", role, got, err)
+		}
+	}
+}

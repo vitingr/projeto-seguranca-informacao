@@ -128,8 +128,6 @@ func New(opts Options) (*Security, error) {
 }
 
 // deny registra a negação e responde com o erro genérico.
-//
-//nolint:unparam // Authorize passes 401 for anonymous callers from task 6 on (D-1); remove then.
 func (s *Security) deny(w http.ResponseWriter, r *http.Request, status int, reason string) {
 	s.logger.WarnContext(r.Context(), "security: acesso negado",
 		slog.String("reason", reason),

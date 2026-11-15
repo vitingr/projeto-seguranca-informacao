@@ -21,12 +21,21 @@ const (
 	flowPassword = "the right long password"
 )
 
-// credAuth accepts only flowLogin/flowPassword.
+// comumLogin is a user with the comum role and the same password.
+const comumLogin = "maria"
+
+// credAuth accepts flowLogin (admin, ID 1) and comumLogin (comum, ID 2),
+// both with flowPassword.
 type credAuth struct{}
 
 func (credAuth) Authenticate(_ context.Context, login, password string) (domain.User, error) {
-	if login == flowLogin && password == flowPassword {
-		return domain.User{ID: 1, Login: flowLogin, Role: domain.RoleAdmin}, nil
+	if password == flowPassword {
+		switch login {
+		case flowLogin:
+			return domain.User{ID: 1, Login: flowLogin, Role: domain.RoleAdmin}, nil
+		case comumLogin:
+			return domain.User{ID: 2, Login: comumLogin, Role: domain.RoleComum}, nil
+		}
 	}
 	return domain.User{}, fmt.Errorf("fake: %w", domain.ErrInvalidCredentials)
 }
@@ -225,5 +234,106 @@ func TestLoginRejections(t *testing.T) {
 	// Same message for an unknown user and a wrong password.
 	if messages["wrong password"] != messages["unknown user"] {
 		t.Errorf("401 messages differ: %q / %q", messages["wrong password"], messages["unknown user"])
+	}
+}
+
+// loginAs runs csrf → login and returns the authenticated cookie and the
+// new CSRF token (D-4).
+func (f flowApp) loginAs(t *testing.T, login string) (*http.Cookie, string) {
+	t.Helper()
+	anon, token := f.csrf(t, nil)
+	rr := f.send(t, http.MethodPost, "/api/login", loginBody(login, flowPassword), anon,
+		map[string]string{security.CSRFHeaderName: token})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("login as %s: %d %s", login, rr.Code, rr.Body.String())
+	}
+	cookie := sessionCookie(rr)
+	_, token = f.csrf(t, cookie)
+	return cookie, token
+}
+
+func TestAuthenticatedRoutes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		login      string
+		path       string
+		wantStatus int
+	}{
+		{flowLogin, "/api/me", http.StatusOK},
+		{flowLogin, "/api/administradores", http.StatusOK},
+		{flowLogin, "/api/usuarios", http.StatusForbidden}, // admins do not reach /usuarios
+		{comumLogin, "/api/me", http.StatusOK},
+		{comumLogin, "/api/administradores", http.StatusForbidden},
+		{comumLogin, "/api/usuarios", http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.login+" "+tt.path, func(t *testing.T) {
+			t.Parallel()
+			f := newFlowApp(t)
+			cookie, _ := f.loginAs(t, tt.login)
+			rr := f.send(t, http.MethodGet, tt.path, "", cookie, nil)
+			if rr.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d (%s)", rr.Code, tt.wantStatus, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestMeReturnsTheCaller(t *testing.T) {
+	t.Parallel()
+
+	f := newFlowApp(t)
+	cookie, _ := f.loginAs(t, comumLogin)
+	rr := f.send(t, http.MethodGet, "/api/me", "", cookie, nil)
+	var me userResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &me); err != nil {
+		t.Fatal(err)
+	}
+	if me != (userResponse{UserID: 2, Role: domain.RoleComum}) {
+		t.Errorf("me = %+v, want user 2 with role comum", me)
+	}
+}
+
+// TestLogout covers the logout criterion: 204, the session row is deleted,
+// the cookie is expired, and the old cookie then gets 401.
+func TestLogout(t *testing.T) {
+	t.Parallel()
+
+	f := newFlowApp(t)
+	cookie, token := f.loginAs(t, flowLogin)
+	if f.sessions.count() != 1 {
+		t.Fatalf("%d sessions before logout, want 1", f.sessions.count())
+	}
+
+	rr := f.send(t, http.MethodPost, "/api/logout", "", cookie, map[string]string{security.CSRFHeaderName: token})
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("logout status = %d, want 204 (%s)", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Header().Get("Set-Cookie"), "Max-Age=0") {
+		t.Errorf("Set-Cookie = %q, want Max-Age=0", rr.Header().Get("Set-Cookie"))
+	}
+	if n := f.sessions.count(); n != 0 {
+		t.Errorf("%d sessions after logout, want 0", n)
+	}
+
+	rr = f.send(t, http.MethodGet, "/api/me", "", cookie, nil)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("old cookie after logout: status = %d, want 401", rr.Code)
+	}
+}
+
+func TestLogoutNeedsTokenAndSession(t *testing.T) {
+	t.Parallel()
+
+	f := newFlowApp(t)
+	cookie, _ := f.loginAs(t, flowLogin)
+	if rr := f.send(t, http.MethodPost, "/api/logout", "", cookie, nil); rr.Code != http.StatusForbidden {
+		t.Errorf("logout without token: status = %d, want 403", rr.Code)
+	}
+
+	anon, token := f.csrf(t, nil)
+	if rr := f.send(t, http.MethodPost, "/api/logout", "", anon, map[string]string{security.CSRFHeaderName: token}); rr.Code != http.StatusUnauthorized {
+		t.Errorf("anonymous logout with a valid token: status = %d, want 401", rr.Code)
 	}
 }

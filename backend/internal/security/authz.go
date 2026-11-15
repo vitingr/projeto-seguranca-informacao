@@ -70,11 +70,16 @@ func (s *Security) Authorize(p Policy) Middleware {
 				next.ServeHTTP(w, r)
 				return
 			}
-			// TODO(etapa 2): obter PrincipalFrom(r.Context()); anônimo → 401;
-			// papel fora de p.roles → 403.
-			//
-			// Stub fail-closed: toda rota que exige papel é negada.
-			s.deny(w, r, http.StatusForbidden, "authz: verificação de papel não implementada")
+			principal, ok := PrincipalFrom(r.Context())
+			if !ok {
+				s.deny(w, r, http.StatusUnauthorized, "authz: anonymous")
+				return
+			}
+			if !slices.Contains(p.roles, principal.Role) {
+				s.deny(w, r, http.StatusForbidden, "authz: role not allowed")
+				return
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }

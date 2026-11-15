@@ -173,9 +173,9 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 	}{
 		{"healthz público", http.MethodGet, "/healthz", "", http.StatusOK, ""},
 		{"csrf público", http.MethodGet, "/api/csrf", "", http.StatusOK, ""},
-		{"me nega anônimo", http.MethodGet, "/api/me", "", http.StatusForbidden, "forbidden"},
-		{"administradores nega anônimo", http.MethodGet, "/api/administradores", "", http.StatusForbidden, "forbidden"},
-		{"usuarios nega anônimo", http.MethodGet, "/api/usuarios", "", http.StatusForbidden, "forbidden"},
+		{"anonymous me gets 401", http.MethodGet, "/api/me", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous administradores gets 401", http.MethodGet, "/api/administradores", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous usuarios gets 401", http.MethodGet, "/api/usuarios", "", http.StatusUnauthorized, "unauthorized"},
 		{"login barrado pelo CSRF", http.MethodPost, "/api/login", `{"login":"a","senha":"b"}`, http.StatusForbidden, "forbidden"},
 		{"cadastro barrado", http.MethodPost, "/api/cadastro", `{"login":"a","senha":"b","papel":"admin"}`, http.StatusForbidden, "forbidden"},
 		{"logout barrado", http.MethodPost, "/api/logout", "", http.StatusForbidden, "forbidden"},

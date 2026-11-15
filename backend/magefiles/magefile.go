@@ -40,8 +40,8 @@ const (
 )
 
 // golangciLintVersion is the golangci-lint version expected on the PATH. Keep
-// it in sync with GOLANGCI_LINT_VERSION in .github/workflows/ci.yml so local
-// and CI lint results match.
+// it in sync with GOLANGCI_LINT_VERSION in .github/workflows/backend.yml, at
+// the repository root, so local and CI lint results match.
 const golangciLintVersion = "2.14.0"
 
 // Build compila o binário em bin/backend_si.
@@ -86,7 +86,7 @@ func checkGolangciLint() error {
 		return fmt.Errorf("golangci-lint v%s is required but could not be run: %w", golangciLintVersion, err)
 	}
 	if got := strings.TrimPrefix(strings.TrimSpace(out), "v"); got != golangciLintVersion {
-		return fmt.Errorf("golangci-lint v%s is required, found v%s: install the pinned version (see GOLANGCI_LINT_VERSION in .github/workflows/ci.yml)", golangciLintVersion, got)
+		return fmt.Errorf("golangci-lint v%s is required, found v%s: install the pinned version (see GOLANGCI_LINT_VERSION in .github/workflows/backend.yml)", golangciLintVersion, got)
 	}
 	return nil
 }

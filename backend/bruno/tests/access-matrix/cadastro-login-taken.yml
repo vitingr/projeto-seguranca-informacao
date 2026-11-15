@@ -1,0 +1,35 @@
+info:
+  name: cadastro-login-taken
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{comumLoginUpper}}",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "comum"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // The same login in upper case is the same login (D-10).
+        bru.setVar("comumLoginUpper", bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}").toUpperCase());
+    - type: tests
+      code: |-
+        test("status is 409", function () {
+          expect(res.getStatus()).to.equal(409);
+        });
+        test("error is conflict", function () {
+          expect(res.getBody().error).to.equal("conflict");
+        });

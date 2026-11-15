@@ -5,6 +5,7 @@ package main
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -26,7 +27,8 @@ const (
 	brunoCLI        = "@usebruno/cli@4.3.0"
 	brunoDir        = "bruno"
 	brunoCollection = "backend_si"
-	brunoTests      = "tests"             // the only folder "mage brunoRun" runs
+	brunoTests      = "tests" // the root requests "mage brunoRun" runs first
+	brunoMatrix     = "tests/access-matrix"
 	brunoEnv        = "local"             // environment in bruno/environments
 	brunoBaseURL    = "https://localhost" // baseUrl of the local environment
 	brunoReport     = "bruno-report.xml"  // JUnit report written by "mage brunoRun"
@@ -68,6 +70,12 @@ func Bruno() error {
 // SEED_ADMIN_PASSWORD come from the environment or .env and reach the bru
 // process as environment variables, never as arguments. Run "mage seed"
 // first.
+//
+// The root requests of tests/ run first, then tests/access-matrix, in that
+// order and with a shared cookie jar (003 D-15). The access matrix registers
+// a comum user whose credentials are generated for each run (003 D-13), so
+// every run leaves one e2e.* user behind; the README explains how to delete
+// them.
 func BrunoRun() error {
 	override := os.Getenv("BRUNO_BASE_URL")
 	if err := checkLocalBaseURL(override); err != nil {
@@ -78,16 +86,7 @@ func BrunoRun() error {
 		return err
 	}
 
-	args := []string{
-		"--yes", brunoCLI, "run", brunoTests,
-		"--env", brunoEnv,
-		"--cacert", filepath.Join("..", certFile),
-		"--ignore-truststore",
-		"--reporter-junit", filepath.Join("..", brunoReport),
-	}
-	if override != "" {
-		args = append(args, "--env-var", "baseUrl="+override)
-	}
+	args := brunoRunArgs(override)
 	dotEnv, err := readDotEnv(".env")
 	if err != nil {
 		return err
@@ -100,12 +99,44 @@ func BrunoRun() error {
 	// The Bruno CLI must run from the collection folder.
 	cmd := exec.CommandContext(context.Background(), "npx", args...)
 	cmd.Dir = brunoDir
-	cmd.Env = append(os.Environ(), seedEnv...)
+	cmd.Env = slices.Concat(os.Environ(), seedEnv, brunoComumEnv())
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("bruno run failed (report in %s): %w", brunoReport, err)
 	}
 	return nil
+}
+
+// brunoRunArgs returns the npx arguments of "mage brunoRun". They never
+// carry credentials: those reach bru as environment variables.
+func brunoRunArgs(override string) []string {
+	args := []string{
+		"--yes", brunoCLI, "run", brunoTests, brunoMatrix,
+		"--env", brunoEnv,
+		"--cacert", filepath.Join("..", certFile),
+		"--ignore-truststore",
+		"--reporter-junit", filepath.Join("..", brunoReport),
+	}
+	if override != "" {
+		args = append(args, "--env-var", "baseUrl="+override)
+	}
+	return args
+}
+
+// brunoComumPrefix starts the login of every comum user that "mage brunoRun"
+// registers. It is not "bruno.", which could match a real user.
+const brunoComumPrefix = "e2e."
+
+// brunoComumEnv returns fresh credentials for the comum user that the access
+// matrix registers, as NAME=value entries for the bru process (003 D-13).
+// The login is the prefix and 26 lowercase base32 characters (30 in all,
+// within the login rule ^[a-z0-9._-]{3,64}$); the password is 26 base32
+// characters, within the 15 to 128 policy. Both come from crypto/rand.
+func brunoComumEnv() []string {
+	return []string{
+		"BRUNO_COMUM_LOGIN=" + brunoComumPrefix + strings.ToLower(rand.Text()),
+		"BRUNO_COMUM_PASSWORD=" + rand.Text(),
+	}
 }
 
 // brunoSeedVars are the variables the Bruno login flow reads with
@@ -125,6 +156,11 @@ func brunoSeedEnv(dotEnv map[string]string, lookup func(string) (string, bool)) 
 		}
 		if value == "" {
 			return nil, fmt.Errorf("%s is empty: set SEED_ADMIN_LOGIN and SEED_ADMIN_PASSWORD in .env and run \"mage seed\"", name)
+		}
+		// The README cleanup deletes every e2e.* login: it must never match
+		// the seed admin.
+		if name == "SEED_ADMIN_LOGIN" && strings.HasPrefix(strings.ToLower(value), brunoComumPrefix) {
+			return nil, fmt.Errorf("SEED_ADMIN_LOGIN must not start with %q, the prefix of the test users", brunoComumPrefix)
 		}
 		out = append(out, name+"="+value)
 	}

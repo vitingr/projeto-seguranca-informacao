@@ -1,0 +1,20 @@
+info:
+  name: administradores-admin
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the admin area", function () {
+          expect(res.getBody().area).to.equal("administradores");
+        });

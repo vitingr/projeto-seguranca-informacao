@@ -1,0 +1,31 @@
+info:
+  name: cadastro-invalid-role
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.root",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "root"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("error is unprocessable_entity", function () {
+          expect(res.getBody().error).to.equal("unprocessable_entity");
+        });

@@ -36,7 +36,12 @@ const (
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 15 * time.Second
 	idleTimeout       = 60 * time.Second
-	maxHeaderBytes    = 16 << 10
+	// requestTimeout is the context deadline of every request (D-21). It
+	// is below writeTimeout so the JSON error is written before the
+	// connection is cut; the http.Server timeouts alone do not cancel the
+	// request context on HTTP/1.1.
+	requestTimeout = 10 * time.Second
+	maxHeaderBytes = 16 << 10
 
 	healthcheckTimeout = 3 * time.Second
 )
@@ -110,6 +115,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Sessions:           repository.NewSessions(db),
 		RenderError:        web.WriteError,
 		SessionIdleTimeout: cfg.SessionIdleTimeout,
+		RequestTimeout:     requestTimeout,
 	})
 	if err != nil {
 		return err
@@ -225,6 +231,7 @@ func seed(ctx context.Context, cfg config.Config, getenv func(string) string, lo
 		Sessions:           repository.NewSessions(db),
 		RenderError:        web.WriteError,
 		SessionIdleTimeout: cfg.SessionIdleTimeout,
+		RequestTimeout:     requestTimeout,
 	})
 	if err != nil {
 		return err

@@ -35,11 +35,14 @@ type Deps struct {
 
 // NewHandler monta, uma única vez, o handler completo da aplicação:
 //
-//	RequestID → AccessLog → Recover → SecurityHeaders → Session → CSRF → mux
+//	RequestID → AccessLog → Recover → RequestTimeout → SecurityHeaders →
+//	Session → CSRF → mux
 //
 // e, dentro do mux, cada rota é envolvida por Authorize(política da rota)
 // antes do handler. RequestID e AccessLog são observabilidade e ficam por
 // fora para que até respostas de panic sejam registradas com request ID.
+// RequestTimeout (D-21) comes before Session so the deadline also covers the
+// session lookup.
 func NewHandler(d Deps) (http.Handler, error) {
 	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
@@ -56,6 +59,7 @@ func NewHandler(d Deps) (http.Handler, error) {
 		requestID,
 		accessLog(d.Logger),
 		d.Security.Recover,
+		d.Security.RequestTimeout,
 		d.Security.SecurityHeaders,
 		d.Security.Session,
 		d.Security.CSRF,

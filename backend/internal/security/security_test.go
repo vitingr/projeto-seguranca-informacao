@@ -35,6 +35,24 @@ func renderStatus(w http.ResponseWriter, _ *http.Request, status int) {
 	_, _ = io.WriteString(w, http.StatusText(status))
 }
 
+// newTestSecurityWith is newTestSecurity with options changed by mutate.
+func newTestSecurityWith(t *testing.T, mutate func(o *Options)) *Security {
+	t.Helper()
+	opts := Options{
+		Logger:             slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Sessions:           fakeStore{},
+		RenderError:        renderStatus,
+		SessionIdleTimeout: 15 * time.Minute,
+		RequestTimeout:     time.Minute,
+	}
+	mutate(&opts)
+	s, err := New(opts)
+	if err != nil {
+		t.Fatalf("New() erro inesperado: %v", err)
+	}
+	return s
+}
+
 func newTestSecurity(t *testing.T, logOut io.Writer) *Security {
 	t.Helper()
 	if logOut == nil {
@@ -45,6 +63,7 @@ func newTestSecurity(t *testing.T, logOut io.Writer) *Security {
 		Sessions:           fakeStore{},
 		RenderError:        renderStatus,
 		SessionIdleTimeout: 15 * time.Minute,
+		RequestTimeout:     time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New() erro inesperado: %v", err)
@@ -64,7 +83,7 @@ func TestNewValidatesOptions(t *testing.T) {
 	t.Parallel()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	valid := Options{Logger: logger, Sessions: fakeStore{}, RenderError: renderStatus, SessionIdleTimeout: time.Minute}
+	valid := Options{Logger: logger, Sessions: fakeStore{}, RenderError: renderStatus, SessionIdleTimeout: time.Minute, RequestTimeout: time.Minute}
 
 	tests := []struct {
 		name    string
@@ -77,6 +96,14 @@ func TestNewValidatesOptions(t *testing.T) {
 		{"sem renderer", func(o *Options) { o.RenderError = nil }, "RenderError"},
 		{"timeout zero", func(o *Options) { o.SessionIdleTimeout = 0 }, "SessionIdleTimeout"},
 		{"timeout negativo", func(o *Options) { o.SessionIdleTimeout = -time.Second }, "SessionIdleTimeout"},
+		{"request timeout zero", func(o *Options) { o.RequestTimeout = 0 }, "RequestTimeout"},
+		{"negative request timeout", func(o *Options) { o.RequestTimeout = -time.Second }, "RequestTimeout"},
+		{"negative hash slots", func(o *Options) { o.MaxConcurrentHashes = -1 }, "MaxConcurrentHashes"},
+		{"argon2 memory above the limit", func(o *Options) { o.Argon2 = DefaultArgon2Params(); o.Argon2.Memory = maxArgon2Memory + 1 }, "Argon2"},
+		{"argon2 short salt", func(o *Options) { o.Argon2 = DefaultArgon2Params(); o.Argon2.SaltLength = 8 }, "Argon2"},
+		{"argon2 zero iterations", func(o *Options) { o.Argon2 = DefaultArgon2Params(); o.Argon2.Iterations = 0 }, "Argon2"},
+		{"argon2 parallelism above the limit", func(o *Options) { o.Argon2 = DefaultArgon2Params(); o.Argon2.Parallelism = 17 }, "Argon2"},
+		{"argon2 long key", func(o *Options) { o.Argon2 = DefaultArgon2Params(); o.Argon2.KeyLength = 65 }, "Argon2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

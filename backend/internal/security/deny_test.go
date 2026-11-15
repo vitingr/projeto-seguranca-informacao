@@ -192,9 +192,6 @@ func TestStubsFailClosed(t *testing.T) {
 		call    func() error
 		wantErr []error
 	}{
-		{"HashPassword", func() error { _, err := s.HashPassword("senha"); return err }, []error{domain.ErrNotImplemented}},
-		{"VerifyPassword", func() error { return s.VerifyPassword("$argon2id$...", "senha") }, []error{domain.ErrInvalidCredentials}},
-		{"VerifyPassword hash vazio", func() error { return s.VerifyPassword("", "") }, []error{domain.ErrInvalidCredentials}},
 		{"StartSession", func() error { return s.StartSession(rr, req, domain.User{ID: 1, Role: domain.RoleAdmin}) }, []error{domain.ErrNotImplemented}},
 		{"EndSession", func() error { return s.EndSession(rr, req) }, []error{domain.ErrNotImplemented}},
 		{"ParseRole admin", func() error { _, err := s.ParseRole("admin"); return err }, []error{domain.ErrInvalidInput}},

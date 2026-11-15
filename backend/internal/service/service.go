@@ -27,6 +27,8 @@ type PasswordHasher interface {
 
 // InputValidator valida dados de entrada antes de qualquer persistência.
 type InputValidator interface {
+	// NormalizeLogin returns the canonical (lowercase) form of a login.
+	NormalizeLogin(raw string) string
 	ValidateLogin(login string) error
 	ValidatePassword(password string) error
 	ParseRole(raw string) (domain.Role, error)

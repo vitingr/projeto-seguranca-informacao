@@ -182,7 +182,8 @@ func MigrateDown() error {
 }
 
 // Seed cria o primeiro administrador a partir de SEED_ADMIN_LOGIN e
-// SEED_ADMIN_PASSWORD. Stub até a etapa 2: falha fechado.
+// SEED_ADMIN_PASSWORD. Running it again with the same login fails with a
+// conflict.
 func Seed() error {
 	env, err := hostEnv()
 	if err != nil {

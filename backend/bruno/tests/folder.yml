@@ -1,0 +1,11 @@
+# Hand-written. Run by "mage brunoRun".
+#
+# Provisional assertions: they describe the current security stubs,
+# which deny every restricted route and every state-changing request with
+# 403. They change in 002 (login and session) and 003 (roles).
+info:
+  name: tests
+  type: folder
+
+request:
+  auth: inherit

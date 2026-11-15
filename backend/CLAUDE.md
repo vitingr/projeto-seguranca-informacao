@@ -7,13 +7,14 @@ repository root (`backend/...`).
 
 ## Language
 
-Everything you write is in **English**, with no exceptions: code
-identifiers, comments, log messages, user-facing API messages (the `message`
-field of responses), tests, specs, plans, README, branch names and commit
-messages.
+Everything you write is in **English**: code identifiers, comments, log
+messages, tests, specs, plans, README, branch names and commit messages.
 
-Existing content written in Portuguese (comments, logs, API messages, specs,
-README) must not be translated as part of another task. Translating it is a
+The one exception is user-facing API messages (the `message` field of
+responses): they are in **Portuguese**, like the existing ones.
+
+Existing content written in Portuguese (comments, logs, specs, README) must
+not be translated as part of another task. Translating it is a
 task of its own, done in dedicated commits (for example
 `refactor: translate comments and logs to english` and
 `docs: translate specs and readme to english`). Until then, keep existing

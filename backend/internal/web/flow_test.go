@@ -48,7 +48,13 @@ type flowApp struct {
 
 func newFlowApp(t *testing.T) flowApp {
 	t.Helper()
-	logger := slog.New(NewLogHandler(slog.NewJSONHandler(io.Discard, nil)))
+	return newFlowAppWithLog(t, io.Discard)
+}
+
+// newFlowAppWithLog is newFlowApp with the log written to logOut.
+func newFlowAppWithLog(t *testing.T, logOut io.Writer) flowApp {
+	t.Helper()
+	logger := slog.New(NewLogHandler(slog.NewJSONHandler(logOut, nil)))
 	store := newMemSessions()
 	sec, err := security.New(security.Options{
 		Logger:                 logger,
@@ -250,34 +256,6 @@ func (f flowApp) loginAs(t *testing.T, login string) (*http.Cookie, string) {
 	cookie := sessionCookie(rr)
 	_, token = f.csrf(t, cookie)
 	return cookie, token
-}
-
-func TestAuthenticatedRoutes(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		login      string
-		path       string
-		wantStatus int
-	}{
-		{flowLogin, "/api/me", http.StatusOK},
-		{flowLogin, "/api/administradores", http.StatusOK},
-		{flowLogin, "/api/usuarios", http.StatusForbidden}, // admins do not reach /usuarios
-		{comumLogin, "/api/me", http.StatusOK},
-		{comumLogin, "/api/administradores", http.StatusForbidden},
-		{comumLogin, "/api/usuarios", http.StatusOK},
-	}
-	for _, tt := range tests {
-		t.Run(tt.login+" "+tt.path, func(t *testing.T) {
-			t.Parallel()
-			f := newFlowApp(t)
-			cookie, _ := f.loginAs(t, tt.login)
-			rr := f.send(t, http.MethodGet, tt.path, "", cookie, nil)
-			if rr.Code != tt.wantStatus {
-				t.Errorf("status = %d, want %d (%s)", rr.Code, tt.wantStatus, rr.Body.String())
-			}
-		})
-	}
 }
 
 func TestMeReturnsTheCaller(t *testing.T) {

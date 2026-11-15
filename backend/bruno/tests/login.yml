@@ -1,7 +1,7 @@
 info:
   name: login
   type: http
-  seq: 6
+  seq: 12
 
 http:
   method: POST
@@ -13,8 +13,8 @@ http:
     type: json
     data: |-
       {
-        "login": "admin",
-        "senha": "correct-horse-battery-staple"
+        "login": "{{process.env.SEED_ADMIN_LOGIN}}",
+        "senha": "{{process.env.SEED_ADMIN_PASSWORD}}"
       }
   auth: inherit
 
@@ -22,15 +22,25 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The token and the session cookie from csrf pass the CSRF check;
-        // the credentials do not exist, so the answer is the generic 401.
-        test("status is 401", function () {
-          expect(res.getStatus()).to.equal(401);
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
         });
-        test("error is unauthorized", function () {
-          expect(res.getBody().error).to.equal("unauthorized");
+        test("returns the seed admin", function () {
+          const body = res.getBody();
+          expect(body.user_id).to.be.a("number").and.above(0);
+          expect(body.login).to.equal(bru.interpolate("{{process.env.SEED_ADMIN_LOGIN}}").toLowerCase());
+          expect(body.role).to.equal("admin");
         });
-        test("does not start a session", function () {
+        test("sets a new session cookie", function () {
           const cookies = [].concat(res.getHeader("set-cookie") || []);
-          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
+          const session = cookies.find((c) => c.startsWith("__Host-session="));
+          expect(session, "Set-Cookie: __Host-session").to.be.a("string");
+          expect(session).to.include("HttpOnly");
+          expect(session).to.include("Secure");
+          expect(session).to.include("SameSite=Lax");
+          expect(session).to.include("Path=/");
+          const pair = session.split(";")[0];
+          expect(pair).to.not.equal(bru.getVar("anonCookie"));
+          // Saved for me-after-logout (D-17).
+          bru.setVar("sessionCookie", pair);
         });

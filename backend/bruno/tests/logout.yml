@@ -1,7 +1,7 @@
 info:
   name: logout
   type: http
-  seq: 7
+  seq: 15
 
 http:
   method: POST
@@ -15,11 +15,12 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Anonymous with a valid CSRF token: the CSRF check passes and
-        // Authorize answers 401.
-        test("status is 401", function () {
-          expect(res.getStatus()).to.equal(401);
+        test("status is 204", function () {
+          expect(res.getStatus()).to.equal(204);
         });
-        test("error is unauthorized", function () {
-          expect(res.getBody().error).to.equal("unauthorized");
+        test("expires the session cookie", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          const session = cookies.find((c) => c.startsWith("__Host-session="));
+          expect(session, "Set-Cookie: __Host-session").to.be.a("string");
+          expect(session).to.include("Max-Age=0");
         });

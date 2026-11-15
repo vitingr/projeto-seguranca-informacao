@@ -67,3 +67,11 @@ func (m *memSessions) count() int {
 	defer m.mu.Unlock()
 	return len(m.rows)
 }
+
+// setRole changes a user's role, like an UPDATE on the users table: the
+// next Get of any of the user's sessions returns the new role.
+func (m *memSessions) setRole(id domain.UserID, role domain.Role) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.roles[id] = role
+}

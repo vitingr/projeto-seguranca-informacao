@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -45,7 +46,13 @@ func (nopStore) DeleteExpired(context.Context, time.Time) (int64, error) { retur
 
 func newTestApp(t *testing.T) (*handlers, http.Handler) {
 	t.Helper()
-	logger := slog.New(NewLogHandler(slog.NewJSONHandler(io.Discard, nil)))
+	return newTestAppWithLog(t, io.Discard)
+}
+
+// newTestAppWithLog is newTestApp with the log written to logOut.
+func newTestAppWithLog(t *testing.T, logOut io.Writer) (*handlers, http.Handler) {
+	t.Helper()
+	logger := slog.New(NewLogHandler(slog.NewJSONHandler(logOut, nil)))
 	sec, err := security.New(security.Options{
 		Logger:             logger,
 		Sessions:           nopStore{},
@@ -253,5 +260,63 @@ func TestNewHandlerRequiresDeps(t *testing.T) {
 
 	if _, err := NewHandler(Deps{}); err == nil {
 		t.Fatal("NewHandler deveria falhar sem dependências")
+	}
+}
+
+// TestLoginNeverLogsBodyOrPassword checks that neither the request body nor
+// the password reaches the log, for rejected bodies and for a valid body
+// that fails later and goes through RespondError.
+func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
+	t.Parallel()
+
+	const sentinel = "Sentinel-Pa55word-7f3a"
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		wantStatus  int // from the login handler itself
+	}{
+		// The fakeAuth accepts it and the StartSession stub fails, so the
+		// error is logged by RespondError.
+		{"valid body", "application/json", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusInternalServerError},
+		{"wrong content type", "text/plain", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusBadRequest},
+		{"unknown field", "application/json", `{"login":"admin","senha":"x","` + sentinel + `":1}`, http.StatusBadRequest},
+		{"control byte in password", "application/json", `{"login":"admin","senha":"` + sentinel + "\x01" + `"}`, http.StatusBadRequest},
+		{"wrong type", "application/json", `{"login":"admin","senha":` + sentinel + `}`, http.StatusBadRequest},
+		{"trailing data", "application/json", `{"login":"admin","senha":"x"}` + sentinel, http.StatusBadRequest},
+		{"too large", "application/json", `{"login":"admin","senha":"` + strings.Repeat(sentinel, 4000) + `"}`, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var logs bytes.Buffer
+			h, app := newTestAppWithLog(t, &logs)
+			newReq := func() *http.Request {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(tt.body))
+				req.Header.Set("Content-Type", tt.contentType)
+				return req
+			}
+
+			// The handler directly: the CSRF stub blocks the route until it
+			// is implemented.
+			rr := httptest.NewRecorder()
+			h.login(rr, newReq())
+			if rr.Code != tt.wantStatus {
+				t.Errorf("login status = %d, want %d", rr.Code, tt.wantStatus)
+			}
+			if tt.wantStatus == http.StatusInternalServerError && logs.Len() == 0 {
+				t.Fatal("RespondError did not log; the test would not cover it")
+			}
+
+			// The full chain, including the access log.
+			app.ServeHTTP(httptest.NewRecorder(), newReq())
+
+			if strings.Contains(logs.String(), sentinel) {
+				t.Errorf("log contains the body or the password:\n%s", logs.String())
+			}
+			if strings.Contains(rr.Body.String(), sentinel) {
+				t.Errorf("response contains the body or the password: %s", rr.Body.String())
+			}
+		})
 	}
 }

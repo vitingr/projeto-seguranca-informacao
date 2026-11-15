@@ -74,7 +74,7 @@ func (h *handlers) csrf(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := h.sec.DecodeJSON(w, r, &req); err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
+	if err := h.sec.DecodeJSON(w, r, &req); err != nil {
 		h.badRequest(w, r, err)
 		return
 	}
@@ -118,7 +118,7 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) cadastro(w http.ResponseWriter, r *http.Request) {
 	var req cadastroRequest
-	if err := h.sec.DecodeJSON(w, r, &req); err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
+	if err := h.sec.DecodeJSON(w, r, &req); err != nil {
 		h.badRequest(w, r, err)
 		return
 	}

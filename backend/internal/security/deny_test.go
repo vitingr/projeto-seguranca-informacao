@@ -197,9 +197,6 @@ func TestStubsFailClosed(t *testing.T) {
 		{"VerifyPassword hash vazio", func() error { return s.VerifyPassword("", "") }, []error{domain.ErrInvalidCredentials}},
 		{"StartSession", func() error { return s.StartSession(rr, req, domain.User{ID: 1, Role: domain.RoleAdmin}) }, []error{domain.ErrNotImplemented}},
 		{"EndSession", func() error { return s.EndSession(rr, req) }, []error{domain.ErrNotImplemented}},
-		{"DecodeJSON", func() error { var v struct{}; return s.DecodeJSON(rr, req, &v) }, []error{domain.ErrInvalidInput}},
-		{"ValidateLogin", func() error { return s.ValidateLogin("admin") }, []error{domain.ErrInvalidInput}},
-		{"ValidatePassword", func() error { return s.ValidatePassword("uma senha longa o bastante") }, []error{domain.ErrInvalidInput}},
 		{"ParseRole admin", func() error { _, err := s.ParseRole("admin"); return err }, []error{domain.ErrInvalidInput}},
 	}
 	for _, tt := range tests {

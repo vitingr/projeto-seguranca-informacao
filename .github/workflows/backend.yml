@@ -129,17 +129,23 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Create .env with a generated database password
+      - name: Create .env with generated database and seed passwords
         run: |
           password="$(openssl rand -hex 24)"
+          seed_password="$(openssl rand -hex 16)"
           echo "::add-mask::${password}"
-          sed "s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=${password}/" .env.example > .env
+          echo "::add-mask::${seed_password}"
+          sed -e "s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=${password}/" \
+            -e "s/^SEED_ADMIN_PASSWORD=$/SEED_ADMIN_PASSWORD=${seed_password}/" \
+            .env.example > .env
       - name: Generate the TLS certificate
         run: go tool mage cert
       - name: Start the stack
         run: go tool mage dockerUp
       - name: Apply the migrations
         run: go tool mage migrateUp
+      - name: Create the seed administrator
+        run: go tool mage seed
       - name: Run the Bruno collection
         run: go tool mage brunoRun
       - name: Upload the Bruno report

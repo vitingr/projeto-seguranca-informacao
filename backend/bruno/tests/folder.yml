@@ -1,8 +1,13 @@
 # Hand-written. Run by "mage brunoRun".
 #
-# Anonymous checks: restricted routes answer 401, and a login with
-# credentials that do not exist answers 401. The authenticated flow and
-# the role matrix are added later (002, 003).
+# The requests run in "seq" order and share the cookie jar:
+# csrf (anonymous session) -> anonymous checks (401) -> rejected logins
+# (403, 400, 401) -> login as the seed admin -> csrf again (new token) ->
+# me -> logout -> the old cookie gets 401.
+#
+# The login reads SEED_ADMIN_LOGIN and SEED_ADMIN_PASSWORD with
+# {{process.env.NAME}}; "mage brunoRun" passes them from .env, so run
+# "mage seed" first. The role matrix is added in 003.
 info:
   name: tests
   type: folder

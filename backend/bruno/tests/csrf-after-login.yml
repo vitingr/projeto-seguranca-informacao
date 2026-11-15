@@ -1,0 +1,28 @@
+info:
+  name: csrf-after-login
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/csrf"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Login rotates the CSRF token (D-4): fetch it again.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("the token changed at login", function () {
+          const token = res.getBody().csrf_token;
+          expect(token).to.match(/^[A-Z2-7]{26}$/);
+          expect(token).to.not.equal(bru.getVar("csrfToken"));
+          bru.setVar("csrfToken", token);
+        });
+        test("does not create another session", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
+        });

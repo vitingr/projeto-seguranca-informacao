@@ -1,0 +1,36 @@
+info:
+  name: login-unknown-field
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.SEED_ADMIN_LOGIN}}",
+        "senha": "{{process.env.SEED_ADMIN_PASSWORD}}",
+        "role": "admin"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Unknown fields are rejected by DecodeJSON before authentication.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          expect(res.getBody().error).to.equal("bad_request");
+        });
+        test("does not start a session", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
+        });

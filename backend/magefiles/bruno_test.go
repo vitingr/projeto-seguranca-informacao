@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -226,6 +227,59 @@ func TestCheckLocalBaseURL(t *testing.T) {
 			t.Parallel()
 			if err := checkLocalBaseURL(tt.raw); (err != nil) != tt.wantErr {
 				t.Errorf("checkLocalBaseURL(%q) error = %v, want error: %v", tt.raw, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBrunoSeedEnv(t *testing.T) {
+	t.Parallel()
+
+	dotEnv := map[string]string{"SEED_ADMIN_LOGIN": "admin", "SEED_ADMIN_PASSWORD": "from-dotenv"}
+	noEnv := func(string) (string, bool) { return "", false }
+	tests := []struct {
+		name    string
+		dotEnv  map[string]string
+		lookup  func(string) (string, bool)
+		want    []string
+		wantErr string
+	}{
+		{"from .env", dotEnv, noEnv, []string{"SEED_ADMIN_LOGIN=admin", "SEED_ADMIN_PASSWORD=from-dotenv"}, ""},
+		{
+			"environment wins", dotEnv,
+			func(k string) (string, bool) {
+				if k == "SEED_ADMIN_PASSWORD" {
+					return "from-env", true
+				}
+				return "", false
+			},
+			[]string{"SEED_ADMIN_LOGIN=admin", "SEED_ADMIN_PASSWORD=from-env"},
+			"",
+		},
+		{"password missing", map[string]string{"SEED_ADMIN_LOGIN": "admin"}, noEnv, nil, "SEED_ADMIN_PASSWORD is empty"},
+		{"password empty in .env", map[string]string{"SEED_ADMIN_LOGIN": "admin", "SEED_ADMIN_PASSWORD": ""}, noEnv, nil, `run "mage seed"`},
+		{"login missing", map[string]string{"SEED_ADMIN_PASSWORD": "x"}, noEnv, nil, "SEED_ADMIN_LOGIN is empty"},
+		{
+			"empty in the environment hides .env", dotEnv,
+			func(k string) (string, bool) { return "", k == "SEED_ADMIN_PASSWORD" },
+			nil, "SEED_ADMIN_PASSWORD is empty",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := brunoSeedEnv(tt.dotEnv, tt.lookup)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("brunoSeedEnv() error = %v, want it to contain %q", err, tt.wantErr)
+				}
+				if strings.Contains(err.Error(), "from-dotenv") {
+					t.Error("the error contains the password")
+				}
+				return
+			}
+			if err != nil || !slices.Equal(got, tt.want) {
+				t.Fatalf("brunoSeedEnv() = %v, %v, want %v", got, err, tt.want)
 			}
 		})
 	}

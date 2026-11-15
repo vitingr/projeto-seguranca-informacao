@@ -63,6 +63,11 @@ func Bruno() error {
 // writes bruno-report.xml (JUnit). It targets https://localhost, which is the
 // API started by "mage dockerUp". Set BRUNO_BASE_URL for another address,
 // such as https://localhost:8443 for "mage run". Requires Node.js with npx.
+//
+// The login flow uses the seed administrator: SEED_ADMIN_LOGIN and
+// SEED_ADMIN_PASSWORD come from the environment or .env and reach the bru
+// process as environment variables, never as arguments. Run "mage seed"
+// first.
 func BrunoRun() error {
 	override := os.Getenv("BRUNO_BASE_URL")
 	if err := checkLocalBaseURL(override); err != nil {
@@ -83,14 +88,47 @@ func BrunoRun() error {
 	if override != "" {
 		args = append(args, "--env-var", "baseUrl="+override)
 	}
+	dotEnv, err := readDotEnv(".env")
+	if err != nil {
+		return err
+	}
+	seedEnv, err := brunoSeedEnv(dotEnv, os.LookupEnv)
+	if err != nil {
+		return err
+	}
+
 	// The Bruno CLI must run from the collection folder.
 	cmd := exec.CommandContext(context.Background(), "npx", args...)
 	cmd.Dir = brunoDir
+	cmd.Env = append(os.Environ(), seedEnv...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("bruno run failed (report in %s): %w", brunoReport, err)
 	}
 	return nil
+}
+
+// brunoSeedVars are the variables the Bruno login flow reads with
+// {{process.env.NAME}}.
+var brunoSeedVars = []string{"SEED_ADMIN_LOGIN", "SEED_ADMIN_PASSWORD"}
+
+// brunoSeedEnv returns the seed credentials as NAME=value entries for the
+// bru process. A variable from the environment wins over .env. A missing
+// value is an error: Bruno would send the literal "{{process.env.NAME}}"
+// and the login would fail with a misleading 401.
+func brunoSeedEnv(dotEnv map[string]string, lookup func(string) (string, bool)) ([]string, error) {
+	out := make([]string, 0, len(brunoSeedVars))
+	for _, name := range brunoSeedVars {
+		value, ok := lookup(name)
+		if !ok {
+			value = dotEnv[name]
+		}
+		if value == "" {
+			return nil, fmt.Errorf("%s is empty: set SEED_ADMIN_LOGIN and SEED_ADMIN_PASSWORD in .env and run \"mage seed\"", name)
+		}
+		out = append(out, name+"="+value)
+	}
+	return out, nil
 }
 
 // checkLocalBaseURL accepts an empty value (the default base URL) or an https

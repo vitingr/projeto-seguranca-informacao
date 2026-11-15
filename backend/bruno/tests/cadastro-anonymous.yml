@@ -1,7 +1,7 @@
 info:
-  name: cadastro
+  name: cadastro-anonymous
   type: http
-  seq: 8
+  seq: 6
 
 http:
   method: POST

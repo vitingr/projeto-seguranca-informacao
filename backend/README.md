@@ -3,8 +3,10 @@
 HTTPS JSON API consumed by the frontend (in `../frontend`). It is written in
 Go and stores users and server-side sessions in PostgreSQL.
 
-The security controls are still stubs that fail closed: every restricted
-route and every state-changing request is denied with 403.
+Users log in with a login and password (Argon2id hashes) and get a
+server-side session in a cookie. State-changing requests need a CSRF token,
+and each route declares which roles may call it. User registration through
+the API (`POST /api/cadastro`) is not implemented yet and fails closed.
 
 ## Prerequisites
 
@@ -22,11 +24,16 @@ pinned versions, so nothing is installed globally.
 
 ```sh
 cp .env.example .env        # then set POSTGRES_PASSWORD (openssl rand -hex 24)
+                            # and SEED_ADMIN_PASSWORD (15 to 128 characters)
 go tool mage cert           # self-signed certificate for localhost in certs/
 go tool mage dockerUp       # app on https://localhost, PostgreSQL on 127.0.0.1
 go tool mage migrateUp
+go tool mage seed           # creates the first administrator (once)
 go tool mage brunoRun       # run the API assertions against the stack
 ```
+
+`SEED_ADMIN_PASSWORD` goes into the JSON body of the Bruno login request
+as is, so avoid `"` and `\` in it (`openssl rand -hex 16` works).
 
 If port 5432 is taken on your machine, set `POSTGRES_HOST_PORT` in `.env`.
 
@@ -45,10 +52,10 @@ Run `go tool mage -l` for the full list.
 | `cert` | Creates `certs/server.crt` and `certs/server.key` for localhost and 127.0.0.1. |
 | `dockerUp` / `dockerDown` | Starts or stops the app and PostgreSQL. |
 | `migrateUp` / `migrateDown` | Applies all pending migrations / reverts the last one (goose). |
-| `seed` | Creates the first administrator from `SEED_ADMIN_*`. |
+| `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs `bruno/tests` against the running API and writes `bruno-report.xml` (JUnit). |
+| `brunoRun` | Runs `bruno/tests` against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. |
 
 ## API contract and Bruno collection
 
@@ -59,8 +66,8 @@ Every route exists in three places that change together:
 
 The only exception is the 404 catch-all, which stays out of the contract.
 
-- **Contract.** It describes the planned behavior of each route, successes
-  and errors. Each operation declares its access policy in the `x-policy`
+- **Contract.** It describes the behavior of each route, successes and
+  errors. Each operation declares its access policy in the `x-policy`
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
@@ -70,11 +77,29 @@ The only exception is the 404 catch-all, which stays out of the contract.
   date.
 - **Hand-written files.** `opencollection.yml` holds the checks that run on
   every response. `environments/local.yml` holds `baseUrl`. `tests/` holds
-  the assertions that `mage brunoRun` runs. They describe today's behavior,
-  so they change as the security controls are implemented.
+  the assertions that `mage brunoRun` runs, in `seq` order with a shared
+  cookie jar: anonymous checks, rejected logins, then login as the seed
+  administrator, `/api/me`, logout, and the old cookie getting 401.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
+
+## Sessions and security settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `SESSION_IDLE_TIMEOUT` | `15m` (1m to 24h) | A session without requests for this long ends. Expired sessions are also purged on this interval. |
+| `SESSION_ABSOLUTE_TIMEOUT` | `8h` (1m to 168h, at least the idle timeout) | A session ends this long after login, even with continuous activity. |
+
+Fixed in code:
+- Every request has a 10s deadline, below the 15s `WriteTimeout`, so a
+  request waiting for the database or for a password hash ends with a JSON
+  500 instead of hanging.
+- At most `GOMAXPROCS` Argon2id hashes (64 MiB each) run at once.
+- Login answers the same 401 for an unknown user and a wrong password,
+  after the same Argon2id work.
+- Clients must call `GET /api/csrf` again after login, because the CSRF
+  token changes with the session.
 
 ## Go version
 

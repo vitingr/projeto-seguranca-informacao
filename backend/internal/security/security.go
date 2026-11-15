@@ -6,8 +6,10 @@
 // tratamento de erros (errors.go). Os demais pacotes apenas consomem esta API.
 //
 // Princípio geral: falhar fechado. Tudo o que não for explicitamente
-// permitido é negado, inclusive o valor zero dos tipos de política e todos
-// os stubs ainda não implementados (marcados com TODO(etapa 2)).
+// permitido é negado, inclusive o valor zero dos tipos de política.
+//
+// The only stubs left (ParseRole and the error mapping in RespondError)
+// belong to user registration and also fail closed.
 package security
 
 import (

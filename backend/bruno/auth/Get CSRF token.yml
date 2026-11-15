@@ -33,7 +33,7 @@ examples:
         type: json
         data: |-
           {
-            "csrf_token": "vF3k9Q0xR2l1d7cJmZpT8w",
+            "csrf_token": "MZXW6YTBOI4DCMRTGQ2TMNZYHE",
             "header": "X-CSRF-Token"
           }
   - name: 500 Response
@@ -56,4 +56,4 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
 
-docs: Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none.
+docs: Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none; this is the only route that creates sessions. Call it again after login, because the token changes.

@@ -122,10 +122,14 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	}
 
 	users := repository.NewUsers(db)
+	auth, err := service.NewAuth(ctx, users, sec, sec)
+	if err != nil {
+		return err
+	}
 	handler, err := web.NewHandler(web.Deps{
 		Logger:   logger,
 		Security: sec,
-		Auth:     service.NewAuth(users, sec),
+		Auth:     auth,
 		Users:    service.NewUsers(users, sec, sec),
 	})
 	if err != nil {
@@ -213,7 +217,9 @@ func healthcheck(ctx context.Context, cfg config.Config) error {
 }
 
 // seed cria o primeiro administrador a partir de SEED_ADMIN_LOGIN e
-// SEED_ADMIN_PASSWORD. Na etapa 1 o serviço é um stub e falha fechado.
+// SEED_ADMIN_PASSWORD. The login is normalized to lowercase and must match
+// the login rule; the password must follow the password policy. Running it
+// again with the same login fails with a conflict.
 func seed(ctx context.Context, cfg config.Config, getenv func(string) string, logger *slog.Logger) error {
 	creds, err := config.LoadSeed(getenv)
 	if err != nil {
@@ -238,9 +244,8 @@ func seed(ctx context.Context, cfg config.Config, getenv func(string) string, lo
 	}
 
 	users := service.NewUsers(repository.NewUsers(db), sec, sec)
-	//nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
 	admin, err := users.CreateFirstAdmin(ctx, creds.AdminLogin, creds.AdminPassword)
-	if err != nil { //nolint:staticcheck // SA4023: the stage-1 stub always fails. TODO(etapa 2): remove.
+	if err != nil {
 		return err
 	}
 	logger.Info("administrador criado", slog.String("login", admin.Login))

@@ -28,10 +28,19 @@ func NewUsers(repo UserRepository, passwords PasswordHasher, validator InputVali
 
 // Register valida a entrada, gera o hash da senha e cria o usuário.
 // Retorna erros que encapsulam domain.ErrInvalidInput ou domain.ErrConflict.
+//
+// The role is parsed first, so an invalid role never costs a hash (003 D-8).
+// A taken login is detected by the repository's UNIQUE constraint (003 D-9).
 func (u *Users) Register(ctx context.Context, in RegisterInput) (domain.User, error) {
-	// TODO(etapa 2): validator.ValidateLogin/ValidatePassword/ParseRole,
-	// passwords.HashPassword e repo.Create.
-	return domain.User{}, fmt.Errorf("service: cadastrar usuário: %w", domain.ErrNotImplemented)
+	role, err := u.validator.ParseRole(in.Role)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("service: register: %w", err)
+	}
+	user, err := u.create(ctx, in.Login, in.Password, role)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("service: register: %w", err)
+	}
+	return user, nil
 }
 
 // CreateFirstAdmin cria o administrador inicial (comando seed). Deve falhar

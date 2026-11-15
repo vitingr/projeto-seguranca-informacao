@@ -28,7 +28,7 @@ func (fakeAuth) Authenticate(context.Context, string, string) (domain.User, erro
 type fakeUsers struct{}
 
 func (fakeUsers) Register(context.Context, service.RegisterInput) (domain.User, error) {
-	return domain.User{ID: 2, Role: domain.RoleComum}, nil // nunca deve ser alcançado na etapa 1
+	return domain.User{ID: 2, Role: domain.RoleComum}, nil
 }
 
 type nopStore struct{}
@@ -84,7 +84,7 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	return &handlers{sec: sec, auth: deps.Auth, users: deps.Users}, h
+	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users}, h
 }
 
 func TestEveryRouteDeclaresPolicy(t *testing.T) {

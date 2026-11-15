@@ -2,6 +2,7 @@ package security
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -236,5 +237,48 @@ func TestNormalizePasswordIsNFKC(t *testing.T) {
 		if got := normalizePassword(tt.in); got != tt.want {
 			t.Errorf("normalizePassword(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestParseRole(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, nil)
+	tests := []struct {
+		raw     string
+		want    domain.Role
+		wantErr bool
+	}{
+		{"admin", domain.RoleAdmin, false},
+		{"comum", domain.RoleComum, false},
+		{"", "", true},
+		{"Admin", "", true},
+		{"ADMIN", "", true},
+		{"Comum", "", true},
+		{" admin", "", true},
+		{"admin ", "", true},
+		{"root", "", true},
+		{"comum\x00", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%q", tt.raw), func(t *testing.T) {
+			t.Parallel()
+			got, err := s.ParseRole(tt.raw)
+			if !tt.wantErr {
+				if err != nil || got != tt.want {
+					t.Fatalf("ParseRole(%q) = %q, %v; want %q", tt.raw, got, err, tt.want)
+				}
+				return
+			}
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("ParseRole(%q) error = %v, want ErrInvalidInput", tt.raw, err)
+			}
+			if got != "" {
+				t.Errorf("ParseRole(%q) role = %q, want empty", tt.raw, got)
+			}
+			if tt.raw != "" && strings.Contains(err.Error(), tt.raw) {
+				t.Errorf("error %q quotes the input", err)
+			}
+		})
 	}
 }

@@ -4,7 +4,6 @@ package security
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"backend_si/internal/domain"
@@ -77,34 +76,6 @@ func TestPrincipalFromRejectsInvalidValues(t *testing.T) {
 			t.Parallel()
 			if _, ok := PrincipalFrom(tt.ctx); ok {
 				t.Fatal("PrincipalFrom aceitou um principal inválido")
-			}
-		})
-	}
-}
-
-func TestStubsFailClosed(t *testing.T) {
-	t.Parallel()
-
-	s := newTestSecurity(t, nil)
-
-	tests := []struct {
-		name    string
-		call    func() error
-		wantErr []error
-	}{
-		{"ParseRole admin", func() error { _, err := s.ParseRole("admin"); return err }, []error{domain.ErrInvalidInput}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := tt.call()
-			if err == nil {
-				t.Fatal("stub retornou sucesso; deveria falhar fechado")
-			}
-			for _, want := range tt.wantErr {
-				if !errors.Is(err, want) {
-					t.Errorf("erro %v não encapsula %v", err, want)
-				}
 			}
 		})
 	}

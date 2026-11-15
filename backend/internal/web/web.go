@@ -48,7 +48,7 @@ func NewHandler(d Deps) (http.Handler, error) {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
-	h := &handlers{sec: d.Security, auth: d.Auth, users: d.Users}
+	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users}
 
 	mux := http.NewServeMux()
 	for _, rt := range h.routes() {

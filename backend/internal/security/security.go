@@ -8,8 +8,7 @@
 // Princípio geral: falhar fechado. Tudo o que não for explicitamente
 // permitido é negado, inclusive o valor zero dos tipos de política.
 //
-// The only stubs left (ParseRole and the error mapping in RespondError)
-// belong to user registration and also fail closed.
+// The only stub left (the error mapping in RespondError) also fails closed.
 package security
 
 import (

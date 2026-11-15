@@ -79,6 +79,19 @@ func Test() error {
 	return sh.RunV("go", "test", "-race", "-tags", "mage", "./magefiles")
 }
 
+// TestIntegration runs the integration tests (named Test...Integration)
+// against the PostgreSQL started by "mage dockerUp", after "mage migrateUp".
+// TEST_DATABASE_URL is the DATABASE_URL built from .env, the same one the
+// migrations use.
+func TestIntegration() error {
+	env, err := hostEnv()
+	if err != nil {
+		return err
+	}
+	return sh.RunWithV(map[string]string{"TEST_DATABASE_URL": env["DATABASE_URL"]},
+		"go", "test", "-race", "-count=1", "-run", "Integration", "-v", "./...")
+}
+
 // Fmt formata o código com gofumpt e goimports (via golangci-lint fmt).
 func Fmt() error {
 	mg.Deps(checkGolangciLint)

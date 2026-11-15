@@ -46,6 +46,7 @@ Run `go tool mage -l` for the full list.
 | `build` | Builds `bin/backend_si`. |
 | `run` | Runs the server outside Docker, reading `.env`. |
 | `test` | Runs the tests with the race detector and coverage, plus the magefile tests. |
+| `testIntegration` | Runs the integration tests (`Test...Integration`) against the PostgreSQL of `dockerUp`, after `migrateUp`. `TEST_DATABASE_URL` is built from `.env`. CI runs it in the `e2e` job. |
 | `fmt` / `lint` | gofumpt + goimports / golangci-lint with `.golangci.yml`. |
 | `vuln` | govulncheck. |
 | `ci` | `fmt`, `lint`, `vuln` and `test`, in that order. Run it before every commit. |

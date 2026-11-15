@@ -66,6 +66,7 @@ allowed way to rewrite a commit.
 - Never run `gt submit`, `gt sync`, `git push`, `git commit --amend`,
   `git rebase`, `--force` or `gh` unless I ask.
 - If `mage ci` fails, do not create the branch: fix it, or stop and explain.
+- Never add Co-Authored-By, Claude-Session or any Claude attribution to commits or PRs.
 
 ## Commit messages (Conventional Commits)
 

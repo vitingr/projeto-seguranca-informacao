@@ -1,0 +1,59 @@
+info:
+  name: Get CSRF token
+  type: http
+  seq: 1
+  tags:
+    - auth
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/csrf"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: The session's CSRF token.
+    request:
+      url: "{{baseUrl}}/api/csrf"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "csrf_token": "vF3k9Q0xR2l1d7cJmZpT8w",
+            "header": "X-CSRF-Token"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/csrf"
+      method: GET
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: Returns the CSRF token of the current session (anonymous or authenticated) and the header that must carry it. Starts an anonymous session when there is none.

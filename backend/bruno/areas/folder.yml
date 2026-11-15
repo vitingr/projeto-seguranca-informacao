@@ -1,0 +1,10 @@
+info:
+  name: areas
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Role-restricted areas.
+  type: text/markdown

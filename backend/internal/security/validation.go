@@ -127,7 +127,14 @@ func normalizePassword(password string) string {
 }
 
 // ParseRole converte o valor recebido na requisição em um papel válido.
+//
+// Only the exact values admin and comum are accepted: no case folding and no
+// trimming (003 D-7). The error wraps domain.ErrInvalidInput and never quotes
+// the input.
 func (s *Security) ParseRole(raw string) (domain.Role, error) {
-	// TODO(etapa 2): aceitar somente valores para os quais domain.Role.Valid é verdadeiro.
-	return "", fmt.Errorf("security: validar papel: %w: %w", domain.ErrInvalidInput, domain.ErrNotImplemented)
+	role := domain.Role(raw)
+	if !role.Valid() {
+		return "", fmt.Errorf("security: parse role: %w", domain.ErrInvalidInput)
+	}
+	return role, nil
 }

@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"backend_si/internal/domain"
@@ -17,9 +18,10 @@ const (
 )
 
 type handlers struct {
-	sec   *security.Security
-	auth  AuthService
-	users UserService
+	logger *slog.Logger
+	sec    *security.Security
+	auth   AuthService
+	users  UserService
 }
 
 // --- corpos de requisição e resposta ----------------------------------------
@@ -143,8 +145,23 @@ func (h *handlers) cadastro(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.sec.RespondError(w, r, err)
 	default:
+		h.auditRegistered(r, user)
 		writeJSON(w, http.StatusCreated, userResponse{UserID: user.ID, Login: user.Login, Role: user.Role})
 	}
+}
+
+// auditRegistered records who registered whom (003 D-11). It logs IDs and
+// the role only: never the login or the password.
+func (h *handlers) auditRegistered(r *http.Request, user domain.User) {
+	var actor domain.UserID
+	if p, ok := security.PrincipalFrom(r.Context()); ok {
+		actor = p.UserID
+	}
+	h.logger.InfoContext(r.Context(), "user registered",
+		slog.Int64("actor_user_id", int64(actor)),
+		slog.Int64("user_id", int64(user.ID)),
+		slog.String("role", string(user.Role)),
+	)
 }
 
 func (h *handlers) administradores(w http.ResponseWriter, _ *http.Request) {

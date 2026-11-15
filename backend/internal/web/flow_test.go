@@ -48,13 +48,30 @@ type flowApp struct {
 
 func newFlowApp(t *testing.T) flowApp {
 	t.Helper()
-	return newFlowAppWithLog(t, io.Discard)
+	return newFlowAppWith(t, flowConfig{})
 }
 
 // newFlowAppWithLog is newFlowApp with the log written to logOut.
 func newFlowAppWithLog(t *testing.T, logOut io.Writer) flowApp {
 	t.Helper()
-	logger := slog.New(NewLogHandler(slog.NewJSONHandler(logOut, nil)))
+	return newFlowAppWith(t, flowConfig{logOut: logOut})
+}
+
+// flowConfig customizes newFlowAppWith. The zero value discards the log,
+// uses the default Argon2 parameters and the fakeUsers service.
+type flowConfig struct {
+	logOut io.Writer
+	argon2 security.Argon2Params
+	// users builds the registration service from the app's Security.
+	users func(sec *security.Security) UserService
+}
+
+func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
+	t.Helper()
+	if cfg.logOut == nil {
+		cfg.logOut = io.Discard
+	}
+	logger := slog.New(NewLogHandler(slog.NewJSONHandler(cfg.logOut, nil)))
 	store := newMemSessions()
 	sec, err := security.New(security.Options{
 		Logger:                 logger,
@@ -63,11 +80,16 @@ func newFlowAppWithLog(t *testing.T, logOut io.Writer) flowApp {
 		SessionIdleTimeout:     time.Minute,
 		SessionAbsoluteTimeout: time.Hour,
 		RequestTimeout:         time.Minute,
+		Argon2:                 cfg.argon2,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: credAuth{}, Users: fakeUsers{}})
+	var users UserService = fakeUsers{}
+	if cfg.users != nil {
+		users = cfg.users(sec)
+	}
+	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: credAuth{}, Users: users})
 	if err != nil {
 		t.Fatal(err)
 	}

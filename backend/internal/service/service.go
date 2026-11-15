@@ -17,9 +17,12 @@ type UserRepository interface {
 }
 
 // PasswordHasher gera e verifica hashes de senha.
+//
+// Both methods wait for a slot of the hash semaphore and return the context
+// error if ctx ends first (D-19).
 type PasswordHasher interface {
-	HashPassword(password string) (string, error)
-	VerifyPassword(encodedHash, password string) error
+	HashPassword(ctx context.Context, password string) (string, error)
+	VerifyPassword(ctx context.Context, encodedHash, password string) error
 }
 
 // InputValidator valida dados de entrada antes de qualquer persistência.

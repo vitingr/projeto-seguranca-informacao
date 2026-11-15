@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -32,7 +33,15 @@ type Options struct {
 	// SessionIdleTimeout é o tempo máximo de inatividade. Obrigatório (> 0).
 	SessionIdleTimeout time.Duration
 	// Argon2 define os parâmetros de hash; o valor zero usa DefaultArgon2Params.
+	// A custom value must be within the limits that VerifyPassword accepts.
 	Argon2 Argon2Params
+	// MaxConcurrentHashes is the number of Argon2id computations that may
+	// run at once (D-19). Zero means runtime.GOMAXPROCS(0).
+	MaxConcurrentHashes int
+	// RequestTimeout is the context deadline of every request (D-21). It
+	// must be below the http.Server WriteTimeout so the error response is
+	// written before the connection is cut. Required (> 0).
+	RequestTimeout time.Duration
 	// Now é o relógio usado nas decisões de expiração; nil usa time.Now.
 	Now func() time.Time
 }
@@ -45,6 +54,8 @@ type Security struct {
 	renderError ErrorRenderer
 	idleTimeout time.Duration
 	argon2      Argon2Params
+	hashSlots   chan struct{}
+	reqTimeout  time.Duration
 	now         func() time.Time
 }
 
@@ -66,13 +77,26 @@ func New(opts Options) (*Security, error) {
 	if opts.SessionIdleTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("%w: SessionIdleTimeout deve ser positivo", ErrInvalidOptions))
 	}
+	if opts.RequestTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("%w: RequestTimeout must be positive", ErrInvalidOptions))
+	}
+	if opts.MaxConcurrentHashes < 0 {
+		errs = append(errs, fmt.Errorf("%w: MaxConcurrentHashes must not be negative", ErrInvalidOptions))
+	}
+	params := opts.Argon2
+	if params == (Argon2Params{}) {
+		params = DefaultArgon2Params()
+	}
+	if err := params.validate(); err != nil {
+		errs = append(errs, fmt.Errorf("%w: Argon2: %w", ErrInvalidOptions, err))
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 
-	params := opts.Argon2
-	if params == (Argon2Params{}) {
-		params = DefaultArgon2Params()
+	slots := opts.MaxConcurrentHashes
+	if slots == 0 {
+		slots = runtime.GOMAXPROCS(0)
 	}
 	now := opts.Now
 	if now == nil {
@@ -85,6 +109,8 @@ func New(opts Options) (*Security, error) {
 		renderError: opts.RenderError,
 		idleTimeout: opts.SessionIdleTimeout,
 		argon2:      params,
+		hashSlots:   make(chan struct{}, slots),
+		reqTimeout:  opts.RequestTimeout,
 		now:         now,
 	}, nil
 }

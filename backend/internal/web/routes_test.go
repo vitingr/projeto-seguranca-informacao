@@ -58,6 +58,7 @@ func newTestAppWithLog(t *testing.T, logOut io.Writer) (*handlers, http.Handler)
 		Sessions:           nopStore{},
 		RenderError:        WriteError,
 		SessionIdleTimeout: time.Minute,
+		RequestTimeout:     time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("security.New: %v", err)

@@ -4,6 +4,7 @@ package repository
 // banco com as migrations aplicadas. Sem a variável, são ignorados.
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -35,7 +36,13 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 	users, sessions := NewUsers(db), NewSessions(db)
 
 	login := "it_" + rand.Text()[:10]
-	t.Cleanup(func() { _, _ = db.ExecContext(ctx, `DELETE FROM users WHERE login = $1`, login) })
+	t.Cleanup(func() {
+		// t.Context() is already canceled when cleanups run, so the delete
+		// needs a context without that cancellation.
+		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
+			t.Errorf("cleanup: delete test user %s: %v", login, err)
+		}
+	})
 
 	id, err := users.Create(ctx, domain.User{Login: login, PasswordHash: "$argon2id$fake", Role: domain.RoleComum}) //nolint:gosec // fake hash fixture, not a real credential
 	if err != nil || id == 0 {

@@ -132,32 +132,6 @@ func TestCSRFRejectsUnsafeMethods(t *testing.T) {
 	}
 }
 
-func TestSessionStubNeverAuthenticates(t *testing.T) {
-	t.Parallel()
-
-	s := newTestSecurity(t, nil)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
-	req.AddCookie(&http.Cookie{
-		Name:     SessionCookieName,
-		Value:    "qualquer-valor",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	var principalFound bool
-	s.Session(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		_, principalFound = PrincipalFrom(r.Context())
-	})).ServeHTTP(httptest.NewRecorder(), req)
-
-	if principalFound {
-		t.Fatal("stub de sessão não pode autenticar ninguém")
-	}
-	if CSRFToken(req) != "" {
-		t.Fatal("stub não deve emitir token CSRF")
-	}
-}
-
 func TestPrincipalFromRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
@@ -184,16 +158,12 @@ func TestStubsFailClosed(t *testing.T) {
 	t.Parallel()
 
 	s := newTestSecurity(t, nil)
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", http.NoBody)
 
 	tests := []struct {
 		name    string
 		call    func() error
 		wantErr []error
 	}{
-		{"StartSession", func() error { return s.StartSession(rr, req, domain.User{ID: 1, Role: domain.RoleAdmin}) }, []error{domain.ErrNotImplemented}},
-		{"EndSession", func() error { return s.EndSession(rr, req) }, []error{domain.ErrNotImplemented}},
 		{"ParseRole admin", func() error { _, err := s.ParseRole("admin"); return err }, []error{domain.ErrInvalidInput}},
 	}
 	for _, tt := range tests {

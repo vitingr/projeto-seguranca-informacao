@@ -29,15 +29,16 @@ func TestLoad(t *testing.T) {
 			check: func(t *testing.T, c Config) {
 				t.Helper()
 				want := Config{
-					Addr:               ":8443",
-					TLSCertFile:        "certs/server.crt",
-					TLSKeyFile:         "certs/server.key",
-					DatabaseURL:        validDatabaseURL,
-					DBMaxOpenConns:     10,
-					DBMaxIdleConns:     5,
-					SessionIdleTimeout: 15 * time.Minute,
-					ShutdownTimeout:    15 * time.Second,
-					LogLevel:           slog.LevelInfo,
+					Addr:                   ":8443",
+					TLSCertFile:            "certs/server.crt",
+					TLSKeyFile:             "certs/server.key",
+					DatabaseURL:            validDatabaseURL,
+					DBMaxOpenConns:         10,
+					DBMaxIdleConns:         5,
+					SessionIdleTimeout:     15 * time.Minute,
+					SessionAbsoluteTimeout: 8 * time.Hour,
+					ShutdownTimeout:        15 * time.Second,
+					LogLevel:               slog.LevelInfo,
 				}
 				if c != want {
 					t.Errorf("Load() = %+v, want %+v", c, want)
@@ -47,21 +48,23 @@ func TestLoad(t *testing.T) {
 		{
 			name: "todos os valores sobrescritos",
 			env: map[string]string{ //nolint:gosec // test fixture, not a real credential
-				EnvAddr:               "127.0.0.1:9443",
-				EnvTLSCertFile:        "/certs/a.crt",
-				EnvTLSKeyFile:         "/certs/a.key",
-				EnvDatabaseURL:        "postgresql://u:p@db/x",
-				EnvDBMaxOpenConns:     "20",
-				EnvDBMaxIdleConns:     "20",
-				EnvSessionIdleTimeout: "30m",
-				EnvShutdownTimeout:    "5s",
-				EnvLogLevel:           "debug",
+				EnvAddr:                   "127.0.0.1:9443",
+				EnvTLSCertFile:            "/certs/a.crt",
+				EnvTLSKeyFile:             "/certs/a.key",
+				EnvDatabaseURL:            "postgresql://u:p@db/x",
+				EnvDBMaxOpenConns:         "20",
+				EnvDBMaxIdleConns:         "20",
+				EnvSessionIdleTimeout:     "30m",
+				EnvSessionAbsoluteTimeout: "12h",
+				EnvShutdownTimeout:        "5s",
+				EnvLogLevel:               "debug",
 			},
 			check: func(t *testing.T, c Config) {
 				t.Helper()
 				if c.Addr != "127.0.0.1:9443" || c.TLSCertFile != "/certs/a.crt" || c.TLSKeyFile != "/certs/a.key" ||
 					c.DBMaxOpenConns != 20 || c.DBMaxIdleConns != 20 ||
-					c.SessionIdleTimeout != 30*time.Minute || c.ShutdownTimeout != 5*time.Second ||
+					c.SessionIdleTimeout != 30*time.Minute || c.SessionAbsoluteTimeout != 12*time.Hour ||
+					c.ShutdownTimeout != 5*time.Second ||
 					c.LogLevel != slog.LevelDebug {
 					t.Errorf("Load() = %+v", c)
 				}
@@ -96,6 +99,31 @@ func TestLoad(t *testing.T) {
 			name:    "timeout de sessão acima do máximo",
 			env:     map[string]string{EnvDatabaseURL: validDatabaseURL, EnvSessionIdleTimeout: "48h"},
 			wantErr: []string{EnvSessionIdleTimeout},
+		},
+		{
+			name:    "absolute timeout below the minimum",
+			env:     map[string]string{EnvDatabaseURL: validDatabaseURL, EnvSessionAbsoluteTimeout: "30s"},
+			wantErr: []string{EnvSessionAbsoluteTimeout},
+		},
+		{
+			name:    "absolute timeout above the maximum",
+			env:     map[string]string{EnvDatabaseURL: validDatabaseURL, EnvSessionAbsoluteTimeout: "169h"},
+			wantErr: []string{EnvSessionAbsoluteTimeout},
+		},
+		{
+			name:    "absolute timeout below the idle timeout",
+			env:     map[string]string{EnvDatabaseURL: validDatabaseURL, EnvSessionIdleTimeout: "2h", EnvSessionAbsoluteTimeout: "1h"},
+			wantErr: []string{EnvSessionAbsoluteTimeout, EnvSessionIdleTimeout},
+		},
+		{
+			name: "absolute timeout equal to the idle timeout",
+			env:  map[string]string{EnvDatabaseURL: validDatabaseURL, EnvSessionIdleTimeout: "1h", EnvSessionAbsoluteTimeout: "1h"},
+			check: func(t *testing.T, c Config) {
+				t.Helper()
+				if c.SessionAbsoluteTimeout != time.Hour {
+					t.Errorf("SessionAbsoluteTimeout = %v, want 1h", c.SessionAbsoluteTimeout)
+				}
+			},
 		},
 		{
 			name:    "duração malformada",

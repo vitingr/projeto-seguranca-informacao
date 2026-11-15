@@ -39,11 +39,12 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	)
 	logger := slog.New(NewLogHandler(slog.NewJSONHandler(io.Discard, nil)))
 	sec, err := security.New(security.Options{
-		Logger:             logger,
-		Sessions:           nopStore{},
-		RenderError:        WriteError,
-		SessionIdleTimeout: time.Minute,
-		RequestTimeout:     requestTimeout,
+		Logger:                 logger,
+		Sessions:               nopStore{},
+		RenderError:            WriteError,
+		SessionIdleTimeout:     time.Minute,
+		SessionAbsoluteTimeout: time.Hour,
+		RequestTimeout:         requestTimeout,
 	})
 	if err != nil {
 		t.Fatal(err)

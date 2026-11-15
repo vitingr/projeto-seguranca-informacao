@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -44,6 +45,13 @@ func (nopStore) Delete(context.Context, []byte) error { return nil }
 
 func (nopStore) DeleteExpired(context.Context, time.Time) (int64, error) { return 0, nil }
 
+// failingCreateStore is a nopStore whose Create fails.
+type failingCreateStore struct{ nopStore }
+
+var errCreateSession = errors.New("create session failed")
+
+func (failingCreateStore) Create(context.Context, domain.Session) error { return errCreateSession }
+
 func newTestApp(t *testing.T) (*handlers, http.Handler) {
 	t.Helper()
 	return newTestAppWithLog(t, io.Discard)
@@ -52,13 +60,21 @@ func newTestApp(t *testing.T) (*handlers, http.Handler) {
 // newTestAppWithLog is newTestApp with the log written to logOut.
 func newTestAppWithLog(t *testing.T, logOut io.Writer) (*handlers, http.Handler) {
 	t.Helper()
+	return newTestAppWith(t, logOut, nopStore{})
+}
+
+// newTestAppWith is newTestApp with the log written to logOut and the
+// given session store.
+func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore) (*handlers, http.Handler) {
+	t.Helper()
 	logger := slog.New(NewLogHandler(slog.NewJSONHandler(logOut, nil)))
 	sec, err := security.New(security.Options{
-		Logger:             logger,
-		Sessions:           nopStore{},
-		RenderError:        WriteError,
-		SessionIdleTimeout: time.Minute,
-		RequestTimeout:     time.Minute,
+		Logger:                 logger,
+		Sessions:               store,
+		RenderError:            WriteError,
+		SessionIdleTimeout:     time.Minute,
+		SessionAbsoluteTimeout: time.Hour,
+		RequestTimeout:         time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("security.New: %v", err)
@@ -221,9 +237,58 @@ func TestCSRFEndpointTellsHeaderName(t *testing.T) {
 	if body.Header != security.CSRFHeaderName {
 		t.Errorf("header = %q, want %q", body.Header, security.CSRFHeaderName)
 	}
-	// Stub da etapa 1: nenhum token é emitido.
-	if body.CSRFToken != "" {
-		t.Errorf("stub não deveria emitir token, obteve %q", body.CSRFToken)
+	if len(body.CSRFToken) != 26 {
+		t.Errorf("csrf_token = %q, want a 26-character token", body.CSRFToken)
+	}
+	var cookie *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == security.SessionCookieName {
+			cookie = c
+		}
+	}
+	if cookie == nil || cookie.Value == "" || cookie.Value == body.CSRFToken ||
+		!cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteLaxMode || cookie.Path != "/" {
+		t.Errorf("session cookie = %+v, want a new HttpOnly, Secure, SameSite=Lax cookie (D-8)", cookie)
+	}
+}
+
+// TestOnlyCSRFEndpointCreatesSessions is D-8: without a session cookie, no
+// route but GET /api/csrf sets one.
+func TestOnlyCSRFEndpointCreatesSessions(t *testing.T) {
+	t.Parallel()
+
+	_, app := newTestApp(t)
+	tests := []struct {
+		method, path string
+		wantCookie   bool
+	}{
+		{http.MethodGet, "/api/csrf", true},
+		{http.MethodGet, "/healthz", false},
+		{http.MethodGet, "/api/me", false},
+		{http.MethodPost, "/api/login", false},
+		{http.MethodGet, "/api/nao-existe", false},
+	}
+	for _, tt := range tests {
+		rr := httptest.NewRecorder()
+		app.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, http.NoBody))
+		got := strings.Contains(strings.Join(rr.Header().Values("Set-Cookie"), ";"), security.SessionCookieName+"=")
+		if got != tt.wantCookie {
+			t.Errorf("%s %s: Set-Cookie for the session = %v, want %v", tt.method, tt.path, got, tt.wantCookie)
+		}
+	}
+}
+
+func TestCSRFEndpointStoreFailureIs500(t *testing.T) {
+	t.Parallel()
+
+	_, app := newTestAppWith(t, io.Discard, failingCreateStore{})
+	rr := httptest.NewRecorder()
+	app.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/csrf", http.NoBody))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rr.Code)
+	}
+	if len(rr.Header().Values("Set-Cookie")) != 0 {
+		t.Error("a cookie was set although the session was not stored")
 	}
 }
 
@@ -277,8 +342,8 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 		body        string
 		wantStatus  int // from the login handler itself
 	}{
-		// The fakeAuth accepts it and the StartSession stub fails, so the
-		// error is logged by RespondError.
+		// The fakeAuth accepts it and the store fails to create the
+		// session, so the error is logged by RespondError.
 		{"valid body", "application/json", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusInternalServerError},
 		{"wrong content type", "text/plain", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusBadRequest},
 		{"unknown field", "application/json", `{"login":"admin","senha":"x","` + sentinel + `":1}`, http.StatusBadRequest},
@@ -291,7 +356,7 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var logs bytes.Buffer
-			h, app := newTestAppWithLog(t, &logs)
+			h, app := newTestAppWith(t, &logs, failingCreateStore{})
 			newReq := func() *http.Request {
 				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(tt.body))
 				req.Header.Set("Content-Type", tt.contentType)

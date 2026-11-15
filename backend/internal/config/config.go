@@ -22,16 +22,20 @@ const (
 	EnvDBMaxOpenConns     = "DB_MAX_OPEN_CONNS"
 	EnvDBMaxIdleConns     = "DB_MAX_IDLE_CONNS"
 	EnvSessionIdleTimeout = "SESSION_IDLE_TIMEOUT"
-	EnvShutdownTimeout    = "SHUTDOWN_TIMEOUT"
-	EnvLogLevel           = "LOG_LEVEL"
-	EnvSeedAdminLogin     = "SEED_ADMIN_LOGIN"
-	EnvSeedAdminPassword  = "SEED_ADMIN_PASSWORD" //nolint:gosec // G101: nome da variável, não um segredo
+	// EnvSessionAbsoluteTimeout limits a session's total lifetime (D-18).
+	EnvSessionAbsoluteTimeout = "SESSION_ABSOLUTE_TIMEOUT"
+	EnvShutdownTimeout        = "SHUTDOWN_TIMEOUT"
+	EnvLogLevel               = "LOG_LEVEL"
+	EnvSeedAdminLogin         = "SEED_ADMIN_LOGIN"
+	EnvSeedAdminPassword      = "SEED_ADMIN_PASSWORD" //nolint:gosec // G101: nome da variável, não um segredo
 )
 
 // Limites aceitos para valores configuráveis.
 const (
 	minSessionIdleTimeout = time.Minute
 	maxSessionIdleTimeout = 24 * time.Hour
+	minSessionAbsTimeout  = time.Minute
+	maxSessionAbsTimeout  = 168 * time.Hour
 	maxShutdownTimeout    = 5 * time.Minute
 	maxDBConns            = 1000
 )
@@ -53,6 +57,10 @@ type Config struct {
 	DBMaxIdleConns int
 	// SessionIdleTimeout é o tempo de inatividade após o qual a sessão expira.
 	SessionIdleTimeout time.Duration
+	// SessionAbsoluteTimeout is the maximum lifetime of a session, counted
+	// from its creation (login), whatever its activity. It is at least
+	// SessionIdleTimeout (D-18).
+	SessionAbsoluteTimeout time.Duration
 	// ShutdownTimeout limita o graceful shutdown.
 	ShutdownTimeout time.Duration
 	// LogLevel é o nível mínimo de log.
@@ -70,6 +78,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Int("db_max_open_conns", c.DBMaxOpenConns),
 		slog.Int("db_max_idle_conns", c.DBMaxIdleConns),
 		slog.Duration("session_idle_timeout", c.SessionIdleTimeout),
+		slog.Duration("session_absolute_timeout", c.SessionAbsoluteTimeout),
 		slog.Duration("shutdown_timeout", c.ShutdownTimeout),
 		slog.String("log_level", c.LogLevel.String()),
 	)
@@ -88,8 +97,10 @@ func Load(getenv func(string) string) (Config, error) {
 		DBMaxOpenConns:     p.intInRange(EnvDBMaxOpenConns, 10, 1, maxDBConns),
 		DBMaxIdleConns:     p.intInRange(EnvDBMaxIdleConns, 5, 0, maxDBConns),
 		SessionIdleTimeout: p.durationInRange(EnvSessionIdleTimeout, 15*time.Minute, minSessionIdleTimeout, maxSessionIdleTimeout),
-		ShutdownTimeout:    p.durationInRange(EnvShutdownTimeout, 15*time.Second, time.Second, maxShutdownTimeout),
-		LogLevel:           p.logLevel(EnvLogLevel, slog.LevelInfo),
+		SessionAbsoluteTimeout: p.durationInRange(EnvSessionAbsoluteTimeout, 8*time.Hour,
+			minSessionAbsTimeout, maxSessionAbsTimeout),
+		ShutdownTimeout: p.durationInRange(EnvShutdownTimeout, 15*time.Second, time.Second, maxShutdownTimeout),
+		LogLevel:        p.logLevel(EnvLogLevel, slog.LevelInfo),
 	}
 
 	if _, _, err := net.SplitHostPort(cfg.Addr); err != nil {
@@ -97,6 +108,10 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.DatabaseURL != "" {
 		validateDatabaseURL(&p, cfg.DatabaseURL)
+	}
+	if cfg.SessionAbsoluteTimeout != 0 && cfg.SessionIdleTimeout != 0 &&
+		cfg.SessionAbsoluteTimeout < cfg.SessionIdleTimeout {
+		p.fail(EnvSessionAbsoluteTimeout, "must be at least "+EnvSessionIdleTimeout)
 	}
 	if cfg.DBMaxIdleConns > cfg.DBMaxOpenConns {
 		p.fail(EnvDBMaxIdleConns, "não pode ser maior que "+EnvDBMaxOpenConns)

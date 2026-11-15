@@ -18,3 +18,7 @@ runtime:
         test("status is ok", function () {
           expect(res.getBody().status).to.equal("ok");
         });
+        test("does not set a session cookie", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
+        });

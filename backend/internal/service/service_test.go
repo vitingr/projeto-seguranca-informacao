@@ -99,11 +99,12 @@ func (s *spyHasher) verifies() []string {
 func newSecurity(t *testing.T) *security.Security {
 	t.Helper()
 	sec, err := security.New(security.Options{
-		Logger:             slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		Sessions:           nopSessions{},
-		RenderError:        func(w http.ResponseWriter, _ *http.Request, status int) { w.WriteHeader(status) },
-		SessionIdleTimeout: time.Minute,
-		RequestTimeout:     time.Minute,
+		Logger:                 slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Sessions:               nopSessions{},
+		RenderError:            func(w http.ResponseWriter, _ *http.Request, status int) { w.WriteHeader(status) },
+		SessionIdleTimeout:     time.Minute,
+		SessionAbsoluteTimeout: time.Hour,
+		RequestTimeout:         time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("security.New: %v", err)

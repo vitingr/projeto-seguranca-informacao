@@ -6,6 +6,8 @@ import { backendSpkiHash } from './e2e/support/cert'
 // "migrateUp" and "seed" in backend/) and `pnpm dev` (HTTPS, backend
 // certificate). Every call goes through the browser and the /api proxy.
 export default defineConfig({
+  // next dev compiles each page on its first visit.
+  expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
   reporter: process.env.CI

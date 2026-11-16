@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   nodeEnv: z.union([z.literal('development'), z.literal('production')]),
-  baseUrl: z.string().trim().default('http://localhost:3000')
+  baseUrl: z.string().trim().default('https://localhost:3000')
 })
 
 export const env = envSchema.parse({

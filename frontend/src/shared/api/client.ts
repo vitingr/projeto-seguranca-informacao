@@ -10,6 +10,8 @@
 // - a 401 anywhere but POST /api/login discards the token and goes to the
 //   login page.
 
+import { LOGIN_PATH, loginUrl } from '@/shared/navigation/routes'
+
 import { type CsrfStore, csrfStore } from './csrf'
 import {
   type ApiError,
@@ -48,13 +50,6 @@ export interface ApiClient {
   register(input: CadastroRequest): Promise<Result<UserResponse>>
 }
 
-export const LOGIN_PATH = '/login'
-
-export function sessionExpiredUrl(currentPath: string): string {
-  const query = new URLSearchParams({ next: currentPath, sessao: 'expirada' })
-  return `${LOGIN_PATH}?${query}`
-}
-
 // Returned after a navigation to the login page: callers render nothing
 // more for a page that is going away.
 const never = <T>() => new Promise<T>(() => {})
@@ -87,7 +82,9 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
     }
     if (res.status === 401 && !unauthorizedIsAnswer) {
       deps.csrf.clear()
-      deps.navigation.go(sessionExpiredUrl(deps.navigation.currentPath()))
+      deps.navigation.go(
+        loginUrl(deps.navigation.currentPath(), { expired: true })
+      )
       return never()
     }
     return res

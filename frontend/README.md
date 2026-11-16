@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Dependencies added by the project
+
+Each dependency added after `create-next-app` is justified here.
+
+| Package | Kind | Why |
+|---|---|---|
+| `vitest` | dev | Unit tests (`pnpm test`): the API client, the session rules, form validation and the check that `src/shared/api/types.ts` matches `backend/api/openapi.json`. Runs in Node, without a DOM library. |
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

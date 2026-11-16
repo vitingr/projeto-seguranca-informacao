@@ -32,3 +32,25 @@ export const seedAdmin = () => ({
   login: requireEnv('SEED_ADMIN_LOGIN'),
   password: requireEnv('SEED_ADMIN_PASSWORD')
 })
+
+/**
+ * The comum test user of this run, created by e2e/comum.setup.ts. The
+ * credentials are generated once in the main process (playwright.config.ts)
+ * with a cryptographic generator and reach the workers through the
+ * environment. The `e2e.` prefix matches the backend README cleanup
+ * (003 D-13).
+ */
+export const comumUser = () => ({
+  login: requireEnv('E2E_COMUM_LOGIN'),
+  password: requireEnv('E2E_COMUM_PASSWORD')
+})
+
+export function generateComumCredentials(random: (bytes: number) => Buffer): {
+  login: string
+  password: string
+} {
+  return {
+    login: `e2e.${random(12).toString('hex')}`,
+    password: random(24).toString('base64url')
+  }
+}

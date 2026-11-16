@@ -7,11 +7,21 @@ on:
       - "frontend/**"
       # The unit tests check the frontend types against the contract.
       - "backend/api/openapi.json"
+      # The e2e job runs the flows against the backend stack, so backend
+      # code, migrations and dependencies can break it too.
+      - "backend/internal/**"
+      - "backend/cmd/**"
+      - "backend/migrations/**"
+      - "backend/go.mod"
       - ".github/workflows/frontend.yml"
   pull_request:
     paths:
       - "frontend/**"
       - "backend/api/openapi.json"
+      - "backend/internal/**"
+      - "backend/cmd/**"
+      - "backend/migrations/**"
+      - "backend/go.mod"
       - ".github/workflows/frontend.yml"
 
 permissions:
@@ -22,9 +32,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Same major as backend.yml; pnpm comes from "packageManager" in
+  # Same versions as backend.yml; pnpm comes from "packageManager" in
   # frontend/package.json through corepack (no third-party action).
+  GO_VERSION: "1.27.x"
   NODE_VERSION: "24"
+  NEXT_TELEMETRY_DISABLED: "1"
 
 defaults:
   run:
@@ -53,3 +65,67 @@ jobs:
         run: pnpm exec tsc --noEmit
       - name: Unit tests
         run: pnpm test
+
+  # Playwright against the full backend stack (app + PostgreSQL), started
+  # the same way as the e2e job of backend.yml. Playwright starts pnpm dev
+  # itself (webServer) because CI is set.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Create backend/.env with generated database and seed passwords
+        working-directory: backend
+        run: |
+          password="$(openssl rand -hex 24)"
+          seed_password="$(openssl rand -hex 16)"
+          echo "::add-mask::${password}"
+          echo "::add-mask::${seed_password}"
+          sed -e "s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=${password}/" \
+            -e "s/^SEED_ADMIN_PASSWORD=$/SEED_ADMIN_PASSWORD=${seed_password}/" \
+            .env.example > .env
+      - name: Generate the TLS certificate
+        working-directory: backend
+        run: go tool mage cert
+      - name: Start the backend stack
+        working-directory: backend
+        run: go tool mage dockerUp
+      - name: Apply the migrations
+        working-directory: backend
+        run: go tool mage migrateUp
+      - name: Create the seed administrator
+        working-directory: backend
+        run: go tool mage seed
+      - name: Enable pnpm through corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run the Playwright flows
+        run: pnpm e2e
+      - name: Upload the Playwright report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+      - name: Show the backend container logs
+        if: failure()
+        working-directory: backend
+        run: docker compose logs
+      - name: Stop the backend stack
+        if: always()
+        working-directory: backend
+        run: go tool mage dockerDown

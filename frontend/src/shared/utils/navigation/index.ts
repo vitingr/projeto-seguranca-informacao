@@ -2,16 +2,9 @@
 // Used by the server guard and the browser client.
 
 import type { Role } from '@/shared/api/types'
-
-export const LOGIN_PATH = '/login'
-
-export const PROTECTED_ROUTES = {
-  '/admin': 'admin',
-  '/cadastrar-usuarios': 'admin',
-  '/minha-conta': 'comum'
-} as const satisfies Record<string, Role>
-
-export type ProtectedRoute = keyof typeof PROTECTED_ROUTES
+import { LOGIN_PATH } from '@/shared/constants/navigation/login-path'
+import { PROTECTED_ROUTES } from '@/shared/constants/navigation/protected-routes'
+import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
 
 /** Where a user goes after login when there is no valid `next`. */
 export const landingFor = (role: Role): ProtectedRoute =>
@@ -26,7 +19,7 @@ const isProtectedRoute = (value: string): value is ProtectedRoute =>
  * other value (absolute URL, `//host`, `/login`, unknown path) is ignored,
  * so the login page cannot redirect anywhere else.
  */
-export function safeNext(next: unknown, role: Role): ProtectedRoute {
+export const safeNext = (next: unknown, role: Role): ProtectedRoute => {
   if (
     typeof next === 'string' &&
     isProtectedRoute(next) &&

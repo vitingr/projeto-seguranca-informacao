@@ -10,8 +10,8 @@
 // - a 401 anywhere but POST /api/login discards the token and goes to the
 //   login page.
 
-import { LOGIN_PATH, loginUrl } from '@/shared/navigation/routes'
-
+import { LOGIN_PATH } from '../constants/navigation/login-path'
+import { loginUrl } from '../utils/navigation'
 import { type CsrfStore, csrfStore } from './csrf'
 import {
   type ApiError,

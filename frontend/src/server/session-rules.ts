@@ -1,12 +1,7 @@
-// Session and access rules for protected pages (spec D-6). Pure functions
-// over a BackendGet, so they are unit-tested without Next.
-
 import { ROLES, type Role } from '@/shared/api/types'
-import {
-  PROTECTED_ROUTES,
-  type ProtectedRoute,
-  loginUrl
-} from '@/shared/navigation/routes'
+import { PROTECTED_ROUTES } from '@/shared/constants/navigation/protected-routes'
+import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
+import { loginUrl } from '@/shared/utils/navigation'
 
 import { type BackendGet, isSessionValue } from './backend'
 

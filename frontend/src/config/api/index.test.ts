@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_API_URL, parseApiUrl } from './api-url'
+import { DEFAULT_API_URL, parseApiUrl } from '.'
 
 describe('parseApiUrl', () => {
   it.each([

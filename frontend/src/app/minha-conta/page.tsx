@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { RoleArea } from '@/shared/components/role-area'
+import { RoleArea } from '@/shared/components/common/role-area'
 
 export const metadata: Metadata = { title: 'Minha conta' }
 

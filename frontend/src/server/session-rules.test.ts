@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Role } from '@/shared/api/types'
-import type { ProtectedRoute } from '@/shared/navigation/routes'
+import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
 
 import type { BackendAnswer, BackendGet } from './backend'
 import {

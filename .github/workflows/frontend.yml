@@ -1,0 +1,55 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      # The unit tests check the frontend types against the contract.
+      - "backend/api/openapi.json"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "backend/api/openapi.json"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Same major as backend.yml; pnpm comes from "packageManager" in
+  # frontend/package.json through corepack (no third-party action).
+  NODE_VERSION: "24"
+
+defaults:
+  run:
+    working-directory: frontend
+
+# Actions pinned by commit SHA, the same ones as backend.yml.
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Enable pnpm through corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Generate the route types
+        run: pnpm exec next typegen
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
+      - name: Unit tests
+        run: pnpm test

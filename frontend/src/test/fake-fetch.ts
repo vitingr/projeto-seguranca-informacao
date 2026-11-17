@@ -1,5 +1,3 @@
-// Test helper: a fetch that answers from a script and records every call.
-
 export interface RecordedCall {
   body?: unknown
   headers: Record<string, string>
@@ -54,7 +52,6 @@ export function fakeFetch(routes: Record<string, Reply[]>) {
   return { calls, fetch: fetchFn }
 }
 
-/** Resolves to 'pending' when the promise has not settled after a tick. */
 export async function settled<T>(promise: Promise<T>) {
   const marker = Symbol('pending')
   const result = await Promise.race([

@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
 
-import { parseApiUrl } from './src/config/api-url'
+import { parseApiUrl } from './src/config/api'
 
 // Throws at startup when API_URL is not an https origin.
 const apiUrl = parseApiUrl(process.env.API_URL)

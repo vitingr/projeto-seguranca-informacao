@@ -1,7 +1,6 @@
 import { cn } from 'cn'
 import type { ComponentProps } from 'react'
 
-/** A labelled input with its error message, wired for screen readers. */
 export const Field = ({
   className,
   error,

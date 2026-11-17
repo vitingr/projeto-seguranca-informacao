@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Role } from '@/shared/api/types'
 
-import { landingFor, loginUrl, safeNext } from './routes'
+import { landingFor, loginUrl, safeNext } from '.'
 
 describe('landingFor', () => {
   it.each<[Role, string]>([

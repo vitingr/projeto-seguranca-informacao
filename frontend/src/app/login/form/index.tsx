@@ -6,11 +6,14 @@ import { useForm } from 'react-hook-form'
 
 import { api } from '@/shared/api/client'
 import { MESSAGES, messageFor } from '@/shared/api/messages'
-import { Field, FormMessage } from '@/shared/components/ui/field'
 import { Button } from '@/shared/components/ui/shadcn/button'
-import { safeNext } from '@/shared/navigation/routes'
-import { type LoginValues, loginSchema } from '@/shared/validation/login'
+import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
+import { safeNext } from '@/shared/utils/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
+
+import { LOGIN_FORM_DEFAULT_VALUES } from './constants'
+import type { LoginValues } from './schemas'
+import { loginSchema } from './schemas'
 
 export const LoginForm = ({
   expired,
@@ -29,7 +32,7 @@ export const LoginForm = ({
     resetField,
     setFocus
   } = useForm<LoginValues>({
-    defaultValues: { login: '', senha: '' },
+    defaultValues: LOGIN_FORM_DEFAULT_VALUES,
     resolver: zodResolver(loginSchema)
   })
 

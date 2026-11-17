@@ -1,27 +1,18 @@
 import { requireArea, requireRole } from '@/server/session'
-import type { AreaPath } from '@/server/session-rules'
-import { AppHeader } from '@/shared/components/app-header'
-import { Forbidden } from '@/shared/components/forbidden'
-import type { ProtectedRoute } from '@/shared/navigation/routes'
+import { AppHeader } from '@/shared/components/common/app-header'
+import { Forbidden } from '@/shared/components/common/forbidden'
 
-/**
- * A role area page: the server checks the session and the role (/api/me),
- * then loads the area from the backend, which keeps the last word (its 403
- * wins even if /api/me allowed the role a moment before).
- */
-export async function RoleArea({
+import type { RoleAreaProps } from './types'
+
+export const RoleArea: React.FC<RoleAreaProps> = async ({
   description,
   endpoint,
   route,
   title
-}: {
-  description: string
-  endpoint: AreaPath
-  route: ProtectedRoute
-  title: string
-}) {
+}) => {
   const { allowed, user } = await requireRole(route)
   const area = allowed ? await requireArea(endpoint, route) : null
+
   return (
     <>
       <AppHeader role={user.role} />

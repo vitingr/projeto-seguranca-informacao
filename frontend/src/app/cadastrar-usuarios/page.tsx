@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 
 import { requireRole } from '@/server/session'
-import { AppHeader } from '@/shared/components/app-header'
-import { Forbidden } from '@/shared/components/forbidden'
+import { AppHeader } from '@/shared/components/common/app-header'
+import { Forbidden } from '@/shared/components/common/forbidden'
 
-import { CadastroForm } from './cadastro-form'
+import { CadastroForm } from './form'
 
 export const metadata: Metadata = { title: 'Cadastrar usuários' }
 

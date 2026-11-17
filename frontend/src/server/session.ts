@@ -4,8 +4,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
 
-import { parseApiUrl } from '@/config/api-url'
-import { type ProtectedRoute, loginUrl } from '@/shared/navigation/routes'
+import { parseApiUrl } from '@/config/api'
+import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
+import { loginUrl } from '@/shared/utils/navigation'
 
 import { SESSION_COOKIE, createBackendGet, isSessionValue } from './backend'
 import {

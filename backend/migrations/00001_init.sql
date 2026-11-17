@@ -9,9 +9,6 @@ CREATE TABLE users (
     CONSTRAINT users_role_check CHECK (role IN ('admin', 'comum'))
 );
 
--- Sessões no servidor. A chave é o SHA-256 do token (32 bytes); o token em
--- si só existe no cookie. user_id NULL = sessão anônima (pré-login, usada
--- para o token CSRF do formulário de login).
 CREATE TABLE sessions (
     token_hash   BYTEA       PRIMARY KEY,
     user_id      BIGINT      REFERENCES users (id) ON DELETE CASCADE,

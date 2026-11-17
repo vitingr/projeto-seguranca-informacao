@@ -5,21 +5,19 @@ import { useForm } from 'react-hook-form'
 
 import { api } from '@/shared/api/client'
 import { messageFor } from '@/shared/api/messages'
-import { Field, FormMessage } from '@/shared/components/ui/field'
 import { Button } from '@/shared/components/ui/shadcn/button'
-import {
-  type CadastroInput,
-  type CadastroValues,
-  cadastroSchema
-} from '@/shared/validation/cadastro'
+import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
 import { zodResolver } from '@hookform/resolvers/zod'
 
-const empty: CadastroInput = { login: '', papel: '', senha: '' }
+import { REGISTER_FORM_DEFAULT_VALUES } from './constants'
+import type { CadastroInput, CadastroValues } from './schemas'
+import { cadastroSchema } from './schemas'
 
 export const CadastroForm = () => {
   // Opt out of the React Compiler: with it, react-hook-form's reset() did
   // not clear the inputs after a successful registration (E2E, task 8).
   'use no memo'
+
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const {
@@ -29,14 +27,14 @@ export const CadastroForm = () => {
     reset,
     setError: setFieldError
   } = useForm<CadastroInput, unknown, CadastroValues>({
-    defaultValues: empty,
+    defaultValues: REGISTER_FORM_DEFAULT_VALUES,
     resolver: zodResolver(cadastroSchema)
   })
 
   // react-hook-form recommends resetting after the submission has settled,
   // not inside the submit handler (a reset there did not clear the inputs).
   useEffect(() => {
-    if (success) reset(empty)
+    if (success) reset(REGISTER_FORM_DEFAULT_VALUES)
   }, [success, reset])
 
   const onSubmit = async (values: CadastroValues) => {

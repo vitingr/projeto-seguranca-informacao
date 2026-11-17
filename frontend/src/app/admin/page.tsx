@@ -1,7 +1,16 @@
-import type { NextPage } from 'next'
+import type { Metadata } from 'next'
 
-const Page: NextPage = async () => {
-  return <main>admin</main>
-}
+import { RoleArea } from '@/shared/components/role-area'
+
+export const metadata: Metadata = { title: 'Área do administrador' }
+
+const Page = () => (
+  <RoleArea
+    description="Esta área é exclusiva para administradores."
+    endpoint="/api/administradores"
+    route="/admin"
+    title="Área do administrador"
+  />
+)
 
 export default Page

@@ -1,12 +1,3 @@
-// Command server é o composition root da aplicação: lê a configuração,
-// constrói as dependências e inicia o servidor HTTPS.
-//
-// Subcomandos:
-//
-//	server              inicia o servidor (padrão)
-//	server serve        idem
-//	server healthcheck  consulta GET /healthz local (usado pelo Docker)
-//	server seed         cria o primeiro administrador a partir do ambiente
 package main
 
 import (
@@ -31,7 +22,6 @@ import (
 	"backend_si/internal/web"
 )
 
-// Timeouts do servidor HTTP: explícitos para mitigar Slowloris e conexões presas.
 const (
 	readHeaderTimeout = 5 * time.Second
 	readTimeout       = 10 * time.Second
@@ -56,8 +46,6 @@ func main() {
 	}
 }
 
-// run despacha o subcomando. Todos os erros já são registrados no log;
-// o retorno serve apenas para definir o código de saída.
 func run(ctx context.Context, args []string, getenv func(string) string, stdout io.Writer) error {
 	level := new(slog.LevelVar)
 	logger := slog.New(web.NewLogHandler(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: level})))
@@ -163,7 +151,6 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("servidor HTTPS escutando", slog.String("addr", cfg.Addr))
-		// Certificado e chave já estão em tlsConfig.Certificates.
 		errCh <- srv.ListenAndServeTLS("", "")
 	}()
 
@@ -186,9 +173,6 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	return nil
 }
 
-// healthcheck consulta https://127.0.0.1:<porta>/healthz validando o
-// certificado do próprio servidor (sem InsecureSkipVerify). Usado pelo
-// HEALTHCHECK do Docker, já que a imagem distroless não tem curl.
 func healthcheck(ctx context.Context, cfg config.Config) error {
 	_, port, err := net.SplitHostPort(cfg.Addr)
 	if err != nil {
@@ -228,10 +212,6 @@ func healthcheck(ctx context.Context, cfg config.Config) error {
 	return nil
 }
 
-// seed cria o primeiro administrador a partir de SEED_ADMIN_LOGIN e
-// SEED_ADMIN_PASSWORD. The login is normalized to lowercase and must match
-// the login rule; the password must follow the password policy. Running it
-// again with the same login fails with a conflict.
 func seed(ctx context.Context, cfg config.Config, getenv func(string) string, logger *slog.Logger) error {
 	creds, err := config.LoadSeed(getenv)
 	if err != nil {

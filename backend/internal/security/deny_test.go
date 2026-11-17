@@ -1,7 +1,5 @@
 package security
 
-// Testes do comportamento de negação por padrão (fail closed).
-
 import (
 	"context"
 	"testing"

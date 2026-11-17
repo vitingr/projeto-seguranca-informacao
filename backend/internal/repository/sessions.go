@@ -10,17 +10,14 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Sessions é o repositório da tabela sessions. Satisfaz security.SessionStore.
 type Sessions struct {
 	db *sql.DB
 }
 
-// NewSessions cria o repositório de sessões.
 func NewSessions(db *sql.DB) *Sessions {
 	return &Sessions{db: db}
 }
 
-// Create grava uma sessão. UserID zero é gravado como NULL (sessão anônima).
 func (r *Sessions) Create(ctx context.Context, s domain.Session) error {
 	const q = `INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)`
@@ -32,8 +29,6 @@ func (r *Sessions) Create(ctx context.Context, s domain.Session) error {
 	return nil
 }
 
-// Get busca a sessão pelo hash do token, trazendo o papel atual do usuário.
-// A decisão sobre expiração cabe ao pacote security.
 func (r *Sessions) Get(ctx context.Context, tokenHash []byte) (domain.Session, error) {
 	const q = `SELECT s.token_hash, s.user_id, u.role, s.csrf_token, s.created_at, s.last_seen_at, s.expires_at
 		FROM sessions s
@@ -58,7 +53,6 @@ func (r *Sessions) Get(ctx context.Context, tokenHash []byte) (domain.Session, e
 	return s, nil
 }
 
-// Touch atualiza a última atividade e a nova expiração da sessão.
 func (r *Sessions) Touch(ctx context.Context, tokenHash []byte, lastSeenAt, expiresAt time.Time) error {
 	const q = `UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1`
 
@@ -76,7 +70,6 @@ func (r *Sessions) Touch(ctx context.Context, tokenHash []byte, lastSeenAt, expi
 	return nil
 }
 
-// Delete remove a sessão. Remover uma sessão inexistente não é erro.
 func (r *Sessions) Delete(ctx context.Context, tokenHash []byte) error {
 	const q = `DELETE FROM sessions WHERE token_hash = $1`
 
@@ -86,7 +79,6 @@ func (r *Sessions) Delete(ctx context.Context, tokenHash []byte) error {
 	return nil
 }
 
-// DeleteExpired remove as sessões com expires_at <= now.
 func (r *Sessions) DeleteExpired(ctx context.Context, now time.Time) (int64, error) {
 	const q = `DELETE FROM sessions WHERE expires_at <= $1`
 

@@ -10,15 +10,11 @@ import (
 
 type requestIDKey struct{}
 
-// RequestIDFrom retorna o request ID do contexto ou "" se ausente.
 func RequestIDFrom(ctx context.Context) string {
 	id, _ := ctx.Value(requestIDKey{}).(string)
 	return id
 }
 
-// requestID gera um identificador aleatório por requisição, coloca-o no
-// contexto e no cabeçalho X-Request-Id. O valor enviado pelo cliente é
-// ignorado para impedir injeção em logs.
 func requestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := rand.Text()
@@ -27,8 +23,6 @@ func requestID(next http.Handler) http.Handler {
 	})
 }
 
-// accessLog registra uma linha por requisição. Registra apenas o caminho,
-// nunca a query string nem o corpo (podem conter dados sensíveis).
 func accessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +39,6 @@ func accessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// statusRecorder captura o status escrito pelo handler.
 type statusRecorder struct {
 	http.ResponseWriter
 	status      int
@@ -65,13 +58,10 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return s.ResponseWriter.Write(b)
 }
 
-// Unwrap permite que http.ResponseController alcance o writer original.
 func (s *statusRecorder) Unwrap() http.ResponseWriter {
 	return s.ResponseWriter
 }
 
-// NewLogHandler envolve h para incluir automaticamente o request_id do
-// contexto em todo registro feito com os métodos *Context do slog.
 func NewLogHandler(h slog.Handler) slog.Handler {
 	return logHandler{Handler: h}
 }

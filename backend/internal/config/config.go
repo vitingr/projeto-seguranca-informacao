@@ -1,6 +1,3 @@
-// Package config carrega e valida a configuração da aplicação a partir de
-// variáveis de ambiente. Qualquer valor inválido interrompe a inicialização
-// (falha rápida). Nenhum segredo tem valor padrão.
 package config
 
 import (
@@ -13,7 +10,6 @@ import (
 	"time"
 )
 
-// Nomes das variáveis de ambiente lidas pela aplicação.
 const (
 	EnvAddr               = "APP_ADDR"
 	EnvTLSCertFile        = "APP_TLS_CERT_FILE"
@@ -27,10 +23,9 @@ const (
 	EnvShutdownTimeout        = "SHUTDOWN_TIMEOUT"
 	EnvLogLevel               = "LOG_LEVEL"
 	EnvSeedAdminLogin         = "SEED_ADMIN_LOGIN"
-	EnvSeedAdminPassword      = "SEED_ADMIN_PASSWORD" //nolint:gosec // G101: nome da variável, não um segredo
+	EnvSeedAdminPassword      = "SEED_ADMIN_PASSWORD" //nolint:gosec
 )
 
-// Limites aceitos para valores configuráveis.
 const (
 	minSessionIdleTimeout = time.Minute
 	maxSessionIdleTimeout = 24 * time.Hour
@@ -40,35 +35,24 @@ const (
 	maxDBConns            = 1000
 )
 
-// ErrInvalid é encapsulado por todo erro de validação retornado por Load.
 var ErrInvalid = errors.New("invalid configuration")
 
-// Config é a configuração do servidor.
 type Config struct {
-	// Addr é o endereço de escuta HTTPS (ex.: ":8443").
-	Addr string
-	// TLSCertFile e TLSKeyFile apontam para o certificado e a chave em PEM.
-	TLSCertFile string
-	TLSKeyFile  string
-	// DatabaseURL é a URL de conexão do PostgreSQL. Contém segredo.
-	DatabaseURL string
-	// DBMaxOpenConns e DBMaxIdleConns dimensionam o pool de conexões.
-	DBMaxOpenConns int
-	DBMaxIdleConns int
-	// SessionIdleTimeout é o tempo de inatividade após o qual a sessão expira.
+	Addr               string
+	TLSCertFile        string
+	TLSKeyFile         string
+	DatabaseURL        string
+	DBMaxOpenConns     int
+	DBMaxIdleConns     int
 	SessionIdleTimeout time.Duration
 	// SessionAbsoluteTimeout is the maximum lifetime of a session, counted
 	// from its creation (login), whatever its activity. It is at least
 	// SessionIdleTimeout (D-18).
 	SessionAbsoluteTimeout time.Duration
-	// ShutdownTimeout limita o graceful shutdown.
-	ShutdownTimeout time.Duration
-	// LogLevel é o nível mínimo de log.
-	LogLevel slog.Level
+	ShutdownTimeout        time.Duration
+	LogLevel               slog.Level
 }
 
-// LogValue implementa slog.LogValuer omitindo segredos, para que a
-// configuração possa ser registrada com segurança na inicialização.
 func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("addr", c.Addr),
@@ -84,8 +68,6 @@ func (c Config) LogValue() slog.Value {
 	)
 }
 
-// Load lê a configuração usando getenv (normalmente os.Getenv) e valida
-// todos os campos. Todos os problemas encontrados são reportados juntos.
 func Load(getenv func(string) string) (Config, error) {
 	p := parser{getenv: getenv}
 
@@ -123,14 +105,11 @@ func Load(getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
-// Seed contém as credenciais do primeiro administrador (comando seed).
 type Seed struct {
 	AdminLogin    string
 	AdminPassword string
 }
 
-// LoadSeed lê as credenciais do primeiro administrador. As regras de força
-// da senha são aplicadas pelo pacote security, não aqui.
 func LoadSeed(getenv func(string) string) (Seed, error) {
 	p := parser{getenv: getenv}
 	s := Seed{
@@ -146,7 +125,6 @@ func LoadSeed(getenv func(string) string) (Seed, error) {
 func validateDatabaseURL(p *parser, raw string) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		// Não inclui err: a mensagem do parser pode conter a senha.
 		p.fail(EnvDatabaseURL, "URL inválida")
 		return
 	}
@@ -158,7 +136,6 @@ func validateDatabaseURL(p *parser, raw string) {
 	}
 }
 
-// parser acumula erros de validação para reportá-los de uma só vez.
 type parser struct {
 	getenv func(string) string
 	errs   []error

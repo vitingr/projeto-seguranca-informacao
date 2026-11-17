@@ -9,15 +9,8 @@ import (
 	"backend_si/internal/domain"
 )
 
-// ErrorRenderer escreve a resposta genérica de erro para o status informado.
-// É fornecido pela camada web (JSON); nunca deve expor detalhes internos.
 type ErrorRenderer func(w http.ResponseWriter, r *http.Request, status int)
 
-// Recover captura panics dos handlers, registra o valor e a stack trace no
-// log (com o request ID do contexto) e responde 500 com o erro genérico,
-// sem expor nenhum detalhe ao usuário.
-//
-// http.ErrAbortHandler é repassado, preservando a semântica do net/http.
 func (s *Security) Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer s.recoverPanic(w, r)
@@ -25,8 +18,6 @@ func (s *Security) Recover(next http.Handler) http.Handler {
 	})
 }
 
-// recoverPanic precisa ser chamada diretamente por defer para que recover()
-// capture o panic do handler.
 func (s *Security) recoverPanic(w http.ResponseWriter, r *http.Request) {
 	rec := recover()
 	if rec == nil {
@@ -44,11 +35,6 @@ func (s *Security) recoverPanic(w http.ResponseWriter, r *http.Request) {
 	s.renderError(w, r, http.StatusInternalServerError)
 }
 
-// RespondError registra err no log e responde com o erro genérico
-// correspondente, sem expor a mensagem do erro ao usuário.
-//
-// Domain errors map to their status (see statusFor); anything else, nil
-// included, is 500. 5xx is logged at Error and 4xx at Warn (003 D-6).
 func (s *Security) RespondError(w http.ResponseWriter, r *http.Request, err error) {
 	status := statusFor(err)
 	level := slog.LevelWarn

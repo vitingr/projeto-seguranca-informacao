@@ -136,7 +136,6 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/me", false, ambos},
 		{"POST /api/cadastro", false, admin},
 		{"GET /api/administradores", false, admin},
-		// Administradores NÃO acessam /usuarios.
 		{"GET /api/usuarios", false, comum},
 	}
 	if len(tests) != len(byPattern) {
@@ -169,7 +168,7 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 		path       string
 		body       string
 		wantStatus int
-		wantError  string // código em "error"; vazio = resposta de sucesso
+		wantError  string
 	}{
 		{"healthz público", http.MethodGet, "/healthz", "", http.StatusOK, ""},
 		{"csrf público", http.MethodGet, "/api/csrf", "", http.StatusOK, ""},
@@ -197,7 +196,6 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 			if ct := rr.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
 				t.Errorf("Content-Type = %q", ct)
 			}
-			// Toda resposta passa pela cadeia completa.
 			if rr.Header().Get("Content-Security-Policy") == "" {
 				t.Error("cabeçalhos de segurança ausentes")
 			}

@@ -14,7 +14,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Argon2Params são os parâmetros do Argon2id.
 type Argon2Params struct {
 	Memory      uint32 // KiB
 	Iterations  uint32
@@ -23,8 +22,6 @@ type Argon2Params struct {
 	KeyLength   uint32 // bytes
 }
 
-// DefaultArgon2Params retorna a segunda configuração recomendada pela
-// RFC 9106 (64 MiB, t=3, p=4), com sal de 16 bytes e hash de 32 bytes.
 func DefaultArgon2Params() Argon2Params {
 	return Argon2Params{
 		Memory:      64 * 1024,
@@ -63,22 +60,12 @@ func (p Argon2Params) validate() error {
 	return nil
 }
 
-// phcEncoding is the PHC base64: standard alphabet, no padding, and no
-// non-canonical trailing bits.
 var phcEncoding = base64.RawStdEncoding.Strict()
 
 // errBadHash is returned for every malformed or out-of-limits PHC string.
 // It does not say which part is wrong, so the error is safe to log.
 var errBadHash = fmt.Errorf("security: verify password: malformed hash: %w", domain.ErrInvalidCredentials)
 
-// HashPassword gera o hash Argon2id da senha com sal aleatório
-// (crypto/rand) e o codifica no formato PHC:
-//
-//	$argon2id$v=19$m=65536,t=3,p=4$<sal-base64>$<hash-base64>
-//
-// The password is normalized to NFKC first (D-14). Argon2id runs only after
-// a slot of the hash semaphore is taken (D-19); if ctx ends while waiting,
-// the context error is returned.
 func (s *Security) HashPassword(ctx context.Context, password string) (string, error) {
 	p := s.argon2
 	salt := make([]byte, p.SaltLength)
@@ -94,15 +81,6 @@ func (s *Security) HashPassword(ctx context.Context, password string) (string, e
 		argon2.Version, formatParams(p), phcEncoding.EncodeToString(salt), phcEncoding.EncodeToString(key)), nil
 }
 
-// VerifyPassword compara a senha com um hash PHC em tempo constante.
-// Retorna nil somente quando a senha confere; qualquer outro caso
-// (incluindo hash malformado) retorna erro que encapsula
-// domain.ErrInvalidCredentials.
-//
-// The exception is ctx ending while waiting for a semaphore slot (D-19):
-// that returns the context error, which is a server failure (500), not a
-// credential failure. The parameters come from the hash and must be within
-// the D-15 limits.
 func (s *Security) VerifyPassword(ctx context.Context, encodedHash, password string) error {
 	p, salt, want, ok := parsePHC(encodedHash)
 	if !ok {

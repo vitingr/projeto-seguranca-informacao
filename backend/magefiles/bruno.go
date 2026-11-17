@@ -61,21 +61,6 @@ func Bruno() error {
 	return syncGenerated(filepath.Join(tmp, brunoCollection), brunoDir, brunoHandWritten)
 }
 
-// BrunoRun runs the assertions in bruno/tests against the running API and
-// writes bruno-report.xml (JUnit). It targets https://localhost, which is the
-// API started by "mage dockerUp". Set BRUNO_BASE_URL for another address,
-// such as https://localhost:8443 for "mage run". Requires Node.js with npx.
-//
-// The login flow uses the seed administrator: SEED_ADMIN_LOGIN and
-// SEED_ADMIN_PASSWORD come from the environment or .env and reach the bru
-// process as environment variables, never as arguments. Run "mage seed"
-// first.
-//
-// The root requests of tests/ run first, then tests/access-matrix, in that
-// order and with a shared cookie jar (003 D-15). The access matrix registers
-// a comum user whose credentials are generated for each run (003 D-13), so
-// every run leaves one e2e.* user behind; the README explains how to delete
-// them.
 func BrunoRun() error {
 	override := os.Getenv("BRUNO_BASE_URL")
 	if err := checkLocalBaseURL(override); err != nil {

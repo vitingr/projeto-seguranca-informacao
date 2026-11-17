@@ -9,18 +9,14 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Users é o repositório da tabela users.
 type Users struct {
 	db *sql.DB
 }
 
-// NewUsers cria o repositório de usuários.
 func NewUsers(db *sql.DB) *Users {
 	return &Users{db: db}
 }
 
-// Create insere o usuário e retorna o ID gerado. Login duplicado resulta
-// em erro que encapsula domain.ErrConflict.
 func (r *Users) Create(ctx context.Context, u domain.User) (domain.UserID, error) {
 	const q = `INSERT INTO users (login, password_hash, role) VALUES ($1, $2, $3) RETURNING id`
 
@@ -35,8 +31,6 @@ func (r *Users) Create(ctx context.Context, u domain.User) (domain.UserID, error
 	return id, nil
 }
 
-// GetByLogin busca o usuário pelo login. Retorna erro que encapsula
-// domain.ErrNotFound quando não existe.
 func (r *Users) GetByLogin(ctx context.Context, login string) (domain.User, error) {
 	const q = `SELECT id, login, password_hash, role, created_at FROM users WHERE login = $1`
 

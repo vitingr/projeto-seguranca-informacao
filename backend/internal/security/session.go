@@ -13,29 +13,19 @@ import (
 	"backend_si/internal/domain"
 )
 
-// SessionCookieName é o nome do cookie de sessão. O prefixo __Host- obriga o
-// navegador a exigir Secure, Path=/ e ausência de Domain.
 const SessionCookieName = "__Host-session"
 
 // tokenLength is the length of rand.Text(): 26 base32 characters (128 bits).
 const tokenLength = 26
 
-// SessionStore persiste sessões no servidor. É implementada pelo pacote
-// repository; as chaves são sempre o hash SHA-256 do token, nunca o token.
 type SessionStore interface {
-	// Create grava uma nova sessão.
 	Create(ctx context.Context, s domain.Session) error
-	// Get retorna a sessão pelo hash do token ou domain.ErrNotFound.
 	Get(ctx context.Context, tokenHash []byte) (domain.Session, error)
-	// Touch renova a atividade da sessão (expiração deslizante).
 	Touch(ctx context.Context, tokenHash []byte, lastSeenAt, expiresAt time.Time) error
-	// Delete remove a sessão (logout ou regeneração de ID).
 	Delete(ctx context.Context, tokenHash []byte) error
-	// DeleteExpired remove as sessões expiradas até now e retorna quantas foram removidas.
 	DeleteExpired(ctx context.Context, now time.Time) (int64, error)
 }
 
-// Principal identifica o usuário autenticado de uma requisição.
 type Principal struct {
 	UserID domain.UserID
 	Role   domain.Role
@@ -43,8 +33,6 @@ type Principal struct {
 
 type principalKey struct{}
 
-// PrincipalFrom retorna o usuário autenticado da requisição, se houver.
-// Só o middleware Session coloca um Principal no contexto.
 func PrincipalFrom(ctx context.Context) (Principal, bool) {
 	p, ok := ctx.Value(principalKey{}).(Principal)
 	return p, ok && p.UserID != 0 && p.Role.Valid()
@@ -64,15 +52,6 @@ func sessionFrom(ctx context.Context) (sessionState, bool) {
 	return st, ok && len(st.tokenHash) == sha256.Size
 }
 
-// Session carrega a sessão do cookie, aplica a expiração por inatividade e
-// disponibiliza o Principal e o token CSRF no contexto da requisição.
-//
-// It only loads existing sessions: a request without a valid session
-// continues as anonymous and nothing is written (D-8). Only CSRFToken
-// creates an anonymous session. A session past its idle or absolute timeout
-// (D-18) is deleted and the request is anonymous (D-9). A valid session is
-// touched on every request (D-10). A store failure is a 500, never
-// "continue as anonymous" (constitution §2).
 func (s *Security) Session(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(SessionCookieName)
@@ -150,12 +129,6 @@ func (s *Security) expiresAt(createdAt, now time.Time) time.Time {
 	return idle
 }
 
-// StartSession deve ser chamada após um login bem-sucedido: descarta a
-// sessão anônima atual e cria uma nova com token e CSRF novos (regeneração
-// de ID, contra fixação de sessão).
-//
-// The new session starts the absolute window (D-18). Clients must fetch
-// GET /api/csrf again, because the CSRF token changes (D-4).
 func (s *Security) StartSession(w http.ResponseWriter, r *http.Request, user domain.User) error {
 	if user.ID == 0 || !user.Role.Valid() {
 		return errInvalidSessionUser
@@ -169,9 +142,6 @@ func (s *Security) StartSession(w http.ResponseWriter, r *http.Request, user dom
 	return nil
 }
 
-// EndSession encerra a sessão atual no servidor e expira o cookie.
-//
-// The cookie is expired even when the request has no session.
 func (s *Security) EndSession(w http.ResponseWriter, r *http.Request) error {
 	if err := s.deleteCurrent(r.Context()); err != nil {
 		return fmt.Errorf("security: end session: %w", err)

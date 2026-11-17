@@ -1,7 +1,3 @@
-// Package repository implementa o acesso a dados no PostgreSQL.
-//
-// Regra: somente queries parametrizadas ($1, $2...). Nenhum valor vindo do
-// usuário é concatenado em SQL.
 package repository
 
 import (
@@ -21,18 +17,14 @@ const (
 	connMaxLifetime = 30 * time.Minute
 	connMaxIdleTime = 5 * time.Minute
 
-	// pgUniqueViolation é o SQLSTATE de violação de unicidade.
 	pgUniqueViolation = "23505"
 )
 
-// PoolOptions dimensiona o pool de conexões.
 type PoolOptions struct {
 	MaxOpenConns int
 	MaxIdleConns int
 }
 
-// Open cria o pool database/sql com o driver pgx e verifica a conexão com
-// um ping. Erros não incluem a URL (que contém a senha).
 func Open(ctx context.Context, databaseURL string, opts PoolOptions) (*sql.DB, error) {
 	cfg, err := pgx.ParseConfig(databaseURL)
 	if err != nil {

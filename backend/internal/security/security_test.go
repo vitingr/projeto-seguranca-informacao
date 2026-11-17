@@ -14,7 +14,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// fakeStore é um SessionStore em memória que não encontra nada.
 type fakeStore struct{}
 
 func (fakeStore) Create(context.Context, domain.Session) error { return nil }
@@ -29,7 +28,6 @@ func (fakeStore) Delete(context.Context, []byte) error { return nil }
 
 func (fakeStore) DeleteExpired(context.Context, time.Time) (int64, error) { return 0, nil }
 
-// renderStatus é um ErrorRenderer de teste que escreve apenas o status.
 func renderStatus(w http.ResponseWriter, _ *http.Request, status int) {
 	w.WriteHeader(status)
 	_, _ = io.WriteString(w, http.StatusText(status))
@@ -73,7 +71,6 @@ func newTestSecurity(t *testing.T, logOut io.Writer) *Security {
 	return s
 }
 
-// okHandler marca se foi executado.
 func okHandler(called *bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		*called = true
@@ -148,7 +145,7 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	tests := []struct {
 		header string
-		want   string // trecho obrigatório
+		want   string
 	}{
 		{"Content-Security-Policy", "default-src 'none'"},
 		{"Content-Security-Policy", "frame-ancestors 'none'"},
@@ -208,7 +205,7 @@ func TestRecoverRepanicsErrAbortHandler(t *testing.T) {
 	s := newTestSecurity(t, nil)
 	h := s.Recover(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic(http.ErrAbortHandler) }))
 	defer func() {
-		if rec := recover(); rec != http.ErrAbortHandler { //nolint:errorlint // comparação de identidade do valor do panic
+		if rec := recover(); rec != http.ErrAbortHandler { //nolint:errorlint
 			t.Errorf("recover() = %v, want http.ErrAbortHandler", rec)
 		}
 	}()

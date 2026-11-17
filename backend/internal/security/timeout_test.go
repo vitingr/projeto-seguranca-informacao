@@ -43,11 +43,6 @@ func TestRequestTimeoutSetsDeadline(t *testing.T) {
 	}
 }
 
-// TestHashWaitEndsAtRequestDeadline is the D-21 check: with every hash slot
-// busy, a request that needs a hash must end at the RequestTimeout deadline
-// with a 500, before the server WriteTimeout, on HTTP/1.1 as well as on
-// HTTP/2. On HTTP/1.1 the http.Server timeouts alone never cancel the
-// request context, so without RequestTimeout the wait would have no limit.
 func TestHashWaitEndsAtRequestDeadline(t *testing.T) {
 	t.Parallel()
 

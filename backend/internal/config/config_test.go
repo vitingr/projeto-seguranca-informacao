@@ -20,7 +20,7 @@ func TestLoad(t *testing.T) {
 	tests := []struct {
 		name    string
 		env     map[string]string
-		wantErr []string // trechos esperados na mensagem (vazio = sucesso)
+		wantErr []string
 		check   func(t *testing.T, c Config)
 	}{
 		{

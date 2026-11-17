@@ -1,8 +1,5 @@
 package repository
 
-// Testes de integração: rodam apenas com TEST_DATABASE_URL apontando para um
-// banco com as migrations aplicadas. Sem a variável, são ignorados.
-
 import (
 	"context"
 	"crypto/rand"
@@ -61,7 +58,6 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 	if err != nil || u.ID != id || u.Role != domain.RoleComum {
 		t.Fatalf("GetByLogin = %+v, %v", u, err)
 	}
-	// Injeção clássica tratada como dado, não como SQL.
 	_, err = users.GetByLogin(ctx, "' OR '1'='1")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("GetByLogin com payload de injeção: erro = %v, want ErrNotFound", err)

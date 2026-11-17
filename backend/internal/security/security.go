@@ -1,12 +1,3 @@
-// Package security é o ÚNICO ponto de segurança da aplicação.
-//
-// Todos os controles ficam aqui: TLS (tls.go), cabeçalhos HTTP (headers.go),
-// sessão (session.go), CSRF (csrf.go), autorização por papéis (authz.go),
-// hash de senha (password.go), validação de entrada (validation.go) e
-// tratamento de erros (errors.go). Os demais pacotes apenas consomem esta API.
-//
-// Princípio geral: falhar fechado. Tudo o que não for explicitamente
-// permitido é negado, inclusive o valor zero dos tipos de política.
 package security
 
 import (
@@ -18,25 +9,17 @@ import (
 	"time"
 )
 
-// Middleware decora um http.Handler.
 type Middleware func(http.Handler) http.Handler
 
-// Options reúne as dependências e os parâmetros de Security.
 type Options struct {
-	// Logger recebe os eventos de segurança. Obrigatório.
-	Logger *slog.Logger
-	// Sessions persiste as sessões no servidor. Obrigatório.
-	Sessions SessionStore
-	// RenderError escreve a resposta genérica de erro. Obrigatório.
-	RenderError ErrorRenderer
-	// SessionIdleTimeout é o tempo máximo de inatividade. Obrigatório (> 0).
+	Logger             *slog.Logger
+	Sessions           SessionStore
+	RenderError        ErrorRenderer
 	SessionIdleTimeout time.Duration
 	// SessionAbsoluteTimeout is the maximum lifetime of a session from its
 	// creation, whatever its activity (D-18). Required (>= idle timeout).
 	SessionAbsoluteTimeout time.Duration
-	// Argon2 define os parâmetros de hash; o valor zero usa DefaultArgon2Params.
-	// A custom value must be within the limits that VerifyPassword accepts.
-	Argon2 Argon2Params
+	Argon2                 Argon2Params
 	// MaxConcurrentHashes is the number of Argon2id computations that may
 	// run at once (D-19). Zero means runtime.GOMAXPROCS(0).
 	MaxConcurrentHashes int
@@ -44,12 +27,9 @@ type Options struct {
 	// must be below the http.Server WriteTimeout so the error response is
 	// written before the connection is cut. Required (> 0).
 	RequestTimeout time.Duration
-	// Now é o relógio usado nas decisões de expiração; nil usa time.Now.
-	Now func() time.Time
+	Now            func() time.Time
 }
 
-// Security é a fachada que expõe todos os mecanismos de segurança.
-// Crie com New; o valor zero não é utilizável.
 type Security struct {
 	logger      *slog.Logger
 	sessions    SessionStore
@@ -65,10 +45,8 @@ type Security struct {
 	crossOrigin *http.CrossOriginProtection
 }
 
-// ErrInvalidOptions é encapsulado pelos erros de validação de New.
 var ErrInvalidOptions = errors.New("security: invalid options")
 
-// New valida as opções e constrói a fachada de segurança.
 func New(opts Options) (*Security, error) {
 	var errs []error
 	if opts.Logger == nil {
@@ -126,7 +104,6 @@ func New(opts Options) (*Security, error) {
 	}, nil
 }
 
-// deny registra a negação e responde com o erro genérico.
 func (s *Security) deny(w http.ResponseWriter, r *http.Request, status int, reason string) {
 	s.logger.WarnContext(r.Context(), "security: acesso negado",
 		slog.String("reason", reason),

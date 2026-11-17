@@ -1,6 +1,5 @@
 //go:build mage
 
-// Magefile do projeto. Execute "go tool mage -l" para listar os alvos.
 package main
 
 import (
@@ -52,12 +51,10 @@ const (
 	redoclyCLI    = "@redocly/cli@2.72.1"
 )
 
-// Build compila o binário em bin/backend_si.
 func Build() error {
 	return sh.RunV("go", "build", "-trimpath", "-o", binaryPath, "./cmd/server")
 }
 
-// Run executa o servidor localmente (fora do Docker), lendo o .env.
 func Run() error {
 	env, err := hostEnv()
 	if err != nil {
@@ -66,7 +63,6 @@ func Run() error {
 	return sh.RunWithV(env, "go", "run", "./cmd/server")
 }
 
-// Test roda os testes com detector de corrida e cobertura (coverage.out).
 func Test() error {
 	if err := sh.RunV("go", "test", "-race", "-covermode=atomic", "-coverprofile=coverage.out", "./..."); err != nil {
 		return err
@@ -92,13 +88,11 @@ func TestIntegration() error {
 		"go", "test", "-race", "-count=1", "-run", "Integration", "-v", "./...")
 }
 
-// Fmt formata o código com gofumpt e goimports (via golangci-lint fmt).
 func Fmt() error {
 	mg.Deps(checkGolangciLint)
 	return sh.RunV("golangci-lint", "fmt")
 }
 
-// Lint executa o golangci-lint com a configuração de .golangci.yml.
 func Lint() error {
 	mg.Deps(checkGolangciLint)
 	return sh.RunV("golangci-lint", "run")
@@ -117,7 +111,6 @@ func checkGolangciLint() error {
 	return nil
 }
 
-// Vuln procura vulnerabilidades conhecidas com o govulncheck.
 func Vuln() error {
 	return sh.RunV("go", "run", govulnModule, "./...")
 }
@@ -128,13 +121,10 @@ func ContractLint() error {
 	return sh.RunV("npx", "--yes", redoclyCLI, "lint", contractFile, "--config", redoclyConfig)
 }
 
-// CI executa fmt, lint, vuln e test em sequência.
 func CI() {
 	mg.SerialDeps(Fmt, Lint, Vuln, Test)
 }
 
-// Cert gera um certificado autoassinado (ECDSA P-256) para localhost e
-// 127.0.0.1 em certs/. Não sobrescreve um par já existente.
 func Cert() error {
 	if fileExists(certFile) && fileExists(keyFile) {
 		fmt.Println("certs/server.crt e certs/server.key já existem; nada a fazer")
@@ -184,19 +174,14 @@ func Cert() error {
 	return nil
 }
 
-// MigrateUp aplica todas as migrations pendentes (goose).
 func MigrateUp() error {
 	return goose("up")
 }
 
-// MigrateDown reverte a última migration aplicada (goose).
 func MigrateDown() error {
 	return goose("down")
 }
 
-// Seed cria o primeiro administrador a partir de SEED_ADMIN_LOGIN e
-// SEED_ADMIN_PASSWORD. Running it again with the same login fails with a
-// conflict.
 func Seed() error {
 	env, err := hostEnv()
 	if err != nil {
@@ -205,14 +190,11 @@ func Seed() error {
 	return sh.RunWithV(env, "go", "run", "./cmd/server", "seed")
 }
 
-// DockerUp sobe aplicação e PostgreSQL e espera os healthchecks.
 func DockerUp() error {
 	if !fileExists(certFile) || !fileExists(keyFile) {
 		return errors.New("certificado ausente: execute 'mage cert' antes")
 	}
 	env := map[string]string{}
-	// O contêiner roda com o UID/GID do usuário atual para conseguir ler a
-	// chave privada (0600) montada de certs/. Nunca como root.
 	if uid, gid := os.Getuid(), os.Getgid(); uid > 0 && gid > 0 {
 		env["APP_UID"] = strconv.Itoa(uid)
 		env["APP_GID"] = strconv.Itoa(gid)
@@ -220,7 +202,6 @@ func DockerUp() error {
 	return sh.RunWithV(env, "docker", "compose", "up", "--detach", "--build", "--wait")
 }
 
-// DockerDown derruba os contêineres (os dados do volume são mantidos).
 func DockerDown() error {
 	return sh.RunV("docker", "compose", "down")
 }
@@ -230,16 +211,12 @@ func goose(command string) error {
 	if err != nil {
 		return err
 	}
-	// A URL vai por variável de ambiente, não por argumento (não aparece no ps).
 	env["GOOSE_DRIVER"] = "postgres"
 	env["GOOSE_DBSTRING"] = env["DATABASE_URL"]
 	env["GOOSE_MIGRATION_DIR"] = "migrations"
 	return sh.RunWithV(env, "go", "run", "-tags", gooseNoDriver, gooseModule, command)
 }
 
-// hostEnv carrega o .env (sem sobrescrever variáveis já exportadas) e, se
-// DATABASE_URL não estiver definida, monta-a a partir de POSTGRES_* apontando
-// para o PostgreSQL publicado em 127.0.0.1.
 func hostEnv() (map[string]string, error) {
 	env, err := readDotEnv(".env")
 	if err != nil {
@@ -280,9 +257,6 @@ func hostEnv() (map[string]string, error) {
 	return env, nil
 }
 
-// readDotEnv lê um arquivo KEY=VALUE simples. Linhas vazias e comentários
-// (#) são ignorados; aspas simples ou duplas ao redor do valor são removidas.
-// Um arquivo ausente resulta em mapa vazio.
 func readDotEnv(path string) (map[string]string, error) {
 	env := map[string]string{}
 	f, err := os.Open(filepath.Clean(path))
@@ -314,7 +288,6 @@ func readDotEnv(path string) (map[string]string, error) {
 }
 
 func writePEM(path, blockType string, der []byte, perm os.FileMode) error {
-	// Remove antes para que a permissão nova valha mesmo se o arquivo existia.
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

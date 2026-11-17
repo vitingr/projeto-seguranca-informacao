@@ -5,24 +5,16 @@ import (
 	"net/http"
 )
 
-// errorResponse é o corpo de toda resposta de erro. Nunca carrega detalhes
-// internos: apenas um código estável, uma mensagem genérica e o request ID
-// para correlação com os logs.
 type errorResponse struct {
 	Error     string `json:"error"`
 	Message   string `json:"message"`
 	RequestID string `json:"request_id,omitempty"`
 }
 
-// WriteError responde o erro genérico do status informado. Tem a assinatura
-// de security.ErrorRenderer e é injetada no pacote security pelo
-// composition root.
 func WriteError(w http.ResponseWriter, r *http.Request, status int) {
 	writeErrorMessage(w, r, status, defaultMessage(status))
 }
 
-// writeErrorMessage responde um erro com mensagem específica e segura para o
-// usuário (nunca err.Error()).
 func writeErrorMessage(w http.ResponseWriter, r *http.Request, status int, message string) {
 	writeJSON(w, status, errorResponse{
 		Error:     errorCode(status),
@@ -31,8 +23,6 @@ func writeErrorMessage(w http.ResponseWriter, r *http.Request, status int, messa
 	})
 }
 
-// writeJSON serializa v antes de escrever qualquer byte, para que uma falha
-// nunca produza uma resposta pela metade.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {

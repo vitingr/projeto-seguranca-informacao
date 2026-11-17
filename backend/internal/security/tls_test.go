@@ -17,7 +17,6 @@ import (
 	"time"
 )
 
-// writeSelfSignedCert grava um par certificado/chave temporário.
 func writeSelfSignedCert(t *testing.T) (certFile, keyFile string) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -106,7 +105,7 @@ func TestTLSHandshakeVersions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pemBytes, err := os.ReadFile(certFile) //nolint:gosec // caminho gerado pelo próprio teste
+	pemBytes, err := os.ReadFile(certFile) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +143,7 @@ func TestTLSHandshakeVersions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			clientCfg.MinVersion, clientCfg.MaxVersion = tt.version, tt.version //nolint:gosec // testa a recusa de versões antigas
+			clientCfg.MinVersion, clientCfg.MaxVersion = tt.version, tt.version //nolint:gosec
 			dialer := &tls.Dialer{Config: clientCfg}
 			conn, err := dialer.DialContext(t.Context(), "tcp", ln.Addr().String())
 			if (err != nil) != tt.wantErr {

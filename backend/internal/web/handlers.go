@@ -10,7 +10,6 @@ import (
 	"backend_si/internal/service"
 )
 
-// Mensagens exibidas ao usuário: genéricas de propósito.
 const (
 	msgLoginInvalido  = "Login ou senha inválidos."
 	msgDadosInvalidos = "Dados inválidos. Revise os campos e tente novamente."
@@ -23,8 +22,6 @@ type handlers struct {
 	auth   AuthService
 	users  UserService
 }
-
-// --- corpos de requisição e resposta ----------------------------------------
 
 type loginRequest struct {
 	Login string `json:"login"`
@@ -58,17 +55,10 @@ type statusResponse struct {
 
 // --- handlers ---------------------------------------------------------------
 
-// healthz é a verificação de vida usada pelo healthcheck do Docker.
-// Não consulta o banco: indica apenas que o processo atende HTTPS.
 func (h *handlers) healthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, statusResponse{Status: "ok"})
 }
 
-// csrf entrega o token CSRF da sessão atual (anônima ou autenticada). O
-// frontend deve enviá-lo no cabeçalho security.CSRFHeaderName em toda
-// requisição que altera estado, inclusive no login.
-//
-// Without a session it creates an anonymous one (D-8).
 func (h *handlers) csrf(w http.ResponseWriter, r *http.Request) {
 	token, err := h.sec.CSRFToken(w, r)
 	if err != nil {
@@ -102,7 +92,6 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		h.sec.RespondError(w, r, err)
 		return
 	}
-	// O frontend decide para qual página ir a partir do papel.
 	writeJSON(w, http.StatusOK, userResponse{UserID: user.ID, Login: user.Login, Role: user.Role})
 }
 
@@ -114,11 +103,9 @@ func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// me informa ao frontend quem está autenticado e com qual papel.
 func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 	p, ok := security.PrincipalFrom(r.Context())
 	if !ok {
-		// Inalcançável se Authorize estiver correto; falha fechado mesmo assim.
 		WriteError(w, r, http.StatusUnauthorized)
 		return
 	}
@@ -176,8 +163,6 @@ func (h *handlers) notFound(w http.ResponseWriter, r *http.Request) {
 	WriteError(w, r, http.StatusNotFound)
 }
 
-// badRequest responde a falhas de leitura do corpo JSON. Entrada inválida
-// vira 400 genérico; qualquer outra falha segue o tratamento padrão.
 func (h *handlers) badRequest(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, domain.ErrInvalidInput) {
 		WriteError(w, r, http.StatusBadRequest)

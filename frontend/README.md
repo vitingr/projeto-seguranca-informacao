@@ -27,6 +27,7 @@ Each dependency added after `create-next-app` is justified here.
 | Package | Kind | Why |
 |---|---|---|
 | `vitest` | dev | Unit tests (`pnpm test`): the API client, the session rules, form validation and the check that `src/shared/api/types.ts` matches `backend/api/openapi.json`. Runs in Node, without a DOM library. |
+| `@playwright/test` | dev | End-to-end tests (`pnpm e2e`) in Chromium against the real backend: login, role access, registration, logout and session loss. Trusts only the backend certificate's key. Browsers are installed with `pnpm e2e:install`. |
 
 ## Learn More
 

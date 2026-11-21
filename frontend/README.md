@@ -38,7 +38,8 @@ Settings (copy `.env.example` to `.env.local` to change them):
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `API_URL` | `https://localhost` | Backend origin for the `/api` proxy and server-side calls. Must be `https`, with no path. Use `https://localhost:8443` with `go tool mage run`. Server-only: never `NEXT_PUBLIC_*`. |
+| `API_URL` | `https://localhost` | Backend origin for the `/api` proxy; empty falls back to `API_BASE_URL`. Must be `https`, with no path. Use `https://localhost:8443` with `go tool mage run`. Server-only: never `NEXT_PUBLIC_*`. |
+| `API_BASE_URL` | none (required) | Backend origin for server-side calls, and the fallback of `API_URL`. Same rules as `API_URL`. Server-only. |
 | `NEXT_PUBLIC_BASE_URL` | `https://localhost:3000` | Public URL of this app (metadata). |
 | `BACKEND_CERT_DIR` | `../backend/certs` | Folder with `server.crt` and `server.key`. Read by `pnpm dev` before Next starts, so set it in the shell, not in `.env.local`. |
 
@@ -75,12 +76,12 @@ The checks to run before every commit are listed in
   server reads it only to forward it, alone, to `GET /api/me` and the area
   endpoints, never caching the answer.
 - **The CSRF token** lives in JavaScript memory only
-  (`src/shared/api/csrf.ts`): fetched before the first POST, fetched again
+  (`src/lib/api/csrf`): fetched before the first POST, fetched again
   after login, discarded at logout. It is never written to Web Storage,
   IndexedDB, cookies or URLs.
 - **Protected pages** (`/admin`, `/cadastrar-usuarios` for `admin`,
   `/minha-conta` for `comum`) check the session on the server in each page
-  (`src/server/session.ts`). No cookie or a 401 → `/login?next=<page>`;
+  (`src/services/session`). No cookie or a 401 → `/login?next=<page>`;
   another role → the "no permission" screen. The area pages also call
   their backend endpoint, whose 403 has the last word. A role change in
   the database applies on the next page load.
@@ -90,7 +91,7 @@ The checks to run before every commit are listed in
   backend answers with 403 on a POST, since CSRF runs before the role
   check) ends on the login page.
 - **Errors** are shown by the `error` code of the backend response, with
-  Portuguese messages (`src/shared/api/messages.ts`). A response that is
+  Portuguese messages (`src/domain/messages`). A response that is
   not a backend error (backend down, proxy error) is shown as a connection
   error.
 
@@ -99,7 +100,7 @@ The checks to run before every commit are listed in
 - **Unit** (`pnpm test`, Vitest in Node): the API client and CSRF token
   rules, error messages, the server session rules, the `next` filter after
   login, form validation, the dev launcher, and a check that
-  `src/shared/api/types.ts` matches `backend/api/openapi.json`.
+  `src/lib/api/contract` matches `backend/api/openapi.json`.
 - **End-to-end** (`pnpm e2e`, Playwright and Chromium) against the real
   backend: the proxy and cookie attributes, login, the role matrix of the
   pages, registration (including a taken login and an expired session),
@@ -123,5 +124,5 @@ Each dependency added after `create-next-app` is justified here.
 
 | Package | Kind | Why |
 |---|---|---|
-| `vitest` | dev | Unit tests (`pnpm test`): the API client, the session rules, form validation and the check that `src/shared/api/types.ts` matches `backend/api/openapi.json`. Runs in Node, without a DOM library. |
+| `vitest` | dev | Unit tests (`pnpm test`): the API client, the session rules, form validation and the check that `src/lib/api/contract` matches `backend/api/openapi.json`. Runs in Node, without a DOM library. |
 | `@playwright/test` | dev | End-to-end tests (`pnpm e2e`) in Chromium against the real backend: login, role access, registration, logout and session loss. Trusts only the backend certificate's key. Browsers are installed with `pnpm e2e:install`. |

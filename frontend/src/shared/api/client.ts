@@ -10,16 +10,13 @@
 // - a 401 anywhere but POST /api/login discards the token and goes to the
 //   login page.
 
-import { LOGIN_PATH } from '../constants/navigation/login-path'
-import { loginUrl } from '../utils/navigation'
+import { networkError } from '@/domain/api-error'
+import type { ApiError } from '@/domain/api-error/types'
+import { LOGIN_PATH } from '@/domain/login-path'
+import { loginUrl } from '@/domain/navigation'
+
 import { type CsrfStore, csrfStore } from './csrf'
-import {
-  type ApiError,
-  ApiRequestError,
-  networkError,
-  readError,
-  toApiError
-} from './errors'
+import { ApiRequestError, readError, toApiError } from './errors'
 import {
   CSRF_HEADER,
   type CadastroRequest,

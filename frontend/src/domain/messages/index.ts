@@ -2,9 +2,10 @@
 // "Mensagens"). The backend `message` is used only for codes this table
 // does not know.
 
-import { type ApiError, NETWORK } from './errors'
+import { NETWORK } from '@/domain/api-error'
+import type { ApiError } from '@/domain/api-error/types'
 
-export type MessageContext = 'action' | 'cadastro' | 'login'
+import type { MessageContext } from './types'
 
 export const MESSAGES = {
   badRequest:

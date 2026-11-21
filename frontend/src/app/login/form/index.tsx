@@ -4,11 +4,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import { MESSAGES, messageFor } from '@/domain/messages'
+import { safeNext } from '@/domain/navigation'
 import { api } from '@/shared/api/client'
-import { MESSAGES, messageFor } from '@/shared/api/messages'
 import { Button } from '@/shared/components/ui/shadcn/button'
 import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
-import { safeNext } from '@/shared/utils/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 import { LOGIN_FORM_DEFAULT_VALUES } from './constants'

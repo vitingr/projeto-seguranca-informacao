@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ApiError } from './errors'
-import { MESSAGES, type MessageContext, messageFor } from './messages'
+import type { ApiError } from '@/domain/api-error/types'
+
+import { MESSAGES, messageFor } from '.'
+import type { MessageContext } from './types'
 
 const error = (code: string, extra: Partial<ApiError> = {}): ApiError => ({
   code,

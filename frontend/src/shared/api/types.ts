@@ -1,8 +1,7 @@
 // Types of the backend API, written by hand from backend/api/openapi.json.
 // types.test.ts checks them against the contract.
 
-export const ROLES = ['admin', 'comum'] as const
-export type Role = (typeof ROLES)[number]
+import type { Role } from '@/domain/roles/types'
 
 export const ERROR_CODES = [
   'bad_request',

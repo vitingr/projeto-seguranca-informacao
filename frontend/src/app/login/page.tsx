@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
+import { safeNext } from '@/domain/navigation'
 import { getSession } from '@/server/session'
-import { safeNext } from '@/shared/utils/navigation'
 
 import { LoginForm } from './form'
 

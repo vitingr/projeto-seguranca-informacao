@@ -1,10 +1,10 @@
 // Routes, the role each protected route needs, and the login redirect URLs.
 // Used by the server guard and the browser client.
 
-import type { Role } from '@/shared/api/types'
-import { LOGIN_PATH } from '@/shared/constants/navigation/login-path'
-import { PROTECTED_ROUTES } from '@/shared/constants/navigation/protected-routes'
-import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
+import { LOGIN_PATH } from '@/domain/login-path'
+import { PROTECTED_ROUTES } from '@/domain/protected-routes'
+import type { ProtectedRoute } from '@/domain/protected-routes/types'
+import type { Role } from '@/domain/roles/types'
 
 /** Where a user goes after login when there is no valid `next`. */
 export const landingFor = (role: Role): ProtectedRoute =>

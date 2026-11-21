@@ -1,4 +1,4 @@
-import type { Role } from '@/shared/api/types'
+import type { Role } from '@/domain/roles/types'
 
 export const PROTECTED_ROUTES = {
   '/admin': 'admin',

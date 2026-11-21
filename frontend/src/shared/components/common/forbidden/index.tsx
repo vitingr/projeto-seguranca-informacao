@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
-import { MESSAGES } from '@/shared/api/messages'
+import { MESSAGES } from '@/domain/messages'
+import { landingFor } from '@/domain/navigation'
 import { buttonVariants } from '@/shared/components/ui/shadcn/button'
-import { landingFor } from '@/shared/utils/navigation'
 
 import type { ForbiddenProps } from './types'
 

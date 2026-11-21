@@ -8,8 +8,8 @@ import type {
   CurrentUser,
   Session
 } from '@/domain/session/types'
-
-import { type BackendGet, isSessionValue } from './backend'
+import { isSessionValue } from '@/lib/backend'
+import type { BackendGet } from '@/lib/backend/types'
 
 function parseMe(body: unknown): CurrentUser | null {
   if (typeof body !== 'object' || body === null) return null

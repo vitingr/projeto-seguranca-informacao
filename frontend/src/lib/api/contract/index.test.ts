@@ -9,7 +9,7 @@ import {
   ERROR_CODES,
   LOGIN_REQUEST_FIELDS,
   USER_RESPONSE_FIELDS
-} from './types'
+} from '.'
 
 interface Schema {
   const?: string
@@ -21,7 +21,7 @@ interface Schema {
 
 const contract = JSON.parse(
   readFileSync(
-    new URL('../../../../backend/api/openapi.json', import.meta.url),
+    new URL('../../../../../backend/api/openapi.json', import.meta.url),
     'utf8'
   )
 ) as { components: { schemas: Record<string, Schema> } }

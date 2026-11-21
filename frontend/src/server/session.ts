@@ -10,9 +10,8 @@ import { loginUrl } from '@/domain/navigation'
 import type { ProtectedRoute } from '@/domain/protected-routes/types'
 import { decideAccess } from '@/domain/session'
 import type { AreaPath, CurrentUser, Session } from '@/domain/session/types'
-
-import { SESSION_COOKIE, createBackendGet, isSessionValue } from './backend'
-import { loadArea, loadSession } from './session-rules'
+import { SESSION_COOKIE, createBackendGet, isSessionValue } from '@/lib/backend'
+import { loadArea, loadSession } from '@/repositories/session'
 
 const backendGet = createBackendGet(
   parseApiUrl({ raw: env.apiBaseUrl }),

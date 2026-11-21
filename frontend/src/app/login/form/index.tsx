@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 
 import { MESSAGES, messageFor } from '@/domain/messages'
 import { safeNext } from '@/domain/navigation'
-import { api } from '@/shared/api/client'
+import { api } from '@/repositories/api'
 import { Button } from '@/shared/components/ui/shadcn/button'
 import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
 import { zodResolver } from '@hookform/resolvers/zod'

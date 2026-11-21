@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { ApiRequestError } from '@/lib/api/errors'
 import {
   csrfReply,
   errorResponse,
@@ -8,8 +9,7 @@ import {
   textResponse
 } from '@/test/fake-fetch'
 
-import { createCsrfStore } from './csrf'
-import { ApiRequestError } from './errors'
+import { createCsrfStore } from '.'
 
 const GET = 'GET /api/csrf'
 

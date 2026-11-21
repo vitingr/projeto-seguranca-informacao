@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { BackendAnswer, BackendGet } from './backend'
-import { loadArea, loadSession } from './session-rules'
+import type { BackendAnswer, BackendGet } from '@/lib/backend/types'
+
+import { loadArea, loadSession } from '.'
 
 const SESSION = 'MZXW6YTBOI4DCMRTGQ2TMNZYHE'
 

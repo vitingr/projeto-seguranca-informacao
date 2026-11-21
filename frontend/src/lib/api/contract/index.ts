@@ -1,7 +1,7 @@
 // Types of the backend API, written by hand from backend/api/openapi.json.
-// types.test.ts checks them against the contract.
+// index.test.ts checks them against the contract.
 
-import type { Role } from '@/domain/roles/types'
+import type { CadastroRequest, LoginRequest, UserResponse } from './types'
 
 export const ERROR_CODES = [
   'bad_request',
@@ -12,41 +12,8 @@ export const ERROR_CODES = [
   'unprocessable_entity',
   'internal'
 ] as const
-export type ErrorCode = (typeof ERROR_CODES)[number]
 
 export const CSRF_HEADER = 'X-CSRF-Token'
-
-export interface AreaResponse {
-  area: string
-}
-
-export interface CadastroRequest {
-  login: string
-  papel: Role
-  senha: string
-}
-
-export interface CsrfResponse {
-  csrf_token: string
-  header: typeof CSRF_HEADER
-}
-
-export interface ErrorResponse {
-  error: string
-  message: string
-  request_id?: string
-}
-
-export interface LoginRequest {
-  login: string
-  senha: string
-}
-
-export interface UserResponse {
-  login?: string
-  role: Role
-  user_id: number
-}
 
 export const LOGIN_REQUEST_FIELDS = [
   'login',

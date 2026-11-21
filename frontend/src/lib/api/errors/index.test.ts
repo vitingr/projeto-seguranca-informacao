@@ -7,7 +7,7 @@ import {
   textResponse
 } from '@/test/fake-fetch'
 
-import { ApiRequestError, readError, toApiError } from './errors'
+import { ApiRequestError, readError, toApiError } from '.'
 
 describe('readError', () => {
   it('reads the error code, message and request id', async () => {

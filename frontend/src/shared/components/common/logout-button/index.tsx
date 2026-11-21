@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 import { messageFor } from '@/domain/messages'
-import { api } from '@/shared/api/client'
+import { api } from '@/repositories/api'
 import { Button } from '@/shared/components/ui/shadcn/button'
 
 export const LogoutButton = () => {

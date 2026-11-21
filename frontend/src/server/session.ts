@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { cache } from 'react'
 
 import { parseApiUrl } from '@/config/api'
+import { env } from '@/config/env'
 import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
 import { loginUrl } from '@/shared/utils/navigation'
 
@@ -18,8 +19,9 @@ import {
   loadSession
 } from './session-rules'
 
-const backendGet = createBackendGet(parseApiUrl(process.env.API_URL), (...a) =>
-  fetch(...a)
+const backendGet = createBackendGet(
+  parseApiUrl({ raw: env.apiBaseUrl }),
+  (...a) => fetch(...a)
 )
 
 const sessionCookie = async () => (await cookies()).get(SESSION_COOKIE)?.value

@@ -1,19 +1,15 @@
-import { ROLES, type Role } from '@/shared/api/types'
-import { PROTECTED_ROUTES } from '@/shared/constants/navigation/protected-routes'
-import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
-import { loginUrl } from '@/shared/utils/navigation'
+import { loginUrl } from '@/domain/navigation'
+import type { ProtectedRoute } from '@/domain/protected-routes/types'
+import { ROLES } from '@/domain/roles'
+import type { Role } from '@/domain/roles/types'
+import type {
+  AreaPath,
+  AreaResult,
+  CurrentUser,
+  Session
+} from '@/domain/session/types'
 
 import { type BackendGet, isSessionValue } from './backend'
-
-export interface CurrentUser {
-  role: Role
-  userId: number
-}
-
-export type Session =
-  | { kind: 'anonymous' }
-  | { kind: 'expired' }
-  | { kind: 'user'; user: CurrentUser }
 
 function parseMe(body: unknown): CurrentUser | null {
   if (typeof body !== 'object' || body === null) return null
@@ -43,31 +39,6 @@ export async function loadSession(
   }
   return { kind: 'user', user }
 }
-
-export type Access =
-  | { kind: 'allowed'; user: CurrentUser }
-  | { kind: 'forbidden'; user: CurrentUser }
-  | { kind: 'login'; url: string }
-
-export function decideAccess(session: Session, route: ProtectedRoute): Access {
-  switch (session.kind) {
-    case 'anonymous':
-      return { kind: 'login', url: loginUrl(route) }
-    case 'expired':
-      return { kind: 'login', url: loginUrl(route, { expired: true }) }
-    case 'user':
-      return session.user.role === PROTECTED_ROUTES[route]
-        ? { kind: 'allowed', user: session.user }
-        : { kind: 'forbidden', user: session.user }
-  }
-}
-
-export type AreaPath = '/api/administradores' | '/api/usuarios'
-
-export type AreaResult =
-  | { area: string; kind: 'ok' }
-  | { kind: 'forbidden' }
-  | { kind: 'login'; url: string }
 
 /**
  * The backend stays the authority: even after /api/me allowed the role,

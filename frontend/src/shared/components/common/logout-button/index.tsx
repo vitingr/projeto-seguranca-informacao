@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
+import { messageFor } from '@/domain/messages'
 import { api } from '@/shared/api/client'
-import { messageFor } from '@/shared/api/messages'
 import { Button } from '@/shared/components/ui/shadcn/button'
 
 export const LogoutButton = () => {

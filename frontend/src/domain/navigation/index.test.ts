@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Role } from '@/shared/api/types'
+import type { Role } from '@/domain/roles/types'
 
 import { landingFor, loginUrl, safeNext } from '.'
 

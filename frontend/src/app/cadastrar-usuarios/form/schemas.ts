@@ -1,17 +1,12 @@
 import { z } from 'zod'
 
-import { ROLES } from '@/shared/api/types'
+import { LOGIN_PATTERN, passwordLength } from '@/domain/credentials'
+import { ROLES } from '@/domain/roles'
 
 // The same rules as the backend (002 D-14, 003 D-7), checked before sending
 // so the user gets a field message. The backend stays the authority: it
 // answers 422 for anything these rules miss. Values are sent as typed; the
 // backend lowercases the login itself.
-
-export const LOGIN_PATTERN = /^[a-z0-9._-]{3,64}$/
-
-/** Password length as the backend counts it: code points after NFKC. */
-export const passwordLength = (value: string) =>
-  [...value.normalize('NFKC')].length
 
 export const cadastroSchema = z.object({
   login: z

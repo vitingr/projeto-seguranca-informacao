@@ -1,5 +1,5 @@
-import type { Role } from '@/shared/api/types'
-import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
+import type { ProtectedRoute } from '@/domain/protected-routes/types'
+import type { Role } from '@/domain/roles/types'
 
 export const ROLE_LINKS: Record<
   Role,

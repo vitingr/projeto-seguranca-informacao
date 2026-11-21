@@ -6,18 +6,13 @@ import { cache } from 'react'
 
 import { parseApiUrl } from '@/config/api'
 import { env } from '@/config/env'
-import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
-import { loginUrl } from '@/shared/utils/navigation'
+import { loginUrl } from '@/domain/navigation'
+import type { ProtectedRoute } from '@/domain/protected-routes/types'
+import { decideAccess } from '@/domain/session'
+import type { AreaPath, CurrentUser, Session } from '@/domain/session/types'
 
 import { SESSION_COOKIE, createBackendGet, isSessionValue } from './backend'
-import {
-  type AreaPath,
-  type CurrentUser,
-  type Session,
-  decideAccess,
-  loadArea,
-  loadSession
-} from './session-rules'
+import { loadArea, loadSession } from './session-rules'
 
 const backendGet = createBackendGet(
   parseApiUrl({ raw: env.apiBaseUrl }),

@@ -3,17 +3,8 @@
 // untrusted: the proxy answers a plain-text 500, or fetch itself fails) is
 // reported as `network` (spec D-17).
 
-export const NETWORK = 'network'
-
-export interface ApiError {
-  /** The backend `error` code, or `network`. */
-  code: string
-  /** The backend `message`, safe to show to users. */
-  message?: string
-  requestId?: string
-  /** 0 when the request never got an answer. */
-  status: number
-}
+import { networkError } from '@/domain/api-error'
+import type { ApiError } from '@/domain/api-error/types'
 
 export class ApiRequestError extends Error {
   constructor(readonly error: ApiError) {
@@ -21,11 +12,6 @@ export class ApiRequestError extends Error {
     this.name = 'ApiRequestError'
   }
 }
-
-export const networkError = (status = 0): ApiError => ({
-  code: NETWORK,
-  status
-})
 
 const optionalString = (value: unknown) =>
   typeof value === 'string' && value !== '' ? value : undefined

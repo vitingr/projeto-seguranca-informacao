@@ -2,7 +2,9 @@
 // Web Storage, IndexedDB, cookies or URLs. A page reload starts empty and
 // the next state-changing request fetches a token again.
 
-import { ApiRequestError, networkError, readError } from './errors'
+import { networkError } from '@/domain/api-error'
+
+import { ApiRequestError, readError } from './errors'
 import type { CsrfResponse } from './types'
 
 export interface CsrfStore {

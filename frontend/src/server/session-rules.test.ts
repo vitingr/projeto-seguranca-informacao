@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Role } from '@/shared/api/types'
-import type { ProtectedRoute } from '@/shared/types/navigation/protected-route'
-
 import type { BackendAnswer, BackendGet } from './backend'
-import {
-  type Session,
-  decideAccess,
-  loadArea,
-  loadSession
-} from './session-rules'
+import { loadArea, loadSession } from './session-rules'
 
 const SESSION = 'MZXW6YTBOI4DCMRTGQ2TMNZYHE'
 
@@ -68,42 +60,6 @@ describe('loadSession', () => {
   ])('fails closed on %s', async (_name, answer) => {
     const b = backend({ '/api/me': answer })
     await expect(loadSession(SESSION, b.get)).rejects.toThrow(/\/api\/me/)
-  })
-})
-
-describe('decideAccess: the page guard matrix', () => {
-  const anonymous: Session = { kind: 'anonymous' }
-  const as = (role: Role): Session => ({
-    kind: 'user',
-    user: { role, userId: 1 }
-  })
-
-  it.each<[ProtectedRoute, Session, string]>([
-    ['/admin', anonymous, 'login /login?next=%2Fadmin'],
-    ['/admin', as('comum'), 'forbidden'],
-    ['/admin', as('admin'), 'allowed'],
-    [
-      '/cadastrar-usuarios',
-      anonymous,
-      'login /login?next=%2Fcadastrar-usuarios'
-    ],
-    ['/cadastrar-usuarios', as('comum'), 'forbidden'],
-    ['/cadastrar-usuarios', as('admin'), 'allowed'],
-    ['/minha-conta', anonymous, 'login /login?next=%2Fminha-conta'],
-    ['/minha-conta', as('comum'), 'allowed'],
-    ['/minha-conta', as('admin'), 'forbidden']
-  ])('%s', (route, session, want) => {
-    const access = decideAccess(session, route)
-    expect(access.kind === 'login' ? `login ${access.url}` : access.kind).toBe(
-      want
-    )
-  })
-
-  it('an expired session goes to login with the notice', () => {
-    expect(decideAccess({ kind: 'expired' }, '/admin')).toEqual({
-      kind: 'login',
-      url: '/login?next=%2Fadmin&sessao=expirada'
-    })
   })
 })
 

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import { messageFor } from '@/domain/messages'
 import { api } from '@/shared/api/client'
-import { messageFor } from '@/shared/api/messages'
 import { Button } from '@/shared/components/ui/shadcn/button'
 import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
 import { zodResolver } from '@hookform/resolvers/zod'

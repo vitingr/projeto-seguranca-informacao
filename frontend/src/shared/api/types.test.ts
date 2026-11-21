@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+import { ROLES } from '@/domain/roles'
+
 import {
   CADASTRO_REQUEST_FIELDS,
   CSRF_HEADER,
   ERROR_CODES,
   LOGIN_REQUEST_FIELDS,
-  ROLES,
   USER_RESPONSE_FIELDS
 } from './types'
 

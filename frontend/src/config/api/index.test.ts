@@ -1,18 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_API_URL, parseApiUrl } from '.'
+import { parseApiUrl } from '.'
+
+// `env` is parsed when config/env is imported, so the variables it reads
+// must be set before the imports above run.
+const API_BASE_URL = vi.hoisted(() => {
+  const value = 'https://localhost:8443'
+  vi.stubEnv('API_BASE_URL', value)
+  vi.stubEnv('NODE_ENV', 'development')
+  return value
+})
 
 describe('parseApiUrl', () => {
   it.each([
-    [undefined, DEFAULT_API_URL],
-    ['', DEFAULT_API_URL],
-    ['  ', DEFAULT_API_URL],
+    [undefined, API_BASE_URL],
+    ['', API_BASE_URL],
+    ['  ', API_BASE_URL],
     ['https://localhost', 'https://localhost'],
     ['https://localhost/', 'https://localhost'],
     ['https://localhost:8443', 'https://localhost:8443'],
     [' https://127.0.0.1:8443 ', 'https://127.0.0.1:8443']
   ])('accepts %j', (raw, want) => {
-    expect(parseApiUrl(raw)).toBe(want)
+    expect(parseApiUrl({ raw })).toBe(want)
   })
 
   it.each([
@@ -24,11 +33,11 @@ describe('parseApiUrl', () => {
     ['https://localhost?x=1', /origin/],
     ['https://localhost#x', /origin/]
   ])('rejects %j', (raw, want) => {
-    expect(() => parseApiUrl(raw)).toThrow(want)
+    expect(() => parseApiUrl({ raw })).toThrow(want)
   })
 
   it('never repeats the value in the error', () => {
-    expect(() => parseApiUrl('https://user:secret@localhost')).toThrow(
+    expect(() => parseApiUrl({ raw: 'https://user:secret@localhost' })).toThrow(
       expect.objectContaining({
         message: expect.not.stringContaining('secret')
       })

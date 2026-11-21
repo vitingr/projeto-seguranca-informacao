@@ -1,4 +1,4 @@
-import { requireArea, requireRole } from '@/server/session'
+import { requireArea, requireRole } from '@/services/session'
 import { AppHeader } from '@/shared/components/common/app-header'
 import { Forbidden } from '@/shared/components/common/forbidden'
 

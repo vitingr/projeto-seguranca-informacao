@@ -1,8 +1,8 @@
-import { type VariantProps } from 'class-variance-authority'
 import { cn } from 'cn'
 
 import { Button as ButtonPrimitive } from '@base-ui/react/button'
 
+import type { ButtonProps } from './types'
 import { buttonVariants } from './variance'
 
 const Button = ({
@@ -10,7 +10,7 @@ const Button = ({
   variant = 'default',
   size = 'default',
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) => {
+}: ButtonProps) => {
   return (
     <ButtonPrimitive
       className={cn(buttonVariants({ variant, size, className }))}

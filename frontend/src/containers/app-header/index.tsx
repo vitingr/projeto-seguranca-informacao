@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
+import { LogoutButton } from '@/containers/logout-button'
 import { ROLE_LINKS } from '@/domain/role-links'
 import { ROLE_NAMES } from '@/domain/role-names'
-import { LogoutButton } from '@/shared/components/common/logout-button'
 
 import type { AppHeaderProps } from './types'
 

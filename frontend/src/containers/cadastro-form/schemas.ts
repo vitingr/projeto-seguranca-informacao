@@ -26,6 +26,3 @@ export const cadastroSchema = z.object({
       'A senha deve ter de 15 a 128 caracteres.'
     )
 })
-
-export type CadastroInput = z.input<typeof cadastroSchema>
-export type CadastroValues = z.output<typeof cadastroSchema>

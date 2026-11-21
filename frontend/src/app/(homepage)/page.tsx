@@ -1,9 +1,9 @@
 import Link from 'next/link'
 
+import { buttonVariants } from '@/components/ui/shadcn/button'
+import { AppHeader } from '@/containers/app-header'
 import { ROLE_LINKS } from '@/domain/role-links'
 import { getSession } from '@/services/session'
-import { AppHeader } from '@/shared/components/common/app-header'
-import { buttonVariants } from '@/shared/components/ui/shadcn/button'
 
 // Public page (spec D-10). Without a session cookie it does not call the
 // API; with one, it shows the links of the user's role.

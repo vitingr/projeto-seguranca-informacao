@@ -1,6 +1,6 @@
+import { Forbidden } from '@/components/forbidden'
+import { AppHeader } from '@/containers/app-header'
 import { requireArea, requireRole } from '@/services/session'
-import { AppHeader } from '@/shared/components/common/app-header'
-import { Forbidden } from '@/shared/components/common/forbidden'
 
 import type { RoleAreaProps } from './types'
 

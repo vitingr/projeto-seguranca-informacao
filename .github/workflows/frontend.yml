@@ -37,6 +37,9 @@ env:
   GO_VERSION: "1.27.x"
   NODE_VERSION: "24"
   NEXT_TELEMETRY_DISABLED: "1"
+  # Required by src/config/env, which next.config.ts loads; the docker
+  # compose stack of the e2e job listens on https://localhost.
+  API_BASE_URL: "https://localhost"
 
 defaults:
   run:

@@ -11,41 +11,14 @@
 //   login page.
 
 import { networkError } from '@/domain/api-error'
-import type { ApiError } from '@/domain/api-error/types'
 import { LOGIN_PATH } from '@/domain/login-path'
 import { loginUrl } from '@/domain/navigation'
+import { CSRF_HEADER } from '@/lib/api/contract'
+import type { UserResponse } from '@/lib/api/contract/types'
+import { csrfStore } from '@/lib/api/csrf'
+import { ApiRequestError, readError, toApiError } from '@/lib/api/errors'
 
-import { type CsrfStore, csrfStore } from './csrf'
-import { ApiRequestError, readError, toApiError } from './errors'
-import {
-  CSRF_HEADER,
-  type CadastroRequest,
-  type LoginRequest,
-  type UserResponse
-} from './types'
-
-export type Result<T> = { data: T; ok: true } | { error: ApiError; ok: false }
-
-export interface Navigation {
-  /** Path of the current page, sent back as `next` after a 401. */
-  currentPath(): string
-  /** Full navigation that adds a history entry. */
-  go(url: string): void
-  /** Full navigation that replaces the current history entry. */
-  replace(url: string): void
-}
-
-export interface ApiClientDeps {
-  csrf: CsrfStore
-  fetch: typeof fetch
-  navigation: Navigation
-}
-
-export interface ApiClient {
-  login(input: LoginRequest): Promise<Result<UserResponse>>
-  logout(): Promise<Result<void>>
-  register(input: CadastroRequest): Promise<Result<UserResponse>>
-}
+import type { ApiClient, ApiClientDeps, Result } from './types'
 
 // Returned after a navigation to the login page: callers render nothing
 // more for a page that is going away.

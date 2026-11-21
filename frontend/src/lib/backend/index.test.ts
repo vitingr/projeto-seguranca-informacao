@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createBackendGet, isSessionValue } from './backend'
+import { createBackendGet, isSessionValue } from '.'
 
 const SESSION = 'MZXW6YTBOI4DCMRTGQ2TMNZYHE'
 

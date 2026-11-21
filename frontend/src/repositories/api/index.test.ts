@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { createCsrfStore } from '@/lib/api/csrf'
 import {
   type Reply,
   csrfReply,
@@ -11,8 +12,7 @@ import {
   textResponse
 } from '@/test/fake-fetch'
 
-import { createApiClient } from './client'
-import { createCsrfStore } from './csrf'
+import { createApiClient } from '.'
 
 const CSRF = 'GET /api/csrf'
 const LOGIN = 'POST /api/login'

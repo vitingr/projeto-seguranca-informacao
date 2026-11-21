@@ -1,6 +1,6 @@
 // Server-side calls to the backend, forwarding only the session cookie.
-// No Next imports here, so it can be unit-tested; session.ts wires it to
-// cookies() and the real fetch.
+// No Next imports here, so it can be unit-tested; services/session wires it
+// to cookies() and the real fetch.
 
 import type { BackendGet } from './types'
 

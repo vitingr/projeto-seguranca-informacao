@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 import { ROLE_LINKS } from '@/domain/role-links'
-import { getSession } from '@/server/session'
+import { getSession } from '@/services/session'
 import { AppHeader } from '@/shared/components/common/app-header'
 import { buttonVariants } from '@/shared/components/ui/shadcn/button'
 

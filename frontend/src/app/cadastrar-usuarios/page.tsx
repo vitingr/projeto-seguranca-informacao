@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { requireRole } from '@/server/session'
+import { requireRole } from '@/services/session'
 import { AppHeader } from '@/shared/components/common/app-header'
 import { Forbidden } from '@/shared/components/common/forbidden'
 

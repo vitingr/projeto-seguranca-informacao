@@ -3,15 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import { Button } from '@/components/ui/shadcn/button'
+import { Field, FormMessage } from '@/components/ui/shadcn/field'
 import { messageFor } from '@/domain/messages'
 import { api } from '@/repositories/api'
-import { Button } from '@/shared/components/ui/shadcn/button'
-import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 import { REGISTER_FORM_DEFAULT_VALUES } from './constants'
-import type { CadastroInput, CadastroValues } from './schemas'
 import { cadastroSchema } from './schemas'
+import type { CadastroInput, CadastroValues } from './types'
 
 export const CadastroForm = () => {
   // Opt out of the React Compiler: with it, react-hook-form's reset() did

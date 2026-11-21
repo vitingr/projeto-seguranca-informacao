@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
+import { LoginForm } from '@/containers/login-form'
 import { safeNext } from '@/domain/navigation'
 import { getSession } from '@/services/session'
-
-import { LoginForm } from './form'
 
 export const metadata: Metadata = { title: 'Entrar' }
 

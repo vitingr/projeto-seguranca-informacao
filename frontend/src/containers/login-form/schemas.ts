@@ -8,5 +8,3 @@ export const loginSchema = z.object({
   login: z.string().trim().min(1, 'Informe o login.'),
   senha: z.string().min(1, 'Informe a senha.')
 })
-
-export type LoginValues = z.infer<typeof loginSchema>

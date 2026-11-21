@@ -1,4 +1,4 @@
-import type { CadastroInput } from './schemas'
+import type { CadastroInput } from './types'
 
 export const REGISTER_FORM_DEFAULT_VALUES: CadastroInput = {
   login: '',

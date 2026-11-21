@@ -4,24 +4,18 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import { Button } from '@/components/ui/shadcn/button'
+import { Field, FormMessage } from '@/components/ui/shadcn/field'
 import { MESSAGES, messageFor } from '@/domain/messages'
 import { safeNext } from '@/domain/navigation'
 import { api } from '@/repositories/api'
-import { Button } from '@/shared/components/ui/shadcn/button'
-import { Field, FormMessage } from '@/shared/components/ui/shadcn/field'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 import { LOGIN_FORM_DEFAULT_VALUES } from './constants'
-import type { LoginValues } from './schemas'
 import { loginSchema } from './schemas'
+import type { LoginFormProps, LoginValues } from './types'
 
-export const LoginForm = ({
-  expired,
-  next
-}: {
-  expired: boolean
-  next?: string
-}) => {
+export const LoginForm = ({ expired, next }: LoginFormProps) => {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [navigating, setNavigating] = useState(false)

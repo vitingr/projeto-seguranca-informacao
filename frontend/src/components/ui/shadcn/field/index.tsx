@@ -1,5 +1,6 @@
 import { cn } from 'cn'
-import type { ComponentProps } from 'react'
+
+import type { FieldProps, FormMessageProps } from './types'
 
 export const Field = ({
   className,
@@ -7,7 +8,7 @@ export const Field = ({
   id,
   label,
   ...props
-}: ComponentProps<'input'> & { error?: string; id: string; label: string }) => {
+}: FieldProps) => {
   const errorId = `${id}-error`
   return (
     <div className="flex flex-col gap-1.5">
@@ -34,13 +35,7 @@ export const Field = ({
 }
 
 /** A form-level message (error or success) announced to screen readers. */
-export const FormMessage = ({
-  children,
-  tone
-}: {
-  children: string
-  tone: 'error' | 'success'
-}) => (
+export const FormMessage = ({ children, tone }: FormMessageProps) => (
   <p
     className={cn(
       'rounded-lg border px-3 py-2 text-sm',

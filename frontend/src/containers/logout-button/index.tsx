@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 
+import { Button } from '@/components/ui/shadcn/button'
 import { messageFor } from '@/domain/messages'
 import { api } from '@/repositories/api'
-import { Button } from '@/shared/components/ui/shadcn/button'
 
 export const LogoutButton = () => {
   const [pending, setPending] = useState<boolean>(false)

@@ -4,6 +4,8 @@
 # Every ecosystem runs on Monday morning (Sao Paulo time) and groups its pull
 # requests: one for security updates and one for version updates. npm keeps
 # major versions out of the version group, so each major gets its own PR.
+# Version updates wait 14 days after a release (cooldown), the "at least two
+# weeks old" rule of backend/README.md; security updates are never delayed.
 # Commit messages follow the repository's Conventional Commits rules
 # (backend/CLAUDE.md): dependencies are chore, go.mod and images are build,
 # GitHub Actions are ci.
@@ -19,6 +21,8 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
     labels: [dependencies, npm]
     commit-message:
       prefix: chore(frontend)
@@ -40,6 +44,8 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
     labels: [dependencies, gomod]
     commit-message:
       prefix: build(backend)
@@ -60,6 +66,8 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
     labels: [dependencies, github-actions]
     commit-message:
       prefix: ci
@@ -80,6 +88,8 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
     labels: [dependencies, docker]
     commit-message:
       prefix: build(docker)
@@ -105,6 +115,8 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
     labels: [dependencies, docker-compose]
     commit-message:
       prefix: build(docker)

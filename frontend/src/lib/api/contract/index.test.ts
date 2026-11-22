@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+import { POST_BODY_MAX, POST_PAGE_MAX, POST_TITLE_MAX } from '@/domain/post'
 import { ROLES } from '@/domain/roles'
 
 import {
@@ -8,6 +9,10 @@ import {
   CSRF_HEADER,
   ERROR_CODES,
   LOGIN_REQUEST_FIELDS,
+  POST_AUTHOR_FIELDS,
+  POST_PAGE_FIELDS,
+  POST_REQUEST_FIELDS,
+  POST_RESPONSE_FIELDS,
   USER_RESPONSE_FIELDS
 } from '.'
 
@@ -15,6 +20,8 @@ interface Schema {
   const?: string
   description?: string
   enum?: string[]
+  maximum?: number
+  maxLength?: number
   properties?: Record<string, Schema>
   required?: string[]
 }
@@ -24,7 +31,12 @@ const contract = JSON.parse(
     new URL('../../../../../backend/api/openapi.json', import.meta.url),
     'utf8'
   )
-) as { components: { schemas: Record<string, Schema> } }
+) as {
+  components: {
+    parameters: Record<string, { schema: Schema }>
+    schemas: Record<string, Schema>
+  }
+}
 
 const schema = (name: string): Schema => {
   const s = contract.components.schemas[name]
@@ -60,12 +72,25 @@ describe('API types match backend/api/openapi.json', () => {
   it.each([
     ['LoginRequest', LOGIN_REQUEST_FIELDS],
     ['CadastroRequest', CADASTRO_REQUEST_FIELDS],
-    ['UserResponse', USER_RESPONSE_FIELDS]
+    ['UserResponse', USER_RESPONSE_FIELDS],
+    ['PostRequest', POST_REQUEST_FIELDS],
+    ['Post', POST_RESPONSE_FIELDS],
+    ['PostAuthor', POST_AUTHOR_FIELDS],
+    ['PostPage', POST_PAGE_FIELDS]
   ] as const)('%s fields', (name, expected) => {
     expect(fields(name)).toEqual([...expected])
   })
 
   it('AreaResponse fields', () => {
     expect(fields('AreaResponse')).toEqual(['area'])
+  })
+
+  it('post limits (005 D-4, D-5)', () => {
+    const request = schema('PostRequest').properties
+    expect(request?.title?.maxLength).toBe(POST_TITLE_MAX)
+    expect(request?.body?.maxLength).toBe(POST_BODY_MAX)
+    expect(contract.components.parameters.Page?.schema.maximum).toBe(
+      POST_PAGE_MAX
+    )
   })
 })

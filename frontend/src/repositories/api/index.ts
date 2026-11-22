@@ -2,8 +2,8 @@
 // frontend origin (/api/*, proxied to the backend), so the browser sends the
 // session cookie and Sec-Fetch-Site: same-origin by itself.
 //
-// Rules (spec D-3, D-7):
-// - every POST sends X-CSRF-Token;
+// Rules (spec D-3, D-7, and 005 D-8 for PUT and DELETE):
+// - every mutation (POST, PUT, DELETE) sends X-CSRF-Token;
 // - a 403 refreshes the token and retries once (an expired session makes the
 //   backend answer 403 on a POST, because CSRF runs before Authorize; the
 //   retry then gets the 401);
@@ -14,15 +14,28 @@ import { networkError } from '@/domain/api-error'
 import { LOGIN_PATH } from '@/domain/login-path'
 import { loginUrl } from '@/domain/navigation'
 import { CSRF_HEADER } from '@/lib/api/contract'
-import type { UserResponse } from '@/lib/api/contract/types'
+import type { PostRequest, UserResponse } from '@/lib/api/contract/types'
 import { csrfStore } from '@/lib/api/csrf'
 import { ApiRequestError, readError, toApiError } from '@/lib/api/errors'
 import { never } from '@/utils/helpers/never'
 
-import type { ApiClient, ApiClientDeps, Result } from './types'
+import type { ApiClient, ApiClientDeps, MutationMethod, Result } from './types'
+
+/** The path of one post; the ID is a positive integer from the API. */
+const postPath = (id: number) => {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error('refusing a malformed post id')
+  }
+  return `/api/posts/${id}`
+}
 
 export const createApiClient = (deps: ApiClientDeps): ApiClient => {
-  const send = async (path: string, token: string, body?: unknown) => {
+  const send = async (
+    method: MutationMethod,
+    path: string,
+    token: string,
+    body?: unknown
+  ) => {
     const headers: Record<string, string> = { [CSRF_HEADER]: token }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
@@ -30,22 +43,23 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
         body: body === undefined ? undefined : JSON.stringify(body),
         cache: 'no-store',
         headers,
-        method: 'POST'
+        method
       })
     } catch {
       throw new ApiRequestError(networkError())
     }
   }
 
-  /** POST with the token, the single retry on 403 and the 401 rule. */
-  const post = async (
+  /** A mutation with the token, the single retry on 403 and the 401 rule. */
+  const mutate = async (
+    method: MutationMethod,
     path: string,
     body: unknown,
     { unauthorizedIsAnswer = false } = {}
   ): Promise<Response> => {
-    let res = await send(path, await deps.csrf.get(), body)
+    let res = await send(method, path, await deps.csrf.get(), body)
     if (res.status === 403) {
-      res = await send(path, await deps.csrf.refresh(), body)
+      res = await send(method, path, await deps.csrf.refresh(), body)
     }
     if (res.status === 401 && !unauthorizedIsAnswer) {
       deps.csrf.clear()
@@ -76,7 +90,7 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
   return {
     login: input =>
       run(async () => {
-        const res = await post('/api/login', input, {
+        const res = await mutate('POST', '/api/login', input, {
           unauthorizedIsAnswer: true
         })
         if (res.status !== 200)
@@ -89,7 +103,7 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
 
     logout: () =>
       run(async () => {
-        const res = await post('/api/logout', undefined, {
+        const res = await mutate('POST', '/api/logout', undefined, {
           unauthorizedIsAnswer: true
         })
         // 401: the session had already ended, which is the goal anyway.
@@ -103,10 +117,38 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
 
     register: input =>
       run(async () => {
-        const res = await post('/api/cadastro', input)
+        const res = await mutate('POST', '/api/cadastro', input)
         if (res.status !== 201)
           return { error: await readError(res), ok: false }
         return { data: await json<UserResponse>(res), ok: true }
+      }),
+
+    // The wall re-reads the posts from the server after each change
+    // (router.refresh), so these calls return no data.
+    createPost: input =>
+      run(async () => {
+        const body: PostRequest = { body: input.body, title: input.title }
+        const res = await mutate('POST', '/api/posts', body)
+        if (res.status !== 201)
+          return { error: await readError(res), ok: false }
+        return { data: undefined, ok: true }
+      }),
+
+    deletePost: id =>
+      run(async () => {
+        const res = await mutate('DELETE', postPath(id), undefined)
+        if (res.status !== 204)
+          return { error: await readError(res), ok: false }
+        return { data: undefined, ok: true }
+      }),
+
+    updatePost: (id, input) =>
+      run(async () => {
+        const body: PostRequest = { body: input.body, title: input.title }
+        const res = await mutate('PUT', postPath(id), body)
+        if (res.status !== 200)
+          return { error: await readError(res), ok: false }
+        return { data: undefined, ok: true }
       })
   }
 }

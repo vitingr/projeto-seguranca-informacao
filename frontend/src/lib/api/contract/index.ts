@@ -1,7 +1,15 @@
 // Types of the backend API, written by hand from backend/api/openapi.json.
 // index.test.ts checks them against the contract.
 
-import type { CadastroRequest, LoginRequest, UserResponse } from './types'
+import type {
+  CadastroRequest,
+  LoginRequest,
+  PostAuthorResponse,
+  PostPageResponse,
+  PostRequest,
+  PostResponse,
+  UserResponse
+} from './types'
 
 export const ERROR_CODES = [
   'bad_request',
@@ -31,3 +39,30 @@ export const USER_RESPONSE_FIELDS = [
   'login',
   'role'
 ] as const satisfies readonly (keyof UserResponse)[]
+
+export const POST_REQUEST_FIELDS = [
+  'title',
+  'body'
+] as const satisfies readonly (keyof PostRequest)[]
+
+export const POST_RESPONSE_FIELDS = [
+  'id',
+  'title',
+  'body',
+  'author',
+  'created_at',
+  'updated_at',
+  'mine'
+] as const satisfies readonly (keyof PostResponse)[]
+
+export const POST_AUTHOR_FIELDS = [
+  'user_id',
+  'login'
+] as const satisfies readonly (keyof PostAuthorResponse)[]
+
+export const POST_PAGE_FIELDS = [
+  'items',
+  'page',
+  'page_size',
+  'has_next'
+] as const satisfies readonly (keyof PostPageResponse)[]

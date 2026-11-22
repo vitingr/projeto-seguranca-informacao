@@ -73,21 +73,28 @@ The checks to run before every commit are listed in
   TLS verification is never disabled; with an untrusted certificate every
   backend call fails.
 - **The cookie** is handled only by the browser and the backend. The Next
-  server reads it only to forward it, alone, to `GET /api/me` and the area
-  endpoints, never caching the answer.
+  server reads it only to forward it, alone, to `GET /api/me`, the area
+  endpoints and `GET /api/posts`, never caching the answer.
 - **The CSRF token** lives in JavaScript memory only
-  (`src/lib/api/csrf`): fetched before the first POST, fetched again
+  (`src/lib/api/csrf`): fetched before the first mutation (POST, PUT or
+  DELETE), fetched again
   after login, discarded at logout. It is never written to Web Storage,
   IndexedDB, cookies or URLs.
 - **Protected pages** (`/admin`, `/cadastrar-usuarios` for `admin`,
-  `/minha-conta` for `comum`) check the session on the server in each page
+  `/minha-conta` and `/mural` for `comum`) check the session on the server in each page
   (`src/services/session`). No cookie or a 401 → `/login?next=<page>`;
   another role → the "no permission" screen. The area pages also call
   their backend endpoint, whose 403 has the last word. A role change in
   the database applies on the next page load.
+- **The post wall** (`/mural`) reads one page of posts on the server
+  (`?pagina=N`) and changes them from the browser with the API client.
+  After each change it re-reads the page (`router.refresh()`). Edit and
+  delete buttons appear only on the user's own posts, and the backend
+  checks the owner again. Titles and bodies are rendered as React text,
+  never as HTML or markdown: `react/no-danger` is an ESLint error.
 - **During use**, any 401 (except a wrong password on login) goes back to
   the login page with "Sua sessão expirou". A 403 on a POST refreshes the
-  token and retries once: that is how an expired session (which the
+  token and retries once (PUT and DELETE too): that is how an expired session (which the
   backend answers with 403 on a POST, since CSRF runs before the role
   check) ends on the login page.
 - **Errors** are shown by the `error` code of the backend response, with
@@ -99,12 +106,15 @@ The checks to run before every commit are listed in
 
 - **Unit** (`pnpm test`, Vitest in Node): the API client and CSRF token
   rules, error messages, the server session rules, the `next` filter after
-  login, form validation, the dev launcher, and a check that
+  login, form validation (including the post limits), the post card
+  rendering user content as text, the dev launcher, and a check that
   `src/lib/api/contract` matches `backend/api/openapi.json`.
 - **End-to-end** (`pnpm e2e`, Playwright and Chromium) against the real
   backend: the proxy and cookie attributes, login, the role matrix of the
   pages, registration (including a taken login and an expired session),
-  a role change, and logout (including the Back button).
+  a role change, logout (including the Back button), and the post wall
+  (create, edit, delete, pagination, plain-text rendering, and a second
+  user who gets 404 on the author's post).
   - Chromium trusts only the backend certificate's public key
     (`--ignore-certificate-errors-spki-list`); any other certificate error
     fails the tests.

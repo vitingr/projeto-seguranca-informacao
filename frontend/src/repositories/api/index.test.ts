@@ -244,3 +244,91 @@ describe('logout', () => {
     expect(s.navigations).toEqual([])
   })
 })
+
+describe('posts (005 D-8)', () => {
+  const POSTS = 'POST /api/posts'
+  const PUT_7 = 'PUT /api/posts/7'
+  const DELETE_7 = 'DELETE /api/posts/7'
+  const input = { body: 'linha 1\nlinha 2', title: 'Olá' }
+
+  it('create sends the token and only title and body', async () => {
+    const s = setup({ [CSRF]: [csrfReply()], [POSTS]: [jsonResponse(201, {})] })
+    expect(await s.client.createPost(input)).toEqual({
+      data: undefined,
+      ok: true
+    })
+    const call = s.calls[1]
+    expect(call?.headers['x-csrf-token']).toMatch(/^token-/)
+    expect(call?.headers['content-type']).toBe('application/json')
+    expect(call?.body).toEqual({ body: 'linha 1\nlinha 2', title: 'Olá' })
+  })
+
+  it('update sends PUT with the token', async () => {
+    const s = setup({ [CSRF]: [csrfReply()], [PUT_7]: [jsonResponse(200, {})] })
+    expect(await s.client.updatePost(7, input)).toEqual({
+      data: undefined,
+      ok: true
+    })
+    expect(s.sequence()).toEqual([CSRF, PUT_7])
+    expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
+  })
+
+  it('delete sends DELETE with the token and no body', async () => {
+    const s = setup({ [CSRF]: [csrfReply()], [DELETE_7]: [emptyResponse(204)] })
+    expect(await s.client.deletePost(7)).toEqual({ data: undefined, ok: true })
+    expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
+    expect(s.calls[1]?.headers['content-type']).toBeUndefined()
+    expect(s.calls[1]?.body).toBeUndefined()
+  })
+
+  it.each([
+    ['update', PUT_7, 404, 'not_found'],
+    ['update', PUT_7, 422, 'unprocessable_entity'],
+    ['delete', DELETE_7, 404, 'not_found']
+  ])('%s returns %s %i as an error', async (kind, key, status, code) => {
+    const s = setup({
+      [CSRF]: [csrfReply()],
+      [key]: [errorResponse(status, code)]
+    })
+    const result =
+      kind === 'update'
+        ? await s.client.updatePost(7, input)
+        : await s.client.deletePost(7)
+    expect(result).toMatchObject({ error: { code, status }, ok: false })
+  })
+
+  it('PUT and DELETE also refresh the token and retry once on 403', async () => {
+    const s = setup({
+      [CSRF]: [csrfReply(), csrfReply()],
+      [DELETE_7]: [errorResponse(403, 'forbidden'), emptyResponse(204)]
+    })
+    expect(await s.client.deletePost(7)).toEqual({ data: undefined, ok: true })
+    expect(s.sequence()).toEqual([CSRF, DELETE_7, CSRF, DELETE_7])
+    const [first, second] = s.calls
+      .filter(c => c.method === 'DELETE')
+      .map(c => c.headers['x-csrf-token'])
+    expect(second).not.toBe(first)
+  })
+
+  it('a 401 on a post mutation goes to login', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply()],
+        [PUT_7]: [errorResponse(401, 'unauthorized')]
+      },
+      '/mural'
+    )
+    expect(await settled(s.client.updatePost(7, input))).toBe('pending')
+    expect(s.navigations).toEqual(['go /login?next=%2Fmural&sessao=expirada'])
+  })
+
+  it.each([0, -1, 1.5, Number.NaN])(
+    'refuses the malformed post id %s without a request',
+    async id => {
+      const s = setup({ [CSRF]: [csrfReply()] })
+      const result = await s.client.deletePost(id)
+      expect(result).toMatchObject({ error: { code: 'network' }, ok: false })
+      expect(s.sequence()).toEqual([])
+    }
+  )
+})

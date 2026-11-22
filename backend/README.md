@@ -193,7 +193,7 @@ Every dependency is listed here with the reason it is needed.
 | Module | Why |
 |---|---|
 | `github.com/jackc/pgx/v5` | PostgreSQL driver, used through `database/sql` (`pgx/v5/stdlib`). It is the most complete pure-Go PostgreSQL driver and maps unique-violation errors through `pgconn`. |
-| `github.com/magefile/mage` | Task runner written in Go, run as a module tool (`go tool mage`), so there is no Makefile or extra binary. |
+| `github.com/magefile/mage` | Task runner written in Go, run as a module tool (`go tool mage`), so the backend needs no Makefile or extra binary. The root `Makefile` only calls these targets. |
 | `golang.org/x/crypto` | Only `argon2` (`argon2.IDKey`) for password hashing; the standard library has no Argon2id. Pinned to v0.58.0, the newest release at least two weeks old. `govulncheck` lists GO-2026-5932 for this module, but it affects only `x/crypto/openpgp`, which we never import, so `mage vuln` passes. It brings `golang.org/x/sys` as an indirect dependency. |
 | `golang.org/x/text` | Only `unicode/norm`: passwords are normalized to NFKC before they are validated and hashed, so visually equivalent inputs give the same hash. It was already in the module graph through `pgx`; the standard library has no Unicode normalization. |
 

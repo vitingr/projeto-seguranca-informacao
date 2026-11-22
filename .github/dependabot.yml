@@ -1,0 +1,124 @@
+# Dependabot version and security updates.
+# https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Every ecosystem runs on Monday morning (Sao Paulo time) and groups its pull
+# requests: one for security updates and one for version updates. npm keeps
+# major versions out of the version group, so each major gets its own PR.
+# Commit messages follow the repository's Conventional Commits rules
+# (backend/CLAUDE.md): dependencies are chore, go.mod and images are build,
+# GitHub Actions are ci.
+version: 2
+
+updates:
+  # frontend/package.json with pnpm-lock.yaml.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels: [dependencies, npm]
+    commit-message:
+      prefix: chore(frontend)
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # backend/go.mod (modules and the mage tool).
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels: [dependencies, gomod]
+    commit-message:
+      prefix: build(backend)
+    groups:
+      gomod-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      gomod-version:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  # .github/workflows (actions pinned by commit SHA with a version comment).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels: [dependencies, github-actions]
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      github-actions-version:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  # backend/Dockerfile.
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: build(docker)
+    ignore:
+      # The Go version is kept aligned by hand in go.mod, the Dockerfile and
+      # GO_VERSION in the workflows (backend/README.md, "Go version").
+      - dependency-name: golang
+        update-types: [version-update:semver-major, version-update:semver-minor]
+    groups:
+      docker-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      docker-version:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  # backend/docker-compose.yml.
+  - package-ecosystem: docker-compose
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels: [dependencies, docker-compose]
+    commit-message:
+      prefix: build(docker)
+    ignore:
+      # A new PostgreSQL major cannot read the existing data volume: upgrade
+      # it on purpose, with a dump and restore.
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+      # Built locally from the Dockerfile (build: .), not pulled.
+      - dependency-name: backend_si
+    groups:
+      docker-compose-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      docker-compose-version:
+        applies-to: version-updates
+        patterns: ["*"]

@@ -1,0 +1,29 @@
+info:
+  name: posts-list-comum
+  type: http
+  seq: 36
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/posts"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The newest post is the one created in posts-create-comum, still with
+        // the title of posts-update-comum: the requests without a CSRF token
+        // created, changed and deleted nothing.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the first page, newest first", function () {
+          const body = res.getBody();
+          expect(body.page).to.equal(1);
+          expect(body.page_size).to.equal(20);
+          expect(body.has_next).to.be.a("boolean");
+          expect(body.items[0].id).to.equal(bru.getVar("postId"));
+          expect(body.items[0].title).to.equal("Editado pelo Bruno");
+          expect(body.items[0].mine).to.equal(true);
+        });

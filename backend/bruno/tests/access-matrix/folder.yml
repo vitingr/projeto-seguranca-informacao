@@ -1,10 +1,16 @@
 # Hand-written. Run by "mage brunoRun" after the root requests of tests/
 # (bru run tests tests/access-matrix, 003 D-15).
 #
-# The 15-cell access matrix (003 D-2), one caller at a time, with the shared
-# cookie jar: anonymous (2-6) -> seed admin (9-11, 14-15) -> the comum user
-# that the admin registers in 11 (19-23). Requests 12 and 13 check the 409
-# and 422 of POST /api/cadastro.
+# The access matrix (003 D-2, plus the four post routes of 005), one caller
+# at a time, with the shared cookie jar: anonymous (2-10) -> seed admin
+# (13-15, 18-23) -> the comum user that the admin registers in 15 (27-36,
+# 42, 44). Requests 16 and 17 check the 409 and 422 of POST /api/cadastro.
+#
+# Requests 31-43 are the post wall of 005 as the comum user: create, update,
+# the three mutations without a CSRF token (403, and 36 checks that nothing
+# changed), 422 and 400 for invalid bodies and pages, 404 for a malformed ID,
+# delete, and 404 once the post is gone. The post is deleted at the end, so
+# a run leaves no post behind.
 #
 # The comum credentials come from BRUNO_COMUM_LOGIN and BRUNO_COMUM_PASSWORD,
 # which "mage brunoRun" generates with crypto/rand for every run (003 D-13),

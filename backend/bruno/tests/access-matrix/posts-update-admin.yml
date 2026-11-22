@@ -1,0 +1,31 @@
+info:
+  name: posts-update-admin
+  type: http
+  seq: 21
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/1"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Post do Bruno",
+        "body": "Corpo do post."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The wall is comum only (005 D-1).
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+        });
+        test("error is forbidden", function () {
+          expect(res.getBody().error).to.equal("forbidden");
+        });

@@ -1,0 +1,31 @@
+info:
+  name: posts-create-invalid
+  type: http
+  seq: 37
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "body": "Corpo."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A title of 121 characters (the limit is 120, 005 D-4).
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("error is unprocessable_entity", function () {
+          expect(res.getBody().error).to.equal("unprocessable_entity");
+        });

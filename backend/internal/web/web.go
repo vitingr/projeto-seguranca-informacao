@@ -19,19 +19,28 @@ type UserService interface {
 	Register(ctx context.Context, in service.RegisterInput) (domain.User, error)
 }
 
+// PostService runs the wall operations (spec 005) for the calling user.
+type PostService interface {
+	List(ctx context.Context, page int) (domain.PostPage, error)
+	Create(ctx context.Context, author domain.UserID, in service.PostInput) (domain.Post, error)
+	Update(ctx context.Context, author domain.UserID, id domain.PostID, in service.PostInput) (domain.Post, error)
+	Delete(ctx context.Context, author domain.UserID, id domain.PostID) error
+}
+
 type Deps struct {
 	Logger   *slog.Logger
 	Security *security.Security
 	Auth     AuthService
 	Users    UserService
+	Posts    PostService
 }
 
 func NewHandler(d Deps) (http.Handler, error) {
-	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil {
+	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Posts == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
-	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users}
+	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users, posts: d.Posts}
 
 	mux := http.NewServeMux()
 	for _, rt := range h.routes() {

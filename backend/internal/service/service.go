@@ -23,3 +23,19 @@ type InputValidator interface {
 	ValidatePassword(password string) error
 	ParseRole(raw string) (domain.Role, error)
 }
+
+// PostRepository stores the posts of the wall. Update and Delete only touch
+// a post of the given author, in the same statement (005 D-3); no such
+// post wraps domain.ErrNotFound.
+type PostRepository interface {
+	List(ctx context.Context, limit, offset int) ([]domain.Post, error)
+	Create(ctx context.Context, p domain.Post) (domain.Post, error)
+	Update(ctx context.Context, p domain.Post) (domain.Post, error)
+	Delete(ctx context.Context, id domain.PostID, author domain.UserID) error
+}
+
+type PostValidator interface {
+	// ValidatePost returns the trimmed title and body, or an error that
+	// wraps domain.ErrInvalidInput.
+	ValidatePost(title, body string) (string, string, error)
+}

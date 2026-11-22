@@ -1,0 +1,10 @@
+info:
+  name: posts
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: "The post wall: posts of every user, edited and deleted by their authors."
+  type: text/markdown

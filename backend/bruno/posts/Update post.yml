@@ -1,0 +1,297 @@
+info:
+  name: Update post
+  type: http
+  seq: 3
+  tags:
+    - posts
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/:id"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: ID of the post.
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Bem-vindos ao mural",
+        "body": "Primeiro post.\nSegunda linha."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Post updated.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": 1,
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha.",
+            "author": {
+              "user_id": 2,
+              "login": "maria.silva"
+            },
+            "created_at": "2026-11-22T12:00:00Z",
+            "updated_at": "2026-11-22T12:00:00Z",
+            "mine": true
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: No post with this ID was written by the caller.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Post não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 422 Response
+    description: The body is well-formed but a value is invalid (see the description of the operation).
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unprocessable_entity",
+            "message": "Dados inválidos. Revise os campos e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: PUT
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+      body:
+        type: json
+        data: |-
+          {
+            "title": "Bem-vindos ao mural",
+            "body": "Primeiro post.\nSegunda linha."
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Replaces the title and body of one of the caller's posts, with the rules of `POST /api/posts`.
+
+  **400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a `Content-Type` other than `application/json`, an unknown field, or a field of the wrong JSON type.
+
+  **422** (`unprocessable_entity`): the body is well-formed but a value is invalid: `title` or `body` is missing, empty after trimming, too long, or has a control character that is not allowed (see `PostRequest`).
+
+  **404** (`not_found`): no post with this `id` was written by the caller: it does not exist, it belongs to another user, or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.

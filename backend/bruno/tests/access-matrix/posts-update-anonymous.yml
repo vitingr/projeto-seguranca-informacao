@@ -1,0 +1,32 @@
+info:
+  name: posts-update-anonymous
+  type: http
+  seq: 9
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/1"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Post do Bruno",
+        "body": "Corpo do post."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Anonymous with a valid CSRF token: the CSRF check passes and
+        // Authorize answers 401.
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
+        });
+        test("error is unauthorized", function () {
+          expect(res.getBody().error).to.equal("unauthorized");
+        });

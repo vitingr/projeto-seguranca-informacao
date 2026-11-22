@@ -1,0 +1,20 @@
+info:
+  name: posts-delete-comum
+  type: http
+  seq: 42
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/posts/{{postId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 204", function () {
+          expect(res.getStatus()).to.equal(204);
+        });

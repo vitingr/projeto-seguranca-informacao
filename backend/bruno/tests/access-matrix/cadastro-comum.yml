@@ -1,7 +1,7 @@
 info:
   name: cadastro-comum
   type: http
-  seq: 21
+  seq: 29
 
 http:
   method: POST

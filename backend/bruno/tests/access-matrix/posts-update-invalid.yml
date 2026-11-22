@@ -1,0 +1,31 @@
+info:
+  name: posts-update-invalid
+  type: http
+  seq: 38
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/{{postId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Titulo",
+        "body": "   "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A body that is blank after trimming (005 D-4).
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("error is unprocessable_entity", function () {
+          expect(res.getBody().error).to.equal("unprocessable_entity");
+        });

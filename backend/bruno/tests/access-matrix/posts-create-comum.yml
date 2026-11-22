@@ -1,0 +1,42 @@
+info:
+  name: posts-create-comum
+  type: http
+  seq: 31
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "  Bruno <b>post</b>  ",
+        "body": "<img src=x onerror=alert(1)>\nlinha 2"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The text is trimmed and kept exactly as sent, HTML included: the
+        // API never escapes or sanitizes it (005 D-6).
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the post of the caller", function () {
+          const body = res.getBody();
+          expect(body.id).to.be.a("number").and.above(0);
+          expect(body.title).to.equal("Bruno <b>post</b>");
+          expect(body.body).to.equal("<img src=x onerror=alert(1)>\nlinha 2");
+          expect(body.author.user_id).to.equal(bru.getVar("comumUserId"));
+          expect(body.author.login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
+          expect(body.mine).to.equal(true);
+          expect(Object.keys(body).sort()).to.deep.equal(
+            ["author", "body", "created_at", "id", "mine", "title", "updated_at"]
+          );
+          bru.setVar("postId", body.id);
+        });

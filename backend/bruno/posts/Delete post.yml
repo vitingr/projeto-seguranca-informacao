@@ -1,0 +1,166 @@
+info:
+  name: Delete post
+  type: http
+  seq: 4
+  tags:
+    - posts
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/posts/:id"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: ID of the post.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 204 Response
+    description: Post deleted.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: DELETE
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: DELETE
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: DELETE
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: No post with this ID was written by the caller.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: DELETE
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Post não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/posts/:id"
+      method: DELETE
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: ID of the post.
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Deletes one of the caller's posts. The request has no body.
+
+  **404** (`not_found`): no post with this `id` was written by the caller: it does not exist, it belongs to another user, or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.

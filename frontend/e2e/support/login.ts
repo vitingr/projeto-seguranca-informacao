@@ -6,29 +6,29 @@ export interface Credentials {
 }
 
 /** Fills and submits the login form on the current page. */
-export async function submitLogin(
+export const submitLogin = async (
   page: Page,
   { login, password }: Credentials
-) {
+) => {
   await page.getByLabel('Login').fill(login)
   await page.getByLabel('Senha').fill(password)
   await page.getByRole('button', { name: 'Entrar' }).click()
 }
 
 /** Opens /login (with an optional query) and logs in, waiting for `lands`. */
-export async function loginAs(
+export const loginAs = async (
   page: Page,
   credentials: Credentials,
   lands: RegExp | string,
   query = ''
-) {
+) => {
   await page.goto(`/login${query}`)
   await submitLogin(page, credentials)
   await expect(page).toHaveURL(lands)
 }
 
 /** Method and path of every /api request the page makes. */
-export function recordApiCalls(page: Page) {
+export const recordApiCalls = (page: Page) => {
   const calls: string[] = []
   page.on('request', request => {
     const url = new URL(request.url())

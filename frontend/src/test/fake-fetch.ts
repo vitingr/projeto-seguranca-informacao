@@ -31,7 +31,7 @@ export const csrfReply = () =>
     header: 'X-CSRF-Token'
   })
 
-export function fakeFetch(routes: Record<string, Reply[]>) {
+export const fakeFetch = (routes: Record<string, Reply[]>) => {
   const calls: RecordedCall[] = []
   const fetchFn: typeof fetch = async (input, init) => {
     const url = String(input)
@@ -52,7 +52,7 @@ export function fakeFetch(routes: Record<string, Reply[]>) {
   return { calls, fetch: fetchFn }
 }
 
-export async function settled<T>(promise: Promise<T>) {
+export const settled = async <T>(promise: Promise<T>) => {
   const marker = Symbol('pending')
   const result = await Promise.race([
     promise,

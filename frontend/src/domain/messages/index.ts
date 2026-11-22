@@ -23,7 +23,10 @@ export const MESSAGES = {
 const withRequestId = (text: string, requestId?: string) =>
   requestId ? `${text} (código: ${requestId})` : text
 
-export function messageFor(error: ApiError, context: MessageContext): string {
+export const messageFor = (
+  error: ApiError,
+  context: MessageContext
+): string => {
   switch (error.code) {
     case NETWORK:
       return MESSAGES.network

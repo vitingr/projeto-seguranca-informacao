@@ -13,10 +13,10 @@ const SESSION_VALUE = /^[A-Z2-7]{26}$/
 export const isSessionValue = (value: string | undefined): value is string =>
   value !== undefined && SESSION_VALUE.test(value)
 
-export function createBackendGet(
+export const createBackendGet = (
   apiUrl: string,
   fetchFn: typeof fetch
-): BackendGet {
+): BackendGet => {
   return async (path, session) => {
     if (!isSessionValue(session)) {
       throw new Error('refusing to forward a malformed session cookie')

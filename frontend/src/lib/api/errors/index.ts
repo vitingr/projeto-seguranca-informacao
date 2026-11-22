@@ -1,8 +1,3 @@
-// Errors from the backend, read from the `error` field of ErrorResponse
-// (spec D-8). Anything that is not a JSON ErrorResponse (backend down or
-// untrusted: the proxy answers a plain-text 500, or fetch itself fails) is
-// reported as `network` (spec D-17).
-
 import { networkError } from '@/domain/api-error'
 import type { ApiError } from '@/domain/api-error/types'
 
@@ -16,8 +11,7 @@ export class ApiRequestError extends Error {
 const optionalString = (value: unknown) =>
   typeof value === 'string' && value !== '' ? value : undefined
 
-/** Reads an error response. It never throws. */
-export async function readError(res: Response): Promise<ApiError> {
+export const readError = async (res: Response): Promise<ApiError> => {
   let body: unknown
   try {
     body = await res.json()
@@ -38,7 +32,6 @@ export async function readError(res: Response): Promise<ApiError> {
   }
 }
 
-/** Turns anything thrown by the API layer into an ApiError. */
-export function toApiError(err: unknown): ApiError {
+export const toApiError = (err: unknown): ApiError => {
   return err instanceof ApiRequestError ? err.error : networkError()
 }

@@ -10,7 +10,7 @@ const backendDir = path.join(__dirname, '..', '..', '..', 'backend')
  * for it), like 003 D-12. The SQL goes on stdin and the values are psql
  * variables (:'role', :'login'), quoted by psql, never concatenated.
  */
-export function setRole(login: string, role: 'admin' | 'comum') {
+export const setRole = (login: string, role: 'admin' | 'comum') => {
   const output = execFileSync(
     'docker',
     [

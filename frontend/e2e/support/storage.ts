@@ -5,7 +5,7 @@ import { type Page, expect } from '@playwright/test'
  * (spec D-2, D-3): no Web Storage entries, no IndexedDB database and no
  * cookie readable by JavaScript.
  */
-export async function expectNothingInBrowserStorage(page: Page) {
+export const expectNothingInBrowserStorage = async (page: Page) => {
   const storage = await page.evaluate(async () => ({
     cookie: document.cookie,
     indexedDb: (await indexedDB.databases()).map(db => db.name),

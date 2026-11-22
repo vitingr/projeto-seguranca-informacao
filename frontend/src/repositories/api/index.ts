@@ -17,15 +17,12 @@ import { CSRF_HEADER } from '@/lib/api/contract'
 import type { UserResponse } from '@/lib/api/contract/types'
 import { csrfStore } from '@/lib/api/csrf'
 import { ApiRequestError, readError, toApiError } from '@/lib/api/errors'
+import { never } from '@/utils/helpers/never'
 
 import type { ApiClient, ApiClientDeps, Result } from './types'
 
-// Returned after a navigation to the login page: callers render nothing
-// more for a page that is going away.
-const never = <T>() => new Promise<T>(() => {})
-
-export function createApiClient(deps: ApiClientDeps): ApiClient {
-  async function send(path: string, token: string, body?: unknown) {
+export const createApiClient = (deps: ApiClientDeps): ApiClient => {
+  const send = async (path: string, token: string, body?: unknown) => {
     const headers: Record<string, string> = { [CSRF_HEADER]: token }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
@@ -41,11 +38,11 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
   }
 
   /** POST with the token, the single retry on 403 and the 401 rule. */
-  async function post(
+  const post = async (
     path: string,
     body: unknown,
     { unauthorizedIsAnswer = false } = {}
-  ): Promise<Response> {
+  ): Promise<Response> => {
     let res = await send(path, await deps.csrf.get(), body)
     if (res.status === 403) {
       res = await send(path, await deps.csrf.refresh(), body)
@@ -60,7 +57,7 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
     return res
   }
 
-  async function run<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
+  const run = async <T>(call: () => Promise<Result<T>>): Promise<Result<T>> => {
     try {
       return await call()
     } catch (err) {
@@ -68,7 +65,7 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
     }
   }
 
-  async function json<T>(res: Response): Promise<T> {
+  const json = async <T>(res: Response): Promise<T> => {
     try {
       return (await res.json()) as T
     } catch {

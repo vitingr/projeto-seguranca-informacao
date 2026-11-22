@@ -14,7 +14,7 @@ const certDir =
  * --ignore-certificate-errors-spki-list then trusts only this key: any other
  * certificate error still fails the test (spec D-16).
  */
-export function backendSpkiHash(): string {
+export const backendSpkiHash = (): string => {
   const crt = path.resolve(certDir, 'server.crt')
   const der = new X509Certificate(readFileSync(crt)).publicKey.export({
     format: 'der',

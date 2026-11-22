@@ -7,10 +7,10 @@ import { comumUser, generateComumCredentials, seedAdmin } from './support/env'
 import { loginAs, recordApiCalls } from './support/login'
 import { expectNothingInBrowserStorage } from './support/storage'
 
-async function fillCadastro(
+const fillCadastro = async (
   page: Page,
   { login, papel, senha }: { login: string; papel?: string; senha: string }
-) {
+) => {
   await page.getByLabel('Login').fill(login)
   await page.getByLabel('Senha').fill(senha)
   if (papel) await page.getByLabel('Papel').selectOption(papel)

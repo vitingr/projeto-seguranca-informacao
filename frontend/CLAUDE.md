@@ -65,6 +65,20 @@ Run `git status` and confirm that none of these are being added:
 - No credential in the repository or in command-line arguments. E2E tests
   read them from the environment or `backend/.env`.
 
+## Dependencies
+
+- `shadcn` (a production dependency, used by the app only for
+  `@import "shadcn/tailwind.css"`) pulls `ts-morph` → `@ts-morph/common` →
+  `minimatch` 10.x. The Dependabot alert for GHSA-g3hv-75wg-m249 (minimatch
+  `>= 7.0.0, < 11.0.1`, DoS through globparts amplification) was dismissed
+  as `not_used`: the vulnerable code only runs with `optimizationLevel >= 2`,
+  and `@ts-morph/common` calls `minimatch(path, pattern)` with the default
+  level 1. `ts-morph` only runs in the shadcn CLI, never in the app.
+- That path is fixed once `pnpm-lock.yaml` has `@ts-morph/common` 0.29.1 or
+  newer (`minimatch ^11.0.1`), which needs `shadcn` on `ts-morph` 28 or
+  newer. `ts-morph` 27 and `@ts-morph/common` 0.29.0 still use
+  `minimatch ^10`. Nothing else is needed then.
+
 ## Source layout
 
 ```

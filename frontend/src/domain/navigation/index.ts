@@ -31,7 +31,7 @@ export const safeNext = (next: unknown, role: Role): ProtectedRoute => {
 }
 
 /** The login page, remembering where the user was. */
-export function loginUrl(next: string, { expired = false } = {}): string {
+export const loginUrl = (next: string, { expired = false } = {}): string => {
   const query = new URLSearchParams({ next })
   if (expired) query.set('sessao', 'expirada')
   return `${LOGIN_PATH}?${query}`

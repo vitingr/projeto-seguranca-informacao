@@ -6,14 +6,14 @@ import { expectNothingInBrowserStorage } from './support/storage'
 
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
-async function expectArea(page: Page, path: string, area: string) {
+const expectArea = async (page: Page, path: string, area: string) => {
   await page.goto(path)
   await expect(page).toHaveURL(path)
   await expect(page.getByTestId('area')).toContainText(area)
   await expect(page.getByTestId('forbidden')).toHaveCount(0)
 }
 
-async function expectForbidden(page: Page, path: string) {
+const expectForbidden = async (page: Page, path: string) => {
   await page.goto(path)
   await expect(page).toHaveURL(path)
   await expect(page.getByTestId('forbidden')).toHaveText(FORBIDDEN)

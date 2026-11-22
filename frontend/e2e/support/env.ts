@@ -8,7 +8,7 @@ const backendEnvFile = path.join(__dirname, '..', '..', '..', 'backend', '.env')
 
 let fileValues: Record<string, string | undefined> | undefined
 
-function fromFile(): Record<string, string | undefined> {
+const fromFile = (): Record<string, string | undefined> => {
   if (!fileValues) {
     fileValues = existsSync(backendEnvFile)
       ? parseEnv(readFileSync(backendEnvFile, 'utf8'))
@@ -18,7 +18,7 @@ function fromFile(): Record<string, string | undefined> {
 }
 
 /** Reads a required variable; the error names it but never shows a value. */
-export function requireEnv(name: string): string {
+export const requireEnv = (name: string): string => {
   const value = process.env[name] || fromFile()[name]
   if (!value) {
     throw new Error(
@@ -45,10 +45,12 @@ export const comumUser = () => ({
   password: requireEnv('E2E_COMUM_PASSWORD')
 })
 
-export function generateComumCredentials(random: (bytes: number) => Buffer): {
+export const generateComumCredentials = (
+  random: (bytes: number) => Buffer
+): {
   login: string
   password: string
-} {
+} => {
   return {
     login: `e2e.${random(12).toString('hex')}`,
     password: random(24).toString('base64url')

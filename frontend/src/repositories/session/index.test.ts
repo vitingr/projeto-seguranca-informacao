@@ -6,7 +6,7 @@ import { loadArea, loadSession } from '.'
 
 const SESSION = 'MZXW6YTBOI4DCMRTGQ2TMNZYHE'
 
-function backend(answers: Record<string, BackendAnswer>) {
+const backend = (answers: Record<string, BackendAnswer>) => {
   const calls: string[] = []
   const get: BackendGet = async (path, cookie) => {
     calls.push(`${path} ${cookie}`)

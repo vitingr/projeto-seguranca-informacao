@@ -4,7 +4,10 @@ import type { ProtectedRoute } from '@/domain/protected-routes/types'
 
 import type { Access, Session } from './types'
 
-export function decideAccess(session: Session, route: ProtectedRoute): Access {
+export const decideAccess = (
+  session: Session,
+  route: ProtectedRoute
+): Access => {
   switch (session.kind) {
     case 'anonymous':
       return { kind: 'login', url: loginUrl(route) }

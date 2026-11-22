@@ -1,18 +1,16 @@
-// The CSRF token lives only in this module's memory (spec D-3): never in
-// Web Storage, IndexedDB, cookies or URLs. A page reload starts empty and
-// the next state-changing request fetches a token again.
-
 import { networkError } from '@/domain/api-error'
 import type { CsrfResponse } from '@/lib/api/contract/types'
 import { ApiRequestError, readError } from '@/lib/api/errors'
 
-import type { CsrfStore } from './types'
+import type { CreaateCsrfStoreProps, CsrfStore } from './types'
 
-export function createCsrfStore(fetchFn: typeof fetch): CsrfStore {
+export const createCsrfStore = ({
+  fetchFn
+}: CreaateCsrfStoreProps): CsrfStore => {
   let token: string | null = null
   let pending: Promise<string> | null = null
 
-  async function load(): Promise<string> {
+  const load = async (): Promise<string> => {
     let res: Response
     try {
       res = await fetchFn('/api/csrf', { cache: 'no-store' })
@@ -27,7 +25,7 @@ export function createCsrfStore(fetchFn: typeof fetch): CsrfStore {
     return body.csrf_token
   }
 
-  function refresh(): Promise<string> {
+  const refresh = (): Promise<string> => {
     token = null
     const request: Promise<string> = load().then(
       value => {
@@ -59,5 +57,6 @@ export function createCsrfStore(fetchFn: typeof fetch): CsrfStore {
   }
 }
 
-/** The browser's single store. */
-export const csrfStore = createCsrfStore((...args) => fetch(...args))
+export const csrfStore = createCsrfStore({
+  fetchFn: (...args) => fetch(...args)
+})

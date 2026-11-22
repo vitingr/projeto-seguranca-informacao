@@ -26,10 +26,13 @@ const cadastro = {
 } as const
 const user = { login: 'maria', role: 'comum', user_id: 2 }
 
-function setup(routes: Record<string, Reply[]>, path = '/cadastrar-usuarios') {
+const setup = (
+  routes: Record<string, Reply[]>,
+  path = '/cadastrar-usuarios'
+) => {
   const f = fakeFetch(routes)
   const navigations: string[] = []
-  const csrf = createCsrfStore(f.fetch)
+  const csrf = createCsrfStore({ fetchFn: f.fetch })
   const client = createApiClient({
     csrf,
     fetch: f.fetch,

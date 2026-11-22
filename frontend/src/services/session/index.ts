@@ -30,16 +30,16 @@ export const getSession = cache(async (): Promise<Session> =>
  * session, and tells the page whether the role is allowed. Call it in each
  * page, not in a layout (layouts do not re-render on navigation).
  */
-export async function requireRole(
+export const requireRole = async (
   route: ProtectedRoute
-): Promise<{ allowed: boolean; user: CurrentUser }> {
+): Promise<{ allowed: boolean; user: CurrentUser }> => {
   const access = decideAccess(await getSession(), route)
   if (access.kind === 'login') redirect(access.url)
   return { allowed: access.kind === 'allowed', user: access.user }
 }
 
 /** Loads a role area; redirects to login if the session ended meanwhile. */
-export async function requireArea(path: AreaPath, route: ProtectedRoute) {
+export const requireArea = async (path: AreaPath, route: ProtectedRoute) => {
   const cookie = await sessionCookie()
   if (!isSessionValue(cookie)) {
     redirect(loginUrl(route))

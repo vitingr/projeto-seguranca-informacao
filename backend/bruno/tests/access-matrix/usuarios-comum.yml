@@ -1,7 +1,7 @@
 info:
   name: usuarios-comum
   type: http
-  seq: 20
+  seq: 28
 
 http:
   method: GET

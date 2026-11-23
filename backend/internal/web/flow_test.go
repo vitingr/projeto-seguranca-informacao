@@ -14,6 +14,7 @@ import (
 
 	"backend_si/internal/domain"
 	"backend_si/internal/security"
+	"backend_si/internal/service"
 )
 
 const (
@@ -21,11 +22,15 @@ const (
 	flowPassword = "the right long password"
 )
 
-// comumLogin is a user with the comum role and the same password.
-const comumLogin = "maria"
+// comumLogin and otherComumLogin are users with the comum role and the
+// same password.
+const (
+	comumLogin      = "maria"
+	otherComumLogin = "joao"
+)
 
-// credAuth accepts flowLogin (admin, ID 1) and comumLogin (comum, ID 2),
-// both with flowPassword.
+// credAuth accepts flowLogin (admin, ID 1), comumLogin (comum, ID 2) and
+// otherComumLogin (comum, ID 3), all with flowPassword.
 type credAuth struct{}
 
 func (credAuth) Authenticate(_ context.Context, login, password string) (domain.User, error) {
@@ -35,15 +40,19 @@ func (credAuth) Authenticate(_ context.Context, login, password string) (domain.
 			return domain.User{ID: 1, Login: flowLogin, Role: domain.RoleAdmin}, nil
 		case comumLogin:
 			return domain.User{ID: 2, Login: comumLogin, Role: domain.RoleComum}, nil
+		case otherComumLogin:
+			return domain.User{ID: 3, Login: otherComumLogin, Role: domain.RoleComum}, nil
 		}
 	}
 	return domain.User{}, fmt.Errorf("fake: %w", domain.ErrInvalidCredentials)
 }
 
-// flowApp is the full NewHandler chain with working sessions.
+// flowApp is the full NewHandler chain with working sessions and the real
+// post service over an in-memory repository.
 type flowApp struct {
 	app      http.Handler
 	sessions *memSessions
+	posts    *memPostRepo
 }
 
 func newFlowApp(t *testing.T) flowApp {
@@ -89,11 +98,18 @@ func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
 	if cfg.users != nil {
 		users = cfg.users(sec)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: credAuth{}, Users: users})
+	posts := newMemPostRepo()
+	app, err := NewHandler(Deps{
+		Logger:   logger,
+		Security: sec,
+		Auth:     credAuth{},
+		Users:    users,
+		Posts:    service.NewPosts(posts, sec),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return flowApp{app: app, sessions: store}
+	return flowApp{app: app, sessions: store, posts: posts}
 }
 
 // send runs one request; cookie may be nil.

@@ -21,6 +21,7 @@ type handlers struct {
 	sec    *security.Security
 	auth   AuthService
 	users  UserService
+	posts  PostService
 }
 
 type loginRequest struct {

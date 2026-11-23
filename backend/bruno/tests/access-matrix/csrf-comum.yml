@@ -1,7 +1,7 @@
 info:
   name: csrf-comum
   type: http
-  seq: 18
+  seq: 26
 
 http:
   method: GET

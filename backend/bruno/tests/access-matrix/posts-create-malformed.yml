@@ -1,0 +1,32 @@
+info:
+  name: posts-create-malformed
+  type: http
+  seq: 39
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Titulo",
+        "body": "Corpo.",
+        "author_id": 1
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // An unknown field: the author always comes from the session.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          expect(res.getBody().error).to.equal("bad_request");
+        });

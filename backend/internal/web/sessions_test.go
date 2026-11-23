@@ -19,7 +19,7 @@ type memSessions struct {
 func newMemSessions() *memSessions {
 	return &memSessions{
 		rows:  map[string]domain.Session{},
-		roles: map[domain.UserID]domain.Role{1: domain.RoleAdmin, 2: domain.RoleComum},
+		roles: map[domain.UserID]domain.Role{1: domain.RoleAdmin, 2: domain.RoleComum, 3: domain.RoleComum},
 	}
 }
 

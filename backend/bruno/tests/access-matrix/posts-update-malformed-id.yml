@@ -1,0 +1,34 @@
+info:
+  name: posts-update-malformed-id
+  type: http
+  seq: 41
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/abc"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Post do Bruno",
+        "body": "Corpo do post."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A malformed ID gets the same 404 as a missing post (005 D-3).
+        test("status is 404", function () {
+          expect(res.getStatus()).to.equal(404);
+        });
+        test("error is not_found", function () {
+          expect(res.getBody().error).to.equal("not_found");
+        });
+        test("message is the post not found message", function () {
+          expect(res.getBody().message).to.equal("Post não encontrado.");
+        });

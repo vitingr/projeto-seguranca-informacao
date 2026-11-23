@@ -13,10 +13,18 @@ import (
 // than 201 comes from the middleware chain, not from validation.
 const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough password","papel":"comum"}`
 
-// TestAccessMatrix covers the 15-cell access matrix (003 D-1, D-2) through
-// the full NewHandler chain. Every caller holds a session and sends a valid
-// CSRF token on POSTs, so a 401 or 403 can only come from Authorize; the log
-// reason proves it.
+// matrixPostBody is a valid post, and matrixPostPath names the post that
+// each matrix test seeds for the comum user, so comum gets 2xx on every
+// post route (005).
+const (
+	matrixPostBody = `{"title":"Título","body":"Corpo do post."}`
+	matrixPostPath = "/api/posts/1"
+)
+
+// TestAccessMatrix covers the access matrix (003 D-1, D-2, plus the four
+// post routes of 005) through the full NewHandler chain. Every caller holds
+// a session and sends a valid CSRF token on mutations, so a 401 or 403 can
+// only come from Authorize; the log reason proves it.
 func TestAccessMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -32,21 +40,33 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodPost, "/api/cadastro", http.StatusUnauthorized},
 		{anonymous, http.MethodGet, "/api/me", http.StatusUnauthorized},
 		{anonymous, http.MethodPost, "/api/logout", http.StatusUnauthorized},
+		{anonymous, http.MethodGet, "/api/posts", http.StatusUnauthorized},
+		{anonymous, http.MethodPost, "/api/posts", http.StatusUnauthorized},
+		{anonymous, http.MethodPut, matrixPostPath, http.StatusUnauthorized},
+		{anonymous, http.MethodDelete, matrixPostPath, http.StatusUnauthorized},
 
 		{comumLogin, http.MethodGet, "/api/administradores", http.StatusForbidden},
 		{comumLogin, http.MethodGet, "/api/usuarios", http.StatusOK},
 		{comumLogin, http.MethodPost, "/api/cadastro", http.StatusForbidden},
 		{comumLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{comumLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
+		{comumLogin, http.MethodGet, "/api/posts", http.StatusOK},
+		{comumLogin, http.MethodPost, "/api/posts", http.StatusCreated},
+		{comumLogin, http.MethodPut, matrixPostPath, http.StatusOK},
+		{comumLogin, http.MethodDelete, matrixPostPath, http.StatusNoContent},
 
 		{flowLogin, http.MethodGet, "/api/administradores", http.StatusOK},
 		{flowLogin, http.MethodGet, "/api/usuarios", http.StatusForbidden}, // admins do not reach /usuarios
 		{flowLogin, http.MethodPost, "/api/cadastro", http.StatusCreated},
 		{flowLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{flowLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
+		{flowLogin, http.MethodGet, "/api/posts", http.StatusForbidden}, // the wall is comum only (005 D-1)
+		{flowLogin, http.MethodPost, "/api/posts", http.StatusForbidden},
+		{flowLogin, http.MethodPut, matrixPostPath, http.StatusForbidden},
+		{flowLogin, http.MethodDelete, matrixPostPath, http.StatusForbidden},
 	}
-	if len(tests) != 15 {
-		t.Fatalf("matrix has %d cells, want 15 (D-2)", len(tests))
+	if len(tests) != 27 {
+		t.Fatalf("matrix has %d cells, want 27 (003 D-2 plus 4 post routes × 3 callers)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
@@ -54,6 +74,7 @@ func TestAccessMatrix(t *testing.T) {
 
 			var logBuf bytes.Buffer
 			f := newFlowAppWithLog(t, &logBuf)
+			f.posts.seed(t, 2, "do comum") // post 1, written by comumLogin
 			var (
 				cookie *http.Cookie
 				token  string
@@ -66,11 +87,14 @@ func TestAccessMatrix(t *testing.T) {
 
 			body := ""
 			headers := map[string]string{}
-			if tt.method == http.MethodPost {
+			if tt.method != http.MethodGet {
 				headers[security.CSRFHeaderName] = token
-				if tt.path == "/api/cadastro" {
-					body = matrixCadastroBody
-				}
+			}
+			switch {
+			case tt.path == "/api/cadastro":
+				body = matrixCadastroBody
+			case tt.method == http.MethodPost && tt.path == "/api/posts", tt.method == http.MethodPut:
+				body = matrixPostBody
 			}
 
 			logBuf.Reset()

@@ -31,6 +31,25 @@ func (fakeUsers) Register(context.Context, service.RegisterInput) (domain.User, 
 	return domain.User{ID: 2, Role: domain.RoleComum}, nil
 }
 
+// fakePosts is a PostService with an empty wall, where no post exists.
+type fakePosts struct{}
+
+func (fakePosts) List(_ context.Context, page int) (domain.PostPage, error) {
+	return domain.PostPage{Items: []domain.Post{}, Page: page, PageSize: service.PostPageSize}, nil
+}
+
+func (fakePosts) Create(_ context.Context, author domain.UserID, in service.PostInput) (domain.Post, error) {
+	return domain.Post{ID: 1, AuthorID: author, Title: in.Title, Body: in.Body}, nil
+}
+
+func (fakePosts) Update(context.Context, domain.UserID, domain.PostID, service.PostInput) (domain.Post, error) {
+	return domain.Post{}, domain.ErrNotFound
+}
+
+func (fakePosts) Delete(context.Context, domain.UserID, domain.PostID) error {
+	return domain.ErrNotFound
+}
+
 type nopStore struct{}
 
 func (nopStore) Create(context.Context, domain.Session) error { return nil }
@@ -79,12 +98,12 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	if err != nil {
 		t.Fatalf("security.New: %v", err)
 	}
-	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}}
+	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}, Posts: fakePosts{}}
 	h, err := NewHandler(deps)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users}, h
+	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users, posts: deps.Posts}, h
 }
 
 func TestEveryRouteDeclaresPolicy(t *testing.T) {
@@ -137,6 +156,10 @@ func TestRoutePolicies(t *testing.T) {
 		{"POST /api/cadastro", false, admin},
 		{"GET /api/administradores", false, admin},
 		{"GET /api/usuarios", false, comum},
+		{"GET /api/posts", false, comum},
+		{"POST /api/posts", false, comum},
+		{"PUT /api/posts/{id}", false, comum},
+		{"DELETE /api/posts/{id}", false, comum},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))

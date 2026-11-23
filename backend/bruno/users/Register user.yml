@@ -186,7 +186,7 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
   - name: 422 Response
-    description: Invalid login, password or role.
+    description: The body is well-formed but a value is invalid (see the description of the operation).
     request:
       url: "{{baseUrl}}/api/cadastro"
       method: POST

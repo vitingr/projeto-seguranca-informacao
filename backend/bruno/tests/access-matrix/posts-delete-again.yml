@@ -1,0 +1,27 @@
+info:
+  name: posts-delete-again
+  type: http
+  seq: 43
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/posts/{{postId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The post no longer exists.
+        test("status is 404", function () {
+          expect(res.getStatus()).to.equal(404);
+        });
+        test("error is not_found", function () {
+          expect(res.getBody().error).to.equal("not_found");
+        });
+        test("message is the post not found message", function () {
+          expect(res.getBody().message).to.equal("Post não encontrado.");
+        });

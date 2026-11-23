@@ -28,7 +28,8 @@ const csrfExample = "{{csrfToken}}"
 // bodylessOperations are the state-changing operations that take no request
 // body, so they are exempt from the requestBody check.
 var bodylessOperations = map[string]bool{
-	"POST /api/logout": true,
+	"POST /api/logout":       true,
+	"DELETE /api/posts/{id}": true,
 }
 
 // --- the subset of OpenAPI 3.1 this test reads -------------------------------
@@ -376,6 +377,10 @@ func TestContractSchemasMatchStructs(t *testing.T) {
 		{"AreaResponse", reflect.TypeFor[areaResponse]()},
 		{"StatusResponse", reflect.TypeFor[statusResponse]()},
 		{"ErrorResponse", reflect.TypeFor[errorResponse]()},
+		{"PostRequest", reflect.TypeFor[postRequest]()},
+		{"PostAuthor", reflect.TypeFor[postAuthorResponse]()},
+		{"Post", reflect.TypeFor[postResponse]()},
+		{"PostPage", reflect.TypeFor[postPageResponse]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {

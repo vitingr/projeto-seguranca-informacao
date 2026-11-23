@@ -1,13 +1,15 @@
 # backend_si
 
 HTTPS JSON API consumed by the frontend (in `../frontend`). It is written in
-Go and stores users and server-side sessions in PostgreSQL.
+Go and stores users, server-side sessions and the posts of the wall in
+PostgreSQL.
 
 Users log in with a login and password (Argon2id hashes) and get a
 server-side session in a cookie. State-changing requests need a CSRF token,
 and each route declares which roles may call it (see
 [Access control](#access-control)). Administrators register users through
-`POST /api/cadastro`.
+`POST /api/cadastro`. Comum users publish posts on a shared wall and edit or
+delete their own (see [Post wall](#post-wall)).
 
 ## Prerequisites
 
@@ -73,7 +75,7 @@ The only exception is the 404 catch-all, which stays out of the contract.
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
-- **Generated folders.** `health/`, `auth/`, `users/` and `areas/` are
+- **Generated folders.** `health/`, `auth/`, `users/`, `areas/` and `posts/` are
   created by `mage bruno`, one per contract tag. Never edit them by hand;
   change the contract and run `mage bruno`. CI fails when they are out of
   date.
@@ -83,9 +85,10 @@ The only exception is the 404 catch-all, which stays out of the contract.
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
   `tests/access-matrix/` runs next (`bru run tests tests/access-matrix`; `-r`
-  would run subfolders first): the 15 cells of the
+  would run subfolders first): the 27 cells of the
   [access matrix](#access-control), anonymous, then as the seed
-  administrator, who registers a comum user, then as that user.
+  administrator, who registers a comum user, then as that user, who also
+  runs the [post wall](#post-wall) checks.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -103,10 +106,14 @@ restricted route get 401, callers with the wrong role get 403.
 | `POST /api/cadastro` | 401 | 403 | 201 |
 | `GET /api/me` | 401 | 200 | 200 |
 | `POST /api/logout` | 401 | 204 | 204 |
+| `GET /api/posts` | 401 | 200 | 403 |
+| `POST /api/posts` | 401 | 201 | 403 |
+| `PUT /api/posts/{id}` | 401 | 200 | 403 |
+| `DELETE /api/posts/{id}` | 401 | 204 | 403 |
 
-Administrators do not reach `/api/usuarios`: it is the comum users' area.
-The Go test `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 15 cells.
+Administrators do not reach `/api/usuarios` or the post wall: they are the
+comum users' area. The Go test `TestAccessMatrix` (`internal/web`) and the
+Bruno folder `tests/access-matrix` both cover the 27 cells.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -127,6 +134,29 @@ no new login.
 Every registration is logged at Info as `user registered`, with the
 administrator's `actor_user_id`, the new `user_id` and the `role`. The log
 never has the login or the password.
+
+### Post wall
+
+Comum users see the posts of every user, newest first, 20 per page
+(`GET /api/posts?page=N`, `page` from 1 to 10000, otherwise 400), and edit
+(`PUT`) or delete (`DELETE`) only their own posts:
+- **Owner check.** `PUT` and `DELETE` change a post only when the caller
+  wrote it, in the same SQL statement (`WHERE id = $1 AND author_id = $2`).
+  Another user's post, a missing post and a malformed ID all get the same
+  404 `not_found`, so a caller cannot tell them apart.
+- **Validation.** `security.ValidatePost` trims both fields and counts
+  Unicode code points: a title of 1 to 120 with no control characters, a
+  body of 1 to 2000 where only line feed, carriage return and tab are
+  allowed. Invalid values are 422; malformed bodies are 400, as in
+  registration. The `posts` table repeats the limits as `CHECK` constraints.
+- **Plain text.** The API stores and returns the text exactly as sent, with
+  no HTML escaping or sanitizing. Clients render it as text, never as HTML
+  or markdown.
+- **CSRF.** `POST`, `PUT` and `DELETE` need the CSRF token, like every other
+  state-changing route.
+
+`mage testIntegration` checks the owner condition and the `CHECK`
+constraints against PostgreSQL.
 
 ### Test users left by `mage brunoRun`
 

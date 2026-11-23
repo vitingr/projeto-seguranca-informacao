@@ -51,7 +51,7 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}})
+	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}, Posts: fakePosts{}})
 	if err != nil {
 		t.Fatal(err)
 	}

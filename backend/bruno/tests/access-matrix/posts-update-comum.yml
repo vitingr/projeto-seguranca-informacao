@@ -1,0 +1,33 @@
+info:
+  name: posts-update-comum
+  type: http
+  seq: 32
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/{{postId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Editado pelo Bruno",
+        "body": "Corpo editado."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the updated post", function () {
+          const body = res.getBody();
+          expect(body.id).to.equal(bru.getVar("postId"));
+          expect(body.title).to.equal("Editado pelo Bruno");
+          expect(body.body).to.equal("Corpo editado.");
+        });

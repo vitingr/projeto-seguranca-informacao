@@ -17,6 +17,15 @@ type postRequest struct {
 	Body  string `json:"body"`
 }
 
+type removalRequest struct {
+	Reason string `json:"reason"`
+}
+
+type postRemovalResponse struct {
+	Reason    string    `json:"reason"`
+	RemovedAt time.Time `json:"removed_at"`
+}
+
 type postAuthorResponse struct {
 	UserID domain.UserID `json:"user_id"`
 	Login  string        `json:"login"`
@@ -30,6 +39,8 @@ type postResponse struct {
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	Mine      bool               `json:"mine"`
+	// Removal is null unless the moderation removed the post (006 D-2).
+	Removal *postRemovalResponse `json:"removal"`
 }
 
 type postPageResponse struct {
@@ -41,6 +52,10 @@ type postPageResponse struct {
 
 // toPostResponse sets mine from the caller of the request (005).
 func toPostResponse(p domain.Post, caller domain.UserID) postResponse {
+	var removal *postRemovalResponse
+	if p.Removal != nil {
+		removal = &postRemovalResponse{Reason: p.Removal.Reason, RemovedAt: p.Removal.RemovedAt.UTC()}
+	}
 	return postResponse{
 		ID:        p.ID,
 		Title:     p.Title,
@@ -49,6 +64,7 @@ func toPostResponse(p domain.Post, caller domain.UserID) postResponse {
 		CreatedAt: p.CreatedAt.UTC(),
 		UpdatedAt: p.UpdatedAt.UTC(),
 		Mine:      p.AuthorID == caller,
+		Removal:   removal,
 	}
 }
 
@@ -63,7 +79,7 @@ func (h *handlers) listPosts(w http.ResponseWriter, r *http.Request) {
 		h.badRequest(w, r, err)
 		return
 	}
-	result, err := h.posts.List(r.Context(), page)
+	result, err := h.posts.List(r.Context(), p.UserID, p.Role, page)
 	if err != nil {
 		h.sec.RespondError(w, r, err)
 		return
@@ -135,6 +151,33 @@ func (h *handlers) deletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.posts.Delete(r.Context(), p.UserID, id); err != nil {
+		h.postError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// removePost removes a post as an administrator, with a reason (006 D-2).
+// A missing post, a malformed ID and a post already removed all get the
+// same 404.
+func (h *handlers) removePost(w http.ResponseWriter, r *http.Request) {
+	p, ok := security.PrincipalFrom(r.Context())
+	if !ok {
+		WriteError(w, r, http.StatusUnauthorized)
+		return
+	}
+	id, err := h.sec.ParsePostID(r.PathValue("id"))
+	if err != nil {
+		h.postError(w, r, err)
+		return
+	}
+	var req removalRequest
+	if err = h.sec.DecodeJSON(w, r, &req); err != nil {
+		h.badRequest(w, r, err)
+		return
+	}
+	ip, _ := h.sec.ClientIP(r)
+	if err := h.posts.Remove(r.Context(), p.UserID, id, req.Reason, ip); err != nil {
 		h.postError(w, r, err)
 		return
 	}

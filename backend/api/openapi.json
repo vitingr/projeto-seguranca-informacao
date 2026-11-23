@@ -30,7 +30,11 @@
     },
     {
       "name": "posts",
-      "description": "The post wall: posts of every user, edited and deleted by their authors."
+      "description": "The post wall: posts of every user, edited and deleted by their authors, and removed by administrators."
+    },
+    {
+      "name": "audit",
+      "description": "The append-only audit log of security events, read by administrators."
     }
   ],
   "paths": {
@@ -266,8 +270,8 @@
         "operationId": "listPosts",
         "tags": ["posts"],
         "summary": "List posts",
-        "description": "One page of the wall with the posts of every user, newest first (`created_at`, then `id`, descending), 20 posts per page. `has_next` tells whether a next page exists, and `mine` is true on the caller's own posts.\n\n**400** (`bad_request`): `page` is not an integer from 1 to 10000.",
-        "x-policy": ["comum"],
+        "description": "One page of the wall with the posts of every user, newest first (`created_at`, then `id`, descending), 20 posts per page. `has_next` tells whether a next page exists, and `mine` is true on the caller's own posts.\n\n**Removed posts.** A post removed by an administrator has `removal` set (otherwise it is `null`). A comum caller sees the posts that are not removed plus their own removed ones; an administrator sees every post, removed ones included, and `mine` is always `false` for an administrator. Administrators only read the wall and remove posts: creating, editing and deleting stay comum only.\n\n**400** (`bad_request`): `page` is not an integer from 1 to 10000.",
+        "x-policy": ["admin", "comum"],
         "parameters": [{ "$ref": "#/components/parameters/Page" }],
         "responses": {
           "200": {
@@ -284,7 +288,18 @@
                       "author": { "user_id": 2, "login": "maria.silva" },
                       "created_at": "2026-11-22T12:00:00Z",
                       "updated_at": "2026-11-22T12:00:00Z",
-                      "mine": true
+                      "mine": true,
+                      "removal": null
+                    },
+                    {
+                      "id": 2,
+                      "title": "Post removido",
+                      "body": "Texto removido pela moderação.",
+                      "author": { "user_id": 2, "login": "maria.silva" },
+                      "created_at": "2026-11-22T11:00:00Z",
+                      "updated_at": "2026-11-22T11:00:00Z",
+                      "mine": true,
+                      "removal": { "reason": "Conteúdo ofensivo.", "removed_at": "2026-11-22T11:30:00Z" }
                     }
                   ],
                   "page": 1,
@@ -332,7 +347,8 @@
                   "author": { "user_id": 2, "login": "maria.silva" },
                   "created_at": "2026-11-22T12:00:00Z",
                   "updated_at": "2026-11-22T12:00:00Z",
-                  "mine": true
+                  "mine": true,
+                  "removal": null
                 }
               }
             }
@@ -350,7 +366,7 @@
         "operationId": "updatePost",
         "tags": ["posts"],
         "summary": "Update post",
-        "description": "Replaces the title and body of one of the caller's posts, with the rules of `POST /api/posts`.\n\n**400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a `Content-Type` other than `application/json`, an unknown field, or a field of the wrong JSON type.\n\n**422** (`unprocessable_entity`): the body is well-formed but a value is invalid: `title` or `body` is missing, empty after trimming, too long, or has a control character that is not allowed (see `PostRequest`).\n\n**404** (`not_found`): no post with this `id` was written by the caller: it does not exist, it belongs to another user, or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.",
+        "description": "Replaces the title and body of one of the caller's posts, with the rules of `POST /api/posts`.\n\n**400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a `Content-Type` other than `application/json`, an unknown field, or a field of the wrong JSON type.\n\n**422** (`unprocessable_entity`): the body is well-formed but a value is invalid: `title` or `body` is missing, empty after trimming, too long, or has a control character that is not allowed (see `PostRequest`).\n\n**404** (`not_found`): no post with this `id` was written by the caller and is still on the wall: it does not exist, it belongs to another user, it was removed by an administrator (a removed post is frozen), or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.",
         "x-policy": ["comum"],
         "parameters": [
           { "$ref": "#/components/parameters/PostId" },
@@ -381,7 +397,8 @@
                   "author": { "user_id": 2, "login": "maria.silva" },
                   "created_at": "2026-11-22T12:00:00Z",
                   "updated_at": "2026-11-22T12:00:00Z",
-                  "mine": true
+                  "mine": true,
+                  "removal": null
                 }
               }
             }
@@ -398,7 +415,7 @@
         "operationId": "deletePost",
         "tags": ["posts"],
         "summary": "Delete post",
-        "description": "Deletes one of the caller's posts. The request has no body.\n\n**404** (`not_found`): no post with this `id` was written by the caller: it does not exist, it belongs to another user, or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.",
+        "description": "Deletes one of the caller's posts. The request has no body.\n\n**404** (`not_found`): no post with this `id` was written by the caller and is still on the wall: it does not exist, it belongs to another user, it was removed by an administrator (a removed post is frozen), or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.",
         "x-policy": ["comum"],
         "parameters": [
           { "$ref": "#/components/parameters/PostId" },
@@ -409,6 +426,95 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/PostNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/posts/{id}/removal": {
+      "post": {
+        "operationId": "removePost",
+        "tags": ["posts"],
+        "summary": "Remove post",
+        "description": "Removes any post from the wall, with a reason. The post is kept (soft delete) and frozen: its author can no longer edit or delete it, and it cannot be removed again. Other comum users no longer see it; its author and the administrators see it with `removal`. The removal and its `post_removed` audit event are written in one transaction.\n\n**400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a `Content-Type` other than `application/json`, an unknown field, or a field of the wrong JSON type.\n\n**422** (`unprocessable_entity`): the body is well-formed but `reason` is missing, empty after trimming, too long, or has a control character that is not allowed (see `RemovalRequest`).\n\n**404** (`not_found`): no post with this `id` is on the wall: it does not exist, it was already removed, or `id` is not a positive integer.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/PostId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RemovalRequest" },
+              "example": { "reason": "Conteúdo ofensivo." }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Post removed." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/RemovalNotFound" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/audit-events": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "tags": ["audit"],
+        "summary": "List audit events",
+        "description": "One page of the audit log, newest first (`created_at`, then `id`, descending), 20 events per page, optionally only the events of one `type`. The log is append-only: there is no operation to change or delete an event.\n\nAn event never holds free text: no login typed in a failed login, no password, token or cookie. `actor` is the user who acted (`null` for a failed login); `target` is what the event is about (`null` for a login, a logout, or a failed login with an unknown login). The logins are read from the users when the log is listed and are left out when the user no longer exists.\n\n`ip` is the address of the direct TCP peer of the request (`null` if it did not parse). Forwarding headers such as `X-Forwarded-For` are ignored, so events sent through the frontend server record that server's address.\n\n**400** (`bad_request`): `type` is not one of the events, or `page` is not an integer from 1 to 10000.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/AuditType" },
+          { "$ref": "#/components/parameters/Page" }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of events, possibly empty.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuditPage" },
+                "example": {
+                  "items": [
+                    {
+                      "id": 3,
+                      "event": "post_removed",
+                      "actor": { "user_id": 1, "login": "admin" },
+                      "target": { "type": "post", "id": 2 },
+                      "ip": "172.18.0.1",
+                      "created_at": "2026-11-22T11:30:00Z"
+                    },
+                    {
+                      "id": 2,
+                      "event": "login_failed",
+                      "actor": null,
+                      "target": { "type": "user", "id": 2, "login": "maria.silva" },
+                      "ip": "203.0.113.7",
+                      "created_at": "2026-11-22T11:00:00Z"
+                    },
+                    {
+                      "id": 1,
+                      "event": "login_succeeded",
+                      "actor": { "user_id": 1, "login": "admin" },
+                      "target": null,
+                      "ip": "::1",
+                      "created_at": "2026-11-22T10:00:00Z"
+                    }
+                  ],
+                  "page": 1,
+                  "page_size": 20,
+                  "has_next": false
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
@@ -436,9 +542,17 @@
         "name": "page",
         "in": "query",
         "required": false,
-        "description": "Page of the wall, starting at 1.",
+        "description": "Page of the list, starting at 1.",
         "schema": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1 },
         "example": 1
+      },
+      "AuditType": {
+        "name": "type",
+        "in": "query",
+        "required": false,
+        "description": "Only the events of this type. Empty or absent lists every event.",
+        "schema": { "$ref": "#/components/schemas/AuditEventType" },
+        "example": "login_failed"
       }
     },
     "responses": {
@@ -522,6 +636,19 @@
       },
       "PostNotFound": {
         "description": "No post with this ID was written by the caller.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "not_found",
+              "message": "Post não encontrado.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "RemovalNotFound": {
+        "description": "No post with this ID is on the wall: it does not exist or was already removed.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/ErrorResponse" },
@@ -630,7 +757,7 @@
       },
       "Post": {
         "type": "object",
-        "required": ["id", "title", "body", "author", "created_at", "updated_at", "mine"],
+        "required": ["id", "title", "body", "author", "created_at", "updated_at", "mine", "removal"],
         "properties": {
           "id": { "type": "integer", "format": "int64" },
           "title": {
@@ -644,7 +771,35 @@
           "author": { "$ref": "#/components/schemas/PostAuthor" },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" },
-          "mine": { "type": "boolean", "description": "True when the caller wrote the post." }
+          "mine": { "type": "boolean", "description": "True when the caller wrote the post." },
+          "removal": {
+            "description": "Set when an administrator removed the post, otherwise null. Only the author and the administrators see removed posts.",
+            "oneOf": [{ "$ref": "#/components/schemas/PostRemoval" }, { "type": "null" }]
+          }
+        }
+      },
+      "PostRemoval": {
+        "type": "object",
+        "required": ["reason", "removed_at"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Plain text with line breaks: render it as text, never as HTML or markdown."
+          },
+          "removed_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RemovalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Plain text. Trimmed, then 1 to 500 characters (Unicode code points); the only control characters allowed are line feed, carriage return and tab."
+          }
         }
       },
       "PostPage": {
@@ -652,6 +807,55 @@
         "required": ["items", "page", "page_size", "has_next"],
         "properties": {
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "has_next": { "type": "boolean" }
+        }
+      },
+      "AuditEventType": {
+        "type": "string",
+        "enum": ["login_succeeded", "login_failed", "logout", "user_created", "post_removed"]
+      },
+      "AuditActor": {
+        "type": "object",
+        "required": ["user_id"],
+        "properties": {
+          "user_id": { "type": "integer", "format": "int64" },
+          "login": { "type": "string", "description": "Left out when the user no longer exists." }
+        }
+      },
+      "AuditTarget": {
+        "type": "object",
+        "required": ["type", "id"],
+        "properties": {
+          "type": { "type": "string", "enum": ["user", "post"] },
+          "id": { "type": "integer", "format": "int64" },
+          "login": {
+            "type": "string",
+            "description": "Only for a user target that still exists."
+          }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "required": ["id", "event", "actor", "target", "ip", "created_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "event": { "$ref": "#/components/schemas/AuditEventType" },
+          "actor": { "oneOf": [{ "$ref": "#/components/schemas/AuditActor" }, { "type": "null" }] },
+          "target": { "oneOf": [{ "$ref": "#/components/schemas/AuditTarget" }, { "type": "null" }] },
+          "ip": {
+            "type": ["string", "null"],
+            "description": "Address of the direct TCP peer, without the port. Forwarding headers are ignored."
+          },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuditPage": {
+        "type": "object",
+        "required": ["items", "page", "page_size", "has_next"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/AuditEvent" } },
           "page": { "type": "integer" },
           "page_size": { "type": "integer" },
           "has_next": { "type": "boolean" }

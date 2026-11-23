@@ -1,7 +1,7 @@
 info:
   name: posts-delete-without-csrf
   type: http
-  seq: 35
+  seq: 38
 
 http:
   method: DELETE

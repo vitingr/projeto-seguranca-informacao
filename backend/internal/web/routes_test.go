@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func (fakeUsers) Register(context.Context, service.RegisterInput) (domain.User, 
 // fakePosts is a PostService with an empty wall, where no post exists.
 type fakePosts struct{}
 
-func (fakePosts) List(_ context.Context, page int) (domain.PostPage, error) {
+func (fakePosts) List(_ context.Context, _ domain.UserID, _ domain.Role, page int) (domain.PostPage, error) {
 	return domain.PostPage{Items: []domain.Post{}, Page: page, PageSize: service.PostPageSize}, nil
 }
 
@@ -48,6 +49,19 @@ func (fakePosts) Update(context.Context, domain.UserID, domain.PostID, service.P
 
 func (fakePosts) Delete(context.Context, domain.UserID, domain.PostID) error {
 	return domain.ErrNotFound
+}
+
+func (fakePosts) Remove(context.Context, domain.UserID, domain.PostID, string, netip.Addr) error {
+	return domain.ErrNotFound
+}
+
+// fakeAudit is an AuditService with an empty log that drops every event.
+type fakeAudit struct{}
+
+func (fakeAudit) Record(context.Context, domain.AuditEvent) error { return nil }
+
+func (fakeAudit) List(_ context.Context, _ domain.AuditEventType, page int) (domain.AuditPage, error) {
+	return domain.AuditPage{Items: []domain.AuditEvent{}, Page: page, PageSize: service.AuditPageSize}, nil
 }
 
 type nopStore struct{}
@@ -98,12 +112,12 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	if err != nil {
 		t.Fatalf("security.New: %v", err)
 	}
-	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}, Posts: fakePosts{}}
+	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}, Posts: fakePosts{}, Audit: fakeAudit{}}
 	h, err := NewHandler(deps)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users, posts: deps.Posts}, h
+	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users, posts: deps.Posts, audit: deps.Audit}, h
 }
 
 func TestEveryRouteDeclaresPolicy(t *testing.T) {
@@ -156,10 +170,12 @@ func TestRoutePolicies(t *testing.T) {
 		{"POST /api/cadastro", false, admin},
 		{"GET /api/administradores", false, admin},
 		{"GET /api/usuarios", false, comum},
-		{"GET /api/posts", false, comum},
+		{"GET /api/posts", false, ambos}, // 006 D-1: admins moderate from the wall
 		{"POST /api/posts", false, comum},
 		{"PUT /api/posts/{id}", false, comum},
 		{"DELETE /api/posts/{id}", false, comum},
+		{"POST /api/posts/{id}/removal", false, admin},
+		{"GET /api/audit-events", false, admin},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))

@@ -1,0 +1,24 @@
+info:
+  name: posts-delete-removed
+  type: http
+  seq: 70
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Nor delete it: the evidence stays (006 D-2).
+        test("status is 404", function () {
+          expect(res.getStatus()).to.equal(404);
+        });
+        test("error is not_found", function () {
+          expect(res.getBody().error).to.equal("not_found");
+        });

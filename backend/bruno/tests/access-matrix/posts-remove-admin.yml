@@ -1,0 +1,26 @@
+info:
+  name: posts-remove-admin
+  type: http
+  seq: 57
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}/removal"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "  Removido pelo Bruno.\nSegunda linha.  "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 204", function () {
+          expect(res.getStatus()).to.equal(204);
+        });

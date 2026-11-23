@@ -18,24 +18,30 @@ import (
 )
 
 // memPostRepo is an in-memory service.PostRepository with the owner
-// condition of the SQL statements (005 D-3). The author login comes from the
-// users of credAuth. List returns the newest (highest ID) first.
+// condition and the freeze of removed posts of the SQL statements (005 D-3,
+// 006 D-2). The author login comes from the users of credAuth. List returns
+// the newest (highest ID) first. Remove appends its event to audit, like the
+// transaction of the real repository (006 D-3).
 type memPostRepo struct {
 	mu     sync.Mutex
 	posts  map[domain.PostID]domain.Post
 	nextID domain.PostID
+	audit  *memAudit
 }
 
-func newMemPostRepo() *memPostRepo {
-	return &memPostRepo{posts: map[domain.PostID]domain.Post{}}
+func newMemPostRepo(audit *memAudit) *memPostRepo {
+	return &memPostRepo{posts: map[domain.PostID]domain.Post{}, audit: audit}
 }
 
 var credLogins = map[domain.UserID]string{1: flowLogin, 2: comumLogin, 3: otherComumLogin}
 
-func (m *memPostRepo) List(_ context.Context, limit, offset int) ([]domain.Post, error) {
+func (m *memPostRepo) List(_ context.Context, viewer domain.UserID, everything bool, limit, offset int) ([]domain.Post, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	all := slices.Collect(maps.Values(m.posts))
+	all = slices.DeleteFunc(all, func(p domain.Post) bool {
+		return !everything && p.Removal != nil && p.AuthorID != viewer
+	})
 	slices.SortFunc(all, func(a, b domain.Post) int { return int(b.ID - a.ID) })
 	if offset >= len(all) {
 		return []domain.Post{}, nil
@@ -57,7 +63,7 @@ func (m *memPostRepo) Update(_ context.Context, p domain.Post) (domain.Post, err
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	old, ok := m.posts[p.ID]
-	if !ok || old.AuthorID != p.AuthorID {
+	if !ok || old.AuthorID != p.AuthorID || old.Removal != nil {
 		return domain.Post{}, domain.ErrNotFound
 	}
 	old.Title, old.Body, old.UpdatedAt = p.Title, p.Body, old.UpdatedAt.Add(time.Minute)
@@ -69,10 +75,29 @@ func (m *memPostRepo) Delete(_ context.Context, id domain.PostID, author domain.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	old, ok := m.posts[id]
-	if !ok || old.AuthorID != author {
+	if !ok || old.AuthorID != author || old.Removal != nil {
 		return domain.ErrNotFound
 	}
 	delete(m.posts, id)
+	return nil
+}
+
+func (m *memPostRepo) Remove(ctx context.Context, id domain.PostID, admin domain.UserID, reason string, ev domain.AuditEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	old, ok := m.posts[id]
+	if !ok || old.Removal != nil {
+		return domain.ErrNotFound
+	}
+	if err := m.audit.Append(ctx, ev); err != nil {
+		return err // the transaction rolls back: the post stays as it was
+	}
+	old.Removal = &domain.PostRemoval{
+		Reason:    reason,
+		RemovedAt: old.CreatedAt.Add(time.Hour),
+		RemovedBy: admin,
+	}
+	m.posts[id] = old
 	return nil
 }
 

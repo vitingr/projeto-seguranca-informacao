@@ -94,7 +94,7 @@ func TestPostsListAndChecksIntegration(t *testing.T) {
 
 	// Other tests may write posts at the same time, so only the relative
 	// order of this test's posts is checked.
-	got, err := posts.List(ctx, 1000, 0)
+	got, err := posts.List(ctx, author, false, 1000, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestPostsListAndChecksIntegration(t *testing.T) {
 	if len(mine) != 3 || mine[0] != ids[2] || mine[1] != ids[1] || mine[2] != ids[0] {
 		t.Errorf("List order = %v, want %v reversed (newest first)", mine, ids)
 	}
-	if page, err := posts.List(ctx, 1, 0); err != nil || len(page) != 1 {
+	if page, err := posts.List(ctx, author, false, 1, 0); err != nil || len(page) != 1 {
 		t.Errorf("List(limit 1) = %d posts, %v", len(page), err)
 	}
 

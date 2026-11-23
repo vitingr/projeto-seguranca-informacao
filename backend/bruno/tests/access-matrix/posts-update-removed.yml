@@ -1,0 +1,31 @@
+info:
+  name: posts-update-removed
+  type: http
+  seq: 69
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Editado",
+        "body": "Nao deve gravar."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A removed post is frozen: the author cannot edit it (006 D-2).
+        test("status is 404", function () {
+          expect(res.getStatus()).to.equal(404);
+        });
+        test("error is not_found", function () {
+          expect(res.getBody().error).to.equal("not_found");
+        });

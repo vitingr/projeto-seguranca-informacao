@@ -1,7 +1,7 @@
 info:
   name: posts-delete-admin
   type: http
-  seq: 22
+  seq: 24
 
 http:
   method: DELETE

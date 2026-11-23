@@ -1,7 +1,7 @@
 info:
   name: posts-list-admin
   type: http
-  seq: 19
+  seq: 21
 
 http:
   method: GET
@@ -12,10 +12,13 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The wall is comum only (005 D-1).
-        test("status is 403", function () {
-          expect(res.getStatus()).to.equal(403);
+        // Admins read the wall to moderate it (006 D-1; it was 403 in 005).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
         });
-        test("error is forbidden", function () {
-          expect(res.getBody().error).to.equal("forbidden");
+        test("returns a page where nothing is the admin's", function () {
+          const body = res.getBody();
+          expect(body.page).to.equal(1);
+          expect(body.items).to.be.an("array");
+          body.items.forEach((p) => expect(p.mine).to.equal(false));
         });

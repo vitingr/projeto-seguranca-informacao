@@ -1,0 +1,27 @@
+info:
+  name: audit-events-put
+  type: http
+  seq: 63
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/audit-events"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "event": "logout"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The audit log has no write operation (006 S-1).
+        test("status is not 2xx", function () {
+          expect(res.getStatus()).to.be.at.least(400);
+        });

@@ -1,0 +1,27 @@
+info:
+  name: audit-events-post-removed
+  type: http
+  seq: 60
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/audit-events?type=post_removed"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The removal wrote its event in the same transaction (006 D-3).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("the newest post_removed event is this removal", function () {
+          const items = res.getBody().items;
+          items.forEach((ev) => expect(ev.event).to.equal("post_removed"));
+          const ev = items[0];
+          expect(ev.actor.user_id).to.equal(bru.getVar("adminUserId"));
+          expect(ev.target.type).to.equal("post");
+          expect(ev.target.id).to.equal(bru.getVar("removalPostId"));
+          expect(ev.ip).to.be.a("string");
+        });

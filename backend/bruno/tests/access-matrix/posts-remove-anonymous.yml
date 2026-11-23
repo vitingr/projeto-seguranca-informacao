@@ -1,0 +1,29 @@
+info:
+  name: posts-remove-anonymous
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts/1/removal"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "Sem login."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
+        });
+        test("error is unauthorized", function () {
+          expect(res.getBody().error).to.equal("unauthorized");
+        });

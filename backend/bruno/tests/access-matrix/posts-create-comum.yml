@@ -1,7 +1,7 @@
 info:
   name: posts-create-comum
   type: http
-  seq: 31
+  seq: 34
 
 http:
   method: POST
@@ -35,8 +35,9 @@ runtime:
           expect(body.author.user_id).to.equal(bru.getVar("comumUserId"));
           expect(body.author.login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
           expect(body.mine).to.equal(true);
+          expect(body.removal).to.equal(null);
           expect(Object.keys(body).sort()).to.deep.equal(
-            ["author", "body", "created_at", "id", "mine", "title", "updated_at"]
+            ["author", "body", "created_at", "id", "mine", "removal", "title", "updated_at"]
           );
           bru.setVar("postId", body.id);
         });

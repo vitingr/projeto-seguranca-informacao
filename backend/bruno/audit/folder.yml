@@ -1,0 +1,10 @@
+info:
+  name: audit
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: The append-only audit log of security events, read by administrators.
+  type: text/markdown

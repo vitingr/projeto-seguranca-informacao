@@ -1,0 +1,30 @@
+info:
+  name: posts-remove-again
+  type: http
+  seq: 58
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}/removal"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "De novo."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A removed post is frozen: a second removal finds no post (006 D-2).
+        test("status is 404", function () {
+          expect(res.getStatus()).to.equal(404);
+        });
+        test("message is the post not found message", function () {
+          expect(res.getBody().message).to.equal("Post não encontrado.");
+        });

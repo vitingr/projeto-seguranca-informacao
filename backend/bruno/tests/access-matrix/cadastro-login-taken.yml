@@ -1,7 +1,7 @@
 info:
   name: cadastro-login-taken
   type: http
-  seq: 16
+  seq: 18
 
 http:
   method: POST

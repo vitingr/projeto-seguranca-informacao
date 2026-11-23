@@ -42,6 +42,11 @@ export interface PostPageResponse {
   page_size: number
 }
 
+export interface PostRemovalResponse {
+  reason: string
+  removed_at: string
+}
+
 export interface PostRequest {
   body: string
   title: string
@@ -53,6 +58,7 @@ export interface PostResponse {
   created_at: string
   id: number
   mine: boolean
+  removal: PostRemovalResponse | null
   title: string
   updated_at: string
 }

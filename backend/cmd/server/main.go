@@ -122,6 +122,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Auth:     auth,
 		Users:    service.NewUsers(users, sec, sec),
 		Posts:    service.NewPosts(repository.NewPosts(db), sec),
+		Audit:    service.NewAudit(repository.NewAudit(db)),
 	})
 	if err != nil {
 		return err

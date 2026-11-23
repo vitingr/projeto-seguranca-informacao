@@ -130,3 +130,18 @@ Regras:
 - Se o módulo não tem nenhum tipo, não crie um `types.ts` vazio.
 - Um arquivo solto (ex.: `domain/session/access.ts`) vira pasta (`domain/session/access/`)
   quando precisar de tipos.
+
+## UI and layout
+
+- Spacing between siblings: always `flex`/`flex-col` or `grid` with `gap-*`.
+  Never `space-x-*`, `space-y-*`, or `mt-*`/`mb-*`/`ml-*`/`mr-*` between elements.
+  Padding (`p-*`, `px-*`, `py-*`) inside a box is fine.
+- Every page section uses the same container:
+  `mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8`.
+- Mobile-first: base classes for mobile, then `sm:`, `md:`, `lg:`. Every screen
+  must work from 360px wide; check 360, 768 and 1280.
+- Colors, radii and shadows come from the tokens in `src/styles/globals.css`
+  (CSS variables). No hex colors or arbitrary values (`w-[437px]`) in components.
+- Use the shadcn components in `components/ui/shadcn` before writing new ones.
+- Accessibility: visible `focus-visible` states, AA contrast, labels on every
+  field, and animations wrapped in `motion-safe:` (respect reduced motion).

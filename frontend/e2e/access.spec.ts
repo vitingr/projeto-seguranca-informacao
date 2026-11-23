@@ -51,7 +51,7 @@ test.describe('comum', () => {
   test('home shows only the comum links', async ({ page }) => {
     await page.goto('/')
     const links = page.getByTestId('home-links')
-    await expect(links.getByRole('link')).toHaveText(['Minha conta'])
+    await expect(links.getByRole('link')).toHaveText(['Minha conta', 'Mural'])
     await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
   })
 

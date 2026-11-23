@@ -9,5 +9,8 @@ export const ROLE_LINKS: Record<
     { href: '/admin', label: 'Área do administrador' },
     { href: '/cadastrar-usuarios', label: 'Cadastrar usuários' }
   ],
-  comum: [{ href: '/minha-conta', label: 'Minha conta' }]
+  comum: [
+    { href: '/minha-conta', label: 'Minha conta' },
+    { href: '/mural', label: 'Mural' }
+  ]
 } as const

@@ -18,10 +18,12 @@ describe('safeNext', () => {
     ['/admin', 'admin', '/admin'],
     ['/cadastrar-usuarios', 'admin', '/cadastrar-usuarios'],
     ['/minha-conta', 'comum', '/minha-conta'],
+    ['/mural', 'comum', '/mural'],
     // a route of another role
     ['/admin', 'comum', '/minha-conta'],
     ['/cadastrar-usuarios', 'comum', '/minha-conta'],
     ['/minha-conta', 'admin', '/admin'],
+    ['/mural', 'admin', '/admin'],
     // no open redirect
     ['https://evil.example/admin', 'admin', '/admin'],
     ['//evil.example', 'admin', '/admin'],

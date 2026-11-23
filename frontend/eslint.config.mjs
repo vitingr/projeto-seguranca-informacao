@@ -36,6 +36,8 @@ export default [
       'space-before-function-paren': 'off',
       camelcase: 'off',
       'prettier/prettier': 'error',
+      // User content is rendered as text only (005 D-6, S-3).
+      'react/no-danger': 'error',
       'unused-imports/no-unused-imports': 'error',
       'svg-jsx/camel-case-dash': 'error',
       'svg-jsx/camel-case-colon': 'error',

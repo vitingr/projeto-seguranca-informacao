@@ -23,6 +23,12 @@ describe('messageFor', () => {
     ],
     ['forbidden', 'action', 'Você não tem permissão para realizar esta ação.'],
     ['conflict', 'cadastro', 'Este login já está em uso.'],
+    ['not_found', 'post', 'Este post não existe mais. Recarregue a página.'],
+    [
+      'unprocessable_entity',
+      'post',
+      'Dados inválidos. Revise os campos e tente novamente.'
+    ],
     [
       'unprocessable_entity',
       'cadastro',

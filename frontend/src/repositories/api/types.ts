@@ -1,10 +1,13 @@
 import type { ApiError } from '@/domain/api-error/types'
+import type { PostInput } from '@/domain/post/types'
 import type {
   CadastroRequest,
   LoginRequest,
   UserResponse
 } from '@/lib/api/contract/types'
 import type { CsrfStore } from '@/lib/api/csrf/types'
+
+export type MutationMethod = 'DELETE' | 'POST' | 'PUT'
 
 export type Result<T> = { data: T; ok: true } | { error: ApiError; ok: false }
 
@@ -24,7 +27,10 @@ export interface ApiClientDeps {
 }
 
 export interface ApiClient {
+  createPost(input: PostInput): Promise<Result<void>>
+  deletePost(id: number): Promise<Result<void>>
   login(input: LoginRequest): Promise<Result<UserResponse>>
   logout(): Promise<Result<void>>
   register(input: CadastroRequest): Promise<Result<UserResponse>>
+  updatePost(id: number, input: PostInput): Promise<Result<void>>
 }

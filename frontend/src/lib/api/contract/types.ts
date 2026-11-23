@@ -30,6 +30,33 @@ export interface LoginRequest {
   senha: string
 }
 
+export interface PostAuthorResponse {
+  login: string
+  user_id: number
+}
+
+export interface PostPageResponse {
+  has_next: boolean
+  items: PostResponse[]
+  page: number
+  page_size: number
+}
+
+export interface PostRequest {
+  body: string
+  title: string
+}
+
+export interface PostResponse {
+  author: PostAuthorResponse
+  body: string
+  created_at: string
+  id: number
+  mine: boolean
+  title: string
+  updated_at: string
+}
+
 export interface UserResponse {
   login?: string
   role: Role

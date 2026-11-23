@@ -1,0 +1,36 @@
+info:
+  name: audit-events-admin
+  type: http
+  seq: 25
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/audit-events"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The newest event is the registration of cadastro-comum-user: the 409 of
+        // cadastro-login-taken and the 422 of cadastro-invalid-role record nothing
+        // (006 D-4). The typed login of a failed login is never in the log.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the first page, newest first", function () {
+          const body = res.getBody();
+          expect(body.page).to.equal(1);
+          expect(body.page_size).to.equal(20);
+          expect(body.has_next).to.be.a("boolean");
+          const ev = body.items[0];
+          expect(Object.keys(ev).sort()).to.deep.equal(["actor", "created_at", "event", "id", "ip", "target"]);
+          expect(ev.event).to.equal("user_created");
+          expect(ev.actor.user_id).to.equal(bru.getVar("adminUserId"));
+          expect(ev.target.type).to.equal("user");
+          expect(ev.target.id).to.equal(bru.getVar("comumUserId"));
+          expect(ev.target.login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
+          expect(body.items[1].event).to.equal("login_succeeded");
+          expect(body.items[1].actor.user_id).to.equal(bru.getVar("adminUserId"));
+          expect(body.items[1].target).to.equal(null);
+        });

@@ -22,6 +22,7 @@ type handlers struct {
 	auth   AuthService
 	users  UserService
 	posts  PostService
+	audit  AuditService
 }
 
 type loginRequest struct {
@@ -82,6 +83,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.auth.Authenticate(r.Context(), req.Login, req.Senha)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
+			h.recordLoginFailed(r, err)
 			writeErrorMessage(w, r, http.StatusUnauthorized, msgLoginInvalido)
 			return
 		}
@@ -93,14 +95,30 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		h.sec.RespondError(w, r, err)
 		return
 	}
+	h.record(r, domain.AuditEvent{Type: domain.AuditLoginSucceeded, ActorID: user.ID})
 	writeJSON(w, http.StatusOK, userResponse{UserID: user.ID, Login: user.Login, Role: user.Role})
 }
 
+// recordLoginFailed records a failed login (006 D-4). The target is the
+// existing user whose password did not match, or none for an unknown login:
+// the typed login is never stored.
+func (h *handlers) recordLoginFailed(r *http.Request, err error) {
+	ev := domain.AuditEvent{Type: domain.AuditLoginFailed}
+	var credErr *domain.InvalidCredentialsError
+	if errors.As(err, &credErr) && credErr.UserID != 0 {
+		ev.TargetType, ev.TargetID = domain.AuditTargetUser, int64(credErr.UserID)
+	}
+	h.record(r, ev)
+}
+
 func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
+	// The caller is read before the session ends.
+	actor := callerID(r)
 	if err := h.sec.EndSession(w, r); err != nil {
 		h.sec.RespondError(w, r, err)
 		return
 	}
+	h.record(r, domain.AuditEvent{Type: domain.AuditLogout, ActorID: actor})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -134,6 +152,12 @@ func (h *handlers) cadastro(w http.ResponseWriter, r *http.Request) {
 		h.sec.RespondError(w, r, err)
 	default:
 		h.auditRegistered(r, user)
+		h.record(r, domain.AuditEvent{
+			Type:       domain.AuditUserCreated,
+			ActorID:    callerID(r),
+			TargetType: domain.AuditTargetUser,
+			TargetID:   int64(user.ID),
+		})
 		writeJSON(w, http.StatusCreated, userResponse{UserID: user.ID, Login: user.Login, Role: user.Role})
 	}
 }

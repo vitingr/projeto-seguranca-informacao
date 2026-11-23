@@ -30,29 +30,34 @@ const (
 )
 
 // credAuth accepts flowLogin (admin, ID 1), comumLogin (comum, ID 2) and
-// otherComumLogin (comum, ID 3), all with flowPassword.
+// otherComumLogin (comum, ID 3), all with flowPassword. Like service.Auth, a
+// wrong password names the existing user in the error (006 D-4).
 type credAuth struct{}
 
 func (credAuth) Authenticate(_ context.Context, login, password string) (domain.User, error) {
-	if password == flowPassword {
-		switch login {
-		case flowLogin:
-			return domain.User{ID: 1, Login: flowLogin, Role: domain.RoleAdmin}, nil
-		case comumLogin:
-			return domain.User{ID: 2, Login: comumLogin, Role: domain.RoleComum}, nil
-		case otherComumLogin:
-			return domain.User{ID: 3, Login: otherComumLogin, Role: domain.RoleComum}, nil
-		}
+	users := map[string]domain.User{
+		flowLogin:       {ID: 1, Login: flowLogin, Role: domain.RoleAdmin},
+		comumLogin:      {ID: 2, Login: comumLogin, Role: domain.RoleComum},
+		otherComumLogin: {ID: 3, Login: otherComumLogin, Role: domain.RoleComum},
 	}
-	return domain.User{}, fmt.Errorf("fake: %w", domain.ErrInvalidCredentials)
+	u, ok := users[login]
+	switch {
+	case ok && password == flowPassword:
+		return u, nil
+	case ok:
+		return domain.User{}, fmt.Errorf("fake: %w", &domain.InvalidCredentialsError{UserID: u.ID})
+	default:
+		return domain.User{}, fmt.Errorf("fake: %w", &domain.InvalidCredentialsError{})
+	}
 }
 
 // flowApp is the full NewHandler chain with working sessions and the real
-// post service over an in-memory repository.
+// post and audit services over in-memory repositories.
 type flowApp struct {
 	app      http.Handler
 	sessions *memSessions
 	posts    *memPostRepo
+	audit    *memAudit
 }
 
 func newFlowApp(t *testing.T) flowApp {
@@ -98,24 +103,36 @@ func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
 	if cfg.users != nil {
 		users = cfg.users(sec)
 	}
-	posts := newMemPostRepo()
+	audit := newMemAudit()
+	posts := newMemPostRepo(audit)
 	app, err := NewHandler(Deps{
 		Logger:   logger,
 		Security: sec,
 		Auth:     credAuth{},
 		Users:    users,
 		Posts:    service.NewPosts(posts, sec),
+		Audit:    service.NewAudit(audit),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return flowApp{app: app, sessions: store, posts: posts}
+	return flowApp{app: app, sessions: store, posts: posts, audit: audit}
 }
 
 // send runs one request; cookie may be nil.
 func (f flowApp) send(t *testing.T, method, path, body string, cookie *http.Cookie, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
+	return f.sendFrom(t, "", method, path, body, cookie, headers)
+}
+
+// sendFrom is send with the TCP peer address set to remoteAddr (the
+// httptest default when empty).
+func (f flowApp) sendFrom(t *testing.T, remoteAddr, method, path, body string, cookie *http.Cookie, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
+	if remoteAddr != "" {
+		req.RemoteAddr = remoteAddr
+	}
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

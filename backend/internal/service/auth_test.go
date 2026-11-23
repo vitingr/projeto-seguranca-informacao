@@ -162,3 +162,34 @@ func TestAuthenticateServerFailures(t *testing.T) {
 		})
 	}
 }
+
+// TestAuthenticateNamesTheTargetedUser covers the failed-login target of
+// 006 D-4: a wrong password names the existing user, an unknown login names
+// nobody, and neither returns a user.
+func TestAuthenticateNamesTheTargetedUser(t *testing.T) {
+	t.Parallel()
+
+	auth, repo, _ := newAuthWithAdmin(t)
+	admin, err := repo.GetByLogin(t.Context(), adminLogin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name   string
+		login  string
+		wantID domain.UserID
+	}{
+		{"wrong password", "ADMIN", admin.ID},
+		{"unknown login", "nobody", 0},
+	}
+	for _, tt := range tests {
+		u, err := auth.Authenticate(t.Context(), tt.login, "a wrong but long password")
+		var credErr *domain.InvalidCredentialsError
+		if !errors.As(err, &credErr) || !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("%s: error = %v, want an InvalidCredentialsError", tt.name, err)
+		}
+		if credErr.UserID != tt.wantID || u != (domain.User{}) {
+			t.Errorf("%s: target %d, user %+v; want target %d and no user", tt.name, credErr.UserID, u, tt.wantID)
+		}
+	}
+}

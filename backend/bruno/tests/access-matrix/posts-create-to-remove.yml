@@ -1,0 +1,34 @@
+info:
+  name: posts-create-to-remove
+  type: http
+  seq: 47
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Post a remover",
+        "body": "Sera removido pela moderacao."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A second post, which the admin removes after this session (006).
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns a post that is not removed", function () {
+          const body = res.getBody();
+          expect(body.mine).to.equal(true);
+          expect(body.removal).to.equal(null);
+          bru.setVar("removalPostId", body.id);
+        });

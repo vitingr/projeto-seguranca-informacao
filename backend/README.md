@@ -9,7 +9,9 @@ server-side session in a cookie. State-changing requests need a CSRF token,
 and each route declares which roles may call it (see
 [Access control](#access-control)). Administrators register users through
 `POST /api/cadastro`. Comum users publish posts on a shared wall and edit or
-delete their own (see [Post wall](#post-wall)).
+delete their own (see [Post wall](#post-wall)); administrators remove posts
+with a reason, and security events go into an append-only audit log that
+only they can read (see [Moderation and audit log](#moderation-and-audit-log)).
 
 ## Prerequisites
 
@@ -75,7 +77,7 @@ The only exception is the 404 catch-all, which stays out of the contract.
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
-- **Generated folders.** `health/`, `auth/`, `users/`, `areas/` and `posts/` are
+- **Generated folders.** `health/`, `auth/`, `users/`, `areas/`, `posts/` and `audit/` are
   created by `mage bruno`, one per contract tag. Never edit them by hand;
   change the contract and run `mage bruno`. CI fails when they are out of
   date.
@@ -85,10 +87,12 @@ The only exception is the 404 catch-all, which stays out of the contract.
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
   `tests/access-matrix/` runs next (`bru run tests tests/access-matrix`; `-r`
-  would run subfolders first): the 27 cells of the
+  would run subfolders first): the 33 cells of the
   [access matrix](#access-control), anonymous, then as the seed
   administrator, who registers a comum user, then as that user, who also
-  runs the [post wall](#post-wall) checks.
+  runs the [post wall](#post-wall) checks. The administrator then logs in
+  again to [moderate](#moderation-and-audit-log) a post of that user and
+  read the audit log, and the user logs in once more to see the removal.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -106,14 +110,17 @@ restricted route get 401, callers with the wrong role get 403.
 | `POST /api/cadastro` | 401 | 403 | 201 |
 | `GET /api/me` | 401 | 200 | 200 |
 | `POST /api/logout` | 401 | 204 | 204 |
-| `GET /api/posts` | 401 | 200 | 403 |
+| `GET /api/posts` | 401 | 200 | 200 |
 | `POST /api/posts` | 401 | 201 | 403 |
 | `PUT /api/posts/{id}` | 401 | 200 | 403 |
 | `DELETE /api/posts/{id}` | 401 | 204 | 403 |
+| `POST /api/posts/{id}/removal` | 401 | 403 | 204 |
+| `GET /api/audit-events` | 401 | 403 | 200 |
 
-Administrators do not reach `/api/usuarios` or the post wall: they are the
-comum users' area. The Go test `TestAccessMatrix` (`internal/web`) and the
-Bruno folder `tests/access-matrix` both cover the 27 cells.
+Administrators do not reach `/api/usuarios`: it is the comum users' area.
+On the post wall they only read and remove posts; creating, editing and
+deleting stay comum only. The Go test `TestAccessMatrix` (`internal/web`)
+and the Bruno folder `tests/access-matrix` both cover the 33 cells.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -158,6 +165,60 @@ Comum users see the posts of every user, newest first, 20 per page
 `mage testIntegration` checks the owner condition and the `CHECK`
 constraints against PostgreSQL.
 
+### Moderation and audit log
+
+**Removal** (`POST /api/posts/{id}/removal` with `{"reason"}`, admin only):
+- It is a soft delete: the post keeps its row, with `removed_at`,
+  `removed_by` and `removal_reason`. The reason is validated like a post
+  body, with 1 to 500 characters (`security.ValidateRemovalReason`), and
+  the table repeats the rules as `CHECK` constraints.
+- A removed post is frozen. Its author can no longer edit or delete it, and
+  a second removal finds nothing: all of them get the post 404, because the
+  statements add `removed_at IS NULL`. The evidence stays.
+- Other comum users no longer see it. Its author and the administrators
+  still see it on the wall, with `removal: {reason, removed_at}`; on every
+  other post `removal` is `null`.
+- The removal and its `post_removed` event are written in one transaction,
+  so a removal is never stored without its event.
+
+**Audit log** (`GET /api/audit-events?type=&page=`, admin only, newest
+first, 20 per page). It records five events: `login_succeeded`,
+`login_failed`, `logout`, `user_created` and `post_removed`. A row holds
+only the event, the actor, the target (a user or a post), the IP and the
+time, with no free-text field:
+- A failed login names the existing user as its target, or no target when
+  the login does not exist. The typed login is never stored, because people
+  sometimes type their password into the login field. Passwords, session
+  cookies and CSRF tokens never reach the log or the application log.
+- Requests rejected with 400, 403, 409 or 422 record nothing.
+- In login, logout and registration the event is written after the
+  outcome. If that write fails, the error is logged at ERROR (`audit:
+  record event failed`, with the event and IDs) and the response does not
+  change, because the session or the user already exists.
+- The log is append-only at three levels: the API has only the `GET`
+  route, the Go repository only appends and lists, and a database trigger
+  rejects every `UPDATE`, `DELETE` and `TRUNCATE` on `audit_events`.
+- `audit_events` has no foreign keys, so deleting a user never touches the
+  log. The logins in the answer are read from `users` when the log is
+  listed, and are left out when the user no longer exists.
+- The IP is the direct TCP peer of the request: see
+  [Known limitations](#known-limitations).
+
+`mage testIntegration` checks the transaction, the freeze, the trigger and
+the list against PostgreSQL.
+
+**An administrator who removed posts cannot be deleted** while those posts
+exist: `DELETE FROM users` fails with a foreign key violation on
+`posts.removed_by`, which has no `ON DELETE` action on purpose:
+- `ON DELETE SET NULL` would leave a removed post without `removed_by`,
+  which the `CHECK` that keeps the three removal columns together rejects.
+- `ON DELETE CASCADE` would delete the removed posts, which are the evidence
+  of the moderation.
+
+To delete such an administrator, delete the authors of those posts first
+(their posts go with them). The audit log is not in the way:
+`audit_events` has no foreign keys.
+
 ### Test users left by `mage brunoRun`
 
 The access matrix registers a comum user through the seed administrator.
@@ -176,7 +237,54 @@ docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
   -c "DELETE FROM users WHERE login LIKE 'e2e.%';"
 ```
 
-Their sessions are deleted with them (`ON DELETE CASCADE`).
+Their sessions and posts are deleted with them (`ON DELETE CASCADE`),
+including the post that each run removes. Their audit events stay: the log
+is append-only by design, and its trigger rejects any cleanup.
+
+### Resetting the development database
+
+The audit log cannot be emptied with SQL: its trigger rejects `UPDATE`,
+`DELETE` and `TRUNCATE` on `audit_events`. To start over in development,
+drop the whole database volume and create it again, then migrate and seed:
+
+```sh
+docker compose down -v      # stops the stack and deletes the pgdata volume
+go tool mage dockerUp
+go tool mage migrateUp
+go tool mage seed
+```
+
+This deletes every user, session, post and audit event. To empty only the
+audit log, roll back its migration and apply it again (`DROP TABLE` is not
+blocked by the trigger, which runs on `UPDATE`, `DELETE` and `TRUNCATE`):
+
+```sh
+go tool mage migrateDown    # 00004_audit_events: drops audit_events
+go tool mage migrateUp      # creates it again, empty
+```
+
+Both are for development only: in production the log is evidence, and
+nothing should remove it.
+
+## Known limitations
+
+**The audit log records the direct TCP peer, not the browser's IP.** The IP
+of an event is `r.RemoteAddr` without the port (`security.ClientIP`), and
+`X-Forwarded-For` and `X-Real-IP` are ignored on purpose:
+- Any browser can send those headers with any value, and the Next server of
+  the frontend passes them on to the backend without overwriting them (it
+  only sets `x-forwarded-for` when the request has none). Trusting them would
+  let any caller write a forged IP into the audit log, which is worse than
+  a known, coarse one.
+- So events from the browser, which reach the backend through the Next
+  rewrite, record the address of the Next server (for example the Docker
+  gateway or `::1`). Direct calls, such as Bruno or a script, record the real
+  client.
+- To record each client's IP in production, two things are needed: a
+  reverse proxy in front of the stack that overwrites `X-Forwarded-For`
+  (never appends to a value from the client), and a backend setting that
+  trusts that header only on requests whose TCP peer is that proxy's IP.
+  Neither exists today; a trusted-proxy setting is out of scope for now.
 
 ## Sessions and security settings
 

@@ -26,6 +26,9 @@ func NewAuth(ctx context.Context, users UserRepository, passwords PasswordHasher
 	return &Auth{users: users, passwords: passwords, validator: validator, dummyHash: dummy}, nil
 }
 
+// Authenticate checks login and password. A failed login wraps a
+// *domain.InvalidCredentialsError (and so domain.ErrInvalidCredentials) that
+// names the existing user, if any; the returned user is then the zero value.
 func (a *Auth) Authenticate(ctx context.Context, login, password string) (domain.User, error) {
 	u, err := a.users.GetByLogin(ctx, a.validator.NormalizeLogin(login))
 	switch {
@@ -34,14 +37,14 @@ func (a *Auth) Authenticate(ctx context.Context, login, password string) (domain
 		if verr != nil && !errors.Is(verr, domain.ErrInvalidCredentials) {
 			return domain.User{}, fmt.Errorf("service: authenticate: %w", verr)
 		}
-		return domain.User{}, fmt.Errorf("service: authenticate: %w", domain.ErrInvalidCredentials)
+		return domain.User{}, fmt.Errorf("service: authenticate: %w", &domain.InvalidCredentialsError{})
 	case err != nil:
 		return domain.User{}, fmt.Errorf("service: authenticate: %w", err)
 	}
 
 	if err := a.passwords.VerifyPassword(ctx, u.PasswordHash, password); err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
-			return domain.User{}, fmt.Errorf("service: authenticate: %w", domain.ErrInvalidCredentials)
+			return domain.User{}, fmt.Errorf("service: authenticate: %w", &domain.InvalidCredentialsError{UserID: u.ID})
 		}
 		return domain.User{}, fmt.Errorf("service: authenticate: %w", err)
 	}

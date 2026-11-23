@@ -1,0 +1,343 @@
+info:
+  name: List audit events
+  type: http
+  seq: 1
+  tags:
+    - audit
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/audit-events"
+  params:
+    - name: type
+      value: login_succeeded
+      type: query
+      description: Only the events of this type. Empty or absent lists every event.
+      disabled: true
+    - name: type
+      value: login_failed
+      type: query
+      description: Only the events of this type. Empty or absent lists every event.
+      disabled: true
+    - name: type
+      value: logout
+      type: query
+      description: Only the events of this type. Empty or absent lists every event.
+      disabled: true
+    - name: type
+      value: user_created
+      type: query
+      description: Only the events of this type. Empty or absent lists every event.
+      disabled: true
+    - name: type
+      value: post_removed
+      type: query
+      description: Only the events of this type. Empty or absent lists every event.
+      disabled: true
+    - name: page
+      value: "1"
+      type: query
+      description: Page of the list, starting at 1.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: One page of events, possibly empty.
+    request:
+      url: "{{baseUrl}}/api/audit-events"
+      method: GET
+      params:
+        - name: type
+          value: login_succeeded
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: login_failed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: logout
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: user_created
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: post_removed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: page
+          value: "1"
+          type: query
+          description: Page of the list, starting at 1.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "items": [
+              {
+                "id": 3,
+                "event": "post_removed",
+                "actor": {
+                  "user_id": 1,
+                  "login": "admin"
+                },
+                "target": {
+                  "type": "post",
+                  "id": 2
+                },
+                "ip": "172.18.0.1",
+                "created_at": "2026-11-22T11:30:00Z"
+              },
+              {
+                "id": 2,
+                "event": "login_failed",
+                "actor": null,
+                "target": {
+                  "type": "user",
+                  "id": 2,
+                  "login": "maria.silva"
+                },
+                "ip": "203.0.113.7",
+                "created_at": "2026-11-22T11:00:00Z"
+              },
+              {
+                "id": 1,
+                "event": "login_succeeded",
+                "actor": {
+                  "user_id": 1,
+                  "login": "admin"
+                },
+                "target": null,
+                "ip": "::1",
+                "created_at": "2026-11-22T10:00:00Z"
+              }
+            ],
+            "page": 1,
+            "page_size": 20,
+            "has_next": false
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
+    request:
+      url: "{{baseUrl}}/api/audit-events"
+      method: GET
+      params:
+        - name: type
+          value: login_succeeded
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: login_failed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: logout
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: user_created
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: post_removed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: page
+          value: "1"
+          type: query
+          description: Page of the list, starting at 1.
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/audit-events"
+      method: GET
+      params:
+        - name: type
+          value: login_succeeded
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: login_failed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: logout
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: user_created
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: post_removed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: page
+          value: "1"
+          type: query
+          description: Page of the list, starting at 1.
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/audit-events"
+      method: GET
+      params:
+        - name: type
+          value: login_succeeded
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: login_failed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: logout
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: user_created
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: post_removed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: page
+          value: "1"
+          type: query
+          description: Page of the list, starting at 1.
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/audit-events"
+      method: GET
+      params:
+        - name: type
+          value: login_succeeded
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: login_failed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: logout
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: user_created
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: type
+          value: post_removed
+          type: query
+          description: Only the events of this type. Empty or absent lists every event.
+          disabled: true
+        - name: page
+          value: "1"
+          type: query
+          description: Page of the list, starting at 1.
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  One page of the audit log, newest first (`created_at`, then `id`, descending), 20 events per page, optionally only the events of one `type`. The log is append-only: there is no operation to change or delete an event.
+
+  An event never holds free text: no login typed in a failed login, no password, token or cookie. `actor` is the user who acted (`null` for a failed login); `target` is what the event is about (`null` for a login, a logout, or a failed login with an unknown login). The logins are read from the users when the log is listed and are left out when the user no longer exists.
+
+  `ip` is the address of the direct TCP peer of the request (`null` if it did not parse). Forwarding headers such as `X-Forwarded-For` are ignored, so events sent through the frontend server record that server's address.
+
+  **400** (`bad_request`): `type` is not one of the events, or `page` is not an integer from 1 to 10000.

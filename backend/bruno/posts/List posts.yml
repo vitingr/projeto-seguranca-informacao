@@ -12,7 +12,7 @@ http:
     - name: page
       value: "1"
       type: query
-      description: Page of the wall, starting at 1.
+      description: Page of the list, starting at 1.
   auth: inherit
 
 settings:
@@ -32,7 +32,7 @@ examples:
         - name: page
           value: "1"
           type: query
-          description: Page of the wall, starting at 1.
+          description: Page of the list, starting at 1.
     response:
       status: 200
       statusText: OK
@@ -54,7 +54,24 @@ examples:
                 },
                 "created_at": "2026-11-22T12:00:00Z",
                 "updated_at": "2026-11-22T12:00:00Z",
-                "mine": true
+                "mine": true,
+                "removal": null
+              },
+              {
+                "id": 2,
+                "title": "Post removido",
+                "body": "Texto removido pela moderação.",
+                "author": {
+                  "user_id": 2,
+                  "login": "maria.silva"
+                },
+                "created_at": "2026-11-22T11:00:00Z",
+                "updated_at": "2026-11-22T11:00:00Z",
+                "mine": true,
+                "removal": {
+                  "reason": "Conteúdo ofensivo.",
+                  "removed_at": "2026-11-22T11:30:00Z"
+                }
               }
             ],
             "page": 1,
@@ -70,7 +87,7 @@ examples:
         - name: page
           value: "1"
           type: query
-          description: Page of the wall, starting at 1.
+          description: Page of the list, starting at 1.
     response:
       status: 400
       statusText: Bad Request
@@ -94,7 +111,7 @@ examples:
         - name: page
           value: "1"
           type: query
-          description: Page of the wall, starting at 1.
+          description: Page of the list, starting at 1.
     response:
       status: 401
       statusText: Unauthorized
@@ -118,7 +135,7 @@ examples:
         - name: page
           value: "1"
           type: query
-          description: Page of the wall, starting at 1.
+          description: Page of the list, starting at 1.
     response:
       status: 403
       statusText: Forbidden
@@ -142,7 +159,7 @@ examples:
         - name: page
           value: "1"
           type: query
-          description: Page of the wall, starting at 1.
+          description: Page of the list, starting at 1.
     response:
       status: 500
       statusText: Internal Server Error
@@ -160,5 +177,7 @@ examples:
 
 docs: |-
   One page of the wall with the posts of every user, newest first (`created_at`, then `id`, descending), 20 posts per page. `has_next` tells whether a next page exists, and `mine` is true on the caller's own posts.
+
+  **Removed posts.** A post removed by an administrator has `removal` set (otherwise it is `null`). A comum caller sees the posts that are not removed plus their own removed ones; an administrator sees every post, removed ones included, and `mine` is always `false` for an administrator. Administrators only read the wall and remove posts: creating, editing and deleting stay comum only.
 
   **400** (`bad_request`): `page` is not an integer from 1 to 10000.

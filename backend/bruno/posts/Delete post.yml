@@ -163,4 +163,4 @@ examples:
 docs: |-
   Deletes one of the caller's posts. The request has no body.
 
-  **404** (`not_found`): no post with this `id` was written by the caller: it does not exist, it belongs to another user, or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.
+  **404** (`not_found`): no post with this `id` was written by the caller and is still on the wall: it does not exist, it belongs to another user, it was removed by an administrator (a removed post is frozen), or `id` is not a positive integer. The answer is the same in every case, so the caller cannot tell another user's post from a missing one.

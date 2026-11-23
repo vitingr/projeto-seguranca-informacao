@@ -1,7 +1,7 @@
 info:
   name: posts-create-admin
   type: http
-  seq: 20
+  seq: 22
 
 http:
   method: POST

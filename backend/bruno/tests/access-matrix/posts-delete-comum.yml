@@ -1,7 +1,7 @@
 info:
   name: posts-delete-comum
   type: http
-  seq: 42
+  seq: 45
 
 http:
   method: DELETE

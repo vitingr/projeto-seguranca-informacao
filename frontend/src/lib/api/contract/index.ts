@@ -52,7 +52,8 @@ export const POST_RESPONSE_FIELDS = [
   'author',
   'created_at',
   'updated_at',
-  'mine'
+  'mine',
+  'removal'
 ] as const satisfies readonly (keyof PostResponse)[]
 
 export const POST_AUTHOR_FIELDS = [

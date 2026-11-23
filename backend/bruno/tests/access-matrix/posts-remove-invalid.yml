@@ -1,0 +1,30 @@
+info:
+  name: posts-remove-invalid
+  type: http
+  seq: 55
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}/removal"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "   "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A reason that is blank after trimming (006 D-2).
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("error is unprocessable_entity", function () {
+          expect(res.getBody().error).to.equal("unprocessable_entity");
+        });

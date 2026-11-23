@@ -1,7 +1,7 @@
 info:
   name: posts-delete-again
   type: http
-  seq: 43
+  seq: 46
 
 http:
   method: DELETE

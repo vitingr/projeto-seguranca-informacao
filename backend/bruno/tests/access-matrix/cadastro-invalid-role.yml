@@ -1,7 +1,7 @@
 info:
   name: cadastro-invalid-role
   type: http
-  seq: 17
+  seq: 19
 
 http:
   method: POST

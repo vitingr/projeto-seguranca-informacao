@@ -1,16 +1,30 @@
 # Hand-written. Run by "mage brunoRun" after the root requests of tests/
 # (bru run tests tests/access-matrix, 003 D-15).
 #
-# The access matrix (003 D-2, plus the four post routes of 005), one caller
-# at a time, with the shared cookie jar: anonymous (2-10) -> seed admin
-# (13-15, 18-23) -> the comum user that the admin registers in 15 (27-36,
-# 42, 44). Requests 16 and 17 check the 409 and 422 of POST /api/cadastro.
+# The access matrix (003 D-2, the four post routes of 005 and the two routes
+# of 006), one caller at a time, with the shared cookie jar: anonymous
+# (2-12) -> seed admin (15-17, 20-26) -> the comum user that the admin
+# registers in 17 (30-35, 39, 45, 48-50). Requests 18 and 19 check the 409 and
+# 422 of POST /api/cadastro, and 25 checks that they recorded no audit event.
 #
-# Requests 31-43 are the post wall of 005 as the comum user: create, update,
-# the three mutations without a CSRF token (403, and 36 checks that nothing
+# Requests 34-46 are the post wall of 005 as the comum user: create, update,
+# the three mutations without a CSRF token (403, and 39 checks that nothing
 # changed), 422 and 400 for invalid bodies and pages, 404 for a malformed ID,
-# delete, and 404 once the post is gone. The post is deleted at the end, so
-# a run leaves no post behind.
+# delete, and 404 once the post is gone. Request 47 creates a second post
+# for the moderation of 006.
+#
+# Requests 51-71 are the moderation of 006: the admin logs in again, gets
+# 403, 422 and 400 for a removal without a CSRF token or with a bad body,
+# removes the post of 47 (204, then 404), sees it marked as removed, finds
+# its post_removed event, checks that no event holds a secret, and gets 400
+# for a bad type and no 2xx for a write to the log. Then the comum user logs
+# in again, sees the removal with its reason, and gets 404 when editing or
+# deleting the frozen post.
+#
+# The removed post stays in the database (it is evidence, and its author can
+# no longer delete it); it goes with the e2e.* user when the README cleanup
+# deletes them. Every run also leaves its events in the append-only audit
+# log, by design.
 #
 # The comum credentials come from BRUNO_COMUM_LOGIN and BRUNO_COMUM_PASSWORD,
 # which "mage brunoRun" generates with crypto/rand for every run (003 D-13),

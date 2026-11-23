@@ -381,6 +381,12 @@ func TestContractSchemasMatchStructs(t *testing.T) {
 		{"PostAuthor", reflect.TypeFor[postAuthorResponse]()},
 		{"Post", reflect.TypeFor[postResponse]()},
 		{"PostPage", reflect.TypeFor[postPageResponse]()},
+		{"PostRemoval", reflect.TypeFor[postRemovalResponse]()},
+		{"RemovalRequest", reflect.TypeFor[removalRequest]()},
+		{"AuditActor", reflect.TypeFor[auditActorResponse]()},
+		{"AuditTarget", reflect.TypeFor[auditTargetResponse]()},
+		{"AuditEvent", reflect.TypeFor[auditEventResponse]()},
+		{"AuditPage", reflect.TypeFor[auditPageResponse]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {

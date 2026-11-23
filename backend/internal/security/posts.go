@@ -18,6 +18,10 @@ const (
 	MaxPostBodyLength  = 2000
 )
 
+// MaxRemovalReasonLength is the longest moderation reason (006 D-2), in
+// code points after trimming. The posts table repeats it as a CHECK.
+const MaxRemovalReasonLength = 500
+
 // MaxPostPage is the highest page of the wall a client may ask for (D-5).
 const MaxPostPage = 10000
 
@@ -45,6 +49,16 @@ func (s *Security) ValidatePost(title, body string) (string, string, error) {
 		return "", "", err
 	}
 	return title, body, nil
+}
+
+// ValidateRemovalReason trims the reason of a moderation removal and checks
+// it like a post body (006 D-2): valid UTF-8, 1 to MaxRemovalReasonLength
+// code points, and no control characters other than \n, \r and \t. It
+// returns the trimmed reason. Failures wrap domain.ErrInvalidInput.
+func (s *Security) ValidateRemovalReason(reason string) (string, error) {
+	return postField("removal reason", reason, MaxRemovalReasonLength, func(r rune) bool {
+		return r == '\n' || r == '\r' || r == '\t'
+	})
 }
 
 func postField(name, value string, maxLen int, allowedControl func(rune) bool) (string, error) {

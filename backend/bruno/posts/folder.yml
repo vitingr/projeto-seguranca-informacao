@@ -6,5 +6,5 @@ request:
   auth: inherit
 
 docs:
-  content: "The post wall: posts of every user, edited and deleted by their authors."
+  content: "The post wall: posts of every user, edited and deleted by their authors, and removed by administrators."
   type: text/markdown

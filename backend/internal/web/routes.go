@@ -36,10 +36,12 @@ func (h *handlers) routes() []route {
 		{http.MethodPost, "/api/cadastro", http.HandlerFunc(h.cadastro), admin},
 		{http.MethodGet, "/api/administradores", http.HandlerFunc(h.administradores), admin},
 		{http.MethodGet, "/api/usuarios", http.HandlerFunc(h.usuarios), comum},
-		{http.MethodGet, "/api/posts", http.HandlerFunc(h.listPosts), comum},
+		{http.MethodGet, "/api/posts", http.HandlerFunc(h.listPosts), autenticado}, // admins moderate from the wall (006 D-1)
 		{http.MethodPost, "/api/posts", http.HandlerFunc(h.createPost), comum},
 		{http.MethodPut, "/api/posts/{id}", http.HandlerFunc(h.updatePost), comum},
 		{http.MethodDelete, "/api/posts/{id}", http.HandlerFunc(h.deletePost), comum},
+		{http.MethodPost, "/api/posts/{id}/removal", http.HandlerFunc(h.removePost), admin},
+		{http.MethodGet, "/api/audit-events", http.HandlerFunc(h.listAuditEvents), admin},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

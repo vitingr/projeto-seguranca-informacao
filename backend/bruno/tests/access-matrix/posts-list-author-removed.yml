@@ -1,0 +1,24 @@
+info:
+  name: posts-list-author-removed
+  type: http
+  seq: 68
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/posts"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The author still sees the removed post, with the reason (006 D-2).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("shows the removed post to its author", function () {
+          const post = res.getBody().items.find((p) => p.id === bru.getVar("removalPostId"));
+          expect(post, "the removed post").to.be.an("object");
+          expect(post.mine).to.equal(true);
+          expect(post.removal.reason).to.equal("Removido pelo Bruno.\nSegunda linha.");
+        });

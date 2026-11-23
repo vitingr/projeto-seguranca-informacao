@@ -1,0 +1,31 @@
+info:
+  name: posts-remove-malformed
+  type: http
+  seq: 56
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/posts/{{removalPostId}}/removal"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "Spam.",
+        "post_id": 1
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // An unknown field.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          expect(res.getBody().error).to.equal("bad_request");
+        });

@@ -2,12 +2,18 @@
 // index.test.ts checks them against the contract.
 
 import type {
+  AuditActorResponse,
+  AuditEventResponse,
+  AuditPageResponse,
+  AuditTargetResponse,
   CadastroRequest,
   LoginRequest,
   PostAuthorResponse,
   PostPageResponse,
+  PostRemovalResponse,
   PostRequest,
   PostResponse,
+  RemovalRequest,
   UserResponse
 } from './types'
 
@@ -67,3 +73,39 @@ export const POST_PAGE_FIELDS = [
   'page_size',
   'has_next'
 ] as const satisfies readonly (keyof PostPageResponse)[]
+
+export const POST_REMOVAL_FIELDS = [
+  'reason',
+  'removed_at'
+] as const satisfies readonly (keyof PostRemovalResponse)[]
+
+export const REMOVAL_REQUEST_FIELDS = [
+  'reason'
+] as const satisfies readonly (keyof RemovalRequest)[]
+
+export const AUDIT_ACTOR_FIELDS = [
+  'user_id',
+  'login'
+] as const satisfies readonly (keyof AuditActorResponse)[]
+
+export const AUDIT_TARGET_FIELDS = [
+  'type',
+  'id',
+  'login'
+] as const satisfies readonly (keyof AuditTargetResponse)[]
+
+export const AUDIT_EVENT_FIELDS = [
+  'id',
+  'event',
+  'actor',
+  'target',
+  'ip',
+  'created_at'
+] as const satisfies readonly (keyof AuditEventResponse)[]
+
+export const AUDIT_PAGE_FIELDS = [
+  'items',
+  'page',
+  'page_size',
+  'has_next'
+] as const satisfies readonly (keyof AuditPageResponse)[]

@@ -4,6 +4,7 @@ import {
   POST_PAGE_MAX,
   bodyHasControl,
   parsePageParam,
+  postActionsFor,
   postLength,
   titleHasControl
 } from '.'
@@ -60,5 +61,26 @@ describe('parsePageParam', () => {
     [['2', '3'], 1]
   ])('%j is page %i', (raw, expected) => {
     expect(parsePageParam(raw)).toBe(expected)
+  })
+})
+
+// 006 D-1, D-2: comum authors edit their own posts, admins only remove, and
+// a removed post is frozen for everyone.
+describe('postActionsFor', () => {
+  const removal = { reason: 'Spam.', removedAt: '2026-11-22T16:00:00Z' }
+  it.each([
+    ['comum, own post', { mine: true, removal: null }, 'comum', 'edit'],
+    ['comum, another post', { mine: false, removal: null }, 'comum', 'none'],
+    ['comum, own removed post', { mine: true, removal }, 'comum', 'none'],
+    ['admin, a post', { mine: false, removal: null }, 'admin', 'remove'],
+    ['admin, a removed post', { mine: false, removal }, 'admin', 'none'],
+    [
+      'admin, mine (never sent)',
+      { mine: true, removal: null },
+      'admin',
+      'remove'
+    ]
+  ] as const)('%s → %s', (_, post, role, expected) => {
+    expect(postActionsFor(post, role)).toBe(expected)
   })
 })

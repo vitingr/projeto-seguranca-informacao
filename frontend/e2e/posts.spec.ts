@@ -1,83 +1,20 @@
-import { randomBytes } from 'node:crypto'
+import { type Locator, type Page, expect, test } from '@playwright/test'
 
+import { comumUser, seedAdmin } from './support/env'
+import { loginAs, recordApiCalls } from './support/login'
 import {
-  type Browser,
-  type Locator,
-  type Page,
-  expect,
-  test
-} from '@playwright/test'
-
-import { comumUser, generateComumCredentials, seedAdmin } from './support/env'
-import { type Credentials, loginAs, recordApiCalls } from './support/login'
+  callApi,
+  createViaApi,
+  pageAs,
+  postNamed,
+  registerComum,
+  unique
+} from './support/posts'
 import { expectNothingInBrowserStorage } from './support/storage'
 
 // The post wall (spec 005). Every call goes through the browser and the
-// /api proxy, with the session cookie and the CSRF token of the page.
-
-const unique = () => randomBytes(6).toString('hex')
-
-interface ApiAnswer {
-  body: unknown
-  status: number
-}
-
-/** A call from the page, with the CSRF token, as a script would do it. */
-const callApi = (
-  page: Page,
-  method: string,
-  path: string,
-  body?: unknown
-): Promise<ApiAnswer> =>
-  page.evaluate(
-    async ([m, p, b]) => {
-      const token = (await (await fetch('/api/csrf')).json()).csrf_token
-      const headers: Record<string, string> = { 'X-CSRF-Token': token }
-      if (b !== undefined) headers['Content-Type'] = 'application/json'
-      const res = await fetch(p, {
-        body: b === undefined ? undefined : JSON.stringify(b),
-        headers,
-        method: m
-      })
-      const text = await res.text()
-      return { body: text ? JSON.parse(text) : null, status: res.status }
-    },
-    [method, path, body] as const
-  )
-
-/** A second comum user, registered by the seed admin. */
-const registerComum = async (browser: Browser): Promise<Credentials> => {
-  const user = generateComumCredentials(randomBytes)
-  const page = await browser.newPage()
-  await loginAs(page, seedAdmin(), '/admin')
-  const created = await callApi(page, 'POST', '/api/cadastro', {
-    login: user.login,
-    papel: 'comum',
-    senha: user.password
-  })
-  expect(created.status).toBe(201)
-  await page.close()
-  return user
-}
-
-/** Logs in on a new page of its own (its own cookie jar). */
-const pageAs = async (browser: Browser, user: Credentials) => {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await loginAs(page, user, '/minha-conta')
-  return page
-}
-
-const createViaApi = async (page: Page, title: string, body = 'Corpo.') => {
-  const created = await callApi(page, 'POST', '/api/posts', { body, title })
-  expect(created.status).toBe(201)
-  return (created.body as { id: number }).id
-}
-
-const postNamed = (page: Page, title: string): Locator =>
-  page
-    .getByTestId('post')
-    .filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+// /api proxy, with the session cookie and the CSRF token of the page. The
+// helpers live in support/posts.ts, shared with moderation.spec.ts (006).
 
 const fillPost = async (scope: Locator | Page, title: string, body: string) => {
   await scope.getByLabel('Título').fill(title)
@@ -220,7 +157,9 @@ test('another user cannot edit or delete a post', async ({ browser }) => {
   }
 })
 
-test('the wall is comum only and needs a session', async ({
+// 006 D-1 changed this test: the admin now reads the wall (to moderate it)
+// but still cannot create, edit or delete posts.
+test('the wall needs a session, and admins only read it', async ({
   browser,
   page
 }) => {
@@ -229,10 +168,39 @@ test('the wall is comum only and needs a session', async ({
   await expect(anonymous).toHaveURL('/login?next=%2Fmural')
   await anonymous.close()
 
-  await loginAs(page, seedAdmin(), '/admin')
-  await page.goto('/mural')
-  await expect(page.getByTestId('forbidden')).toBeVisible()
-  await expect(page.getByTestId('post')).toHaveCount(0)
-  const list = await callApi(page, 'GET', '/api/posts')
-  expect(list.status).toBe(403)
+  const author = await pageAs(browser, comumUser())
+  const title = `Post lido pelo admin ${unique()}`
+  const id = await createViaApi(author, title)
+  try {
+    await loginAs(page, seedAdmin(), '/admin')
+    await page.goto('/mural')
+    await expect(page.getByTestId('forbidden')).toHaveCount(0)
+    await expect(page.getByRole('form', { name: 'Novo post' })).toHaveCount(0)
+    const seen = postNamed(page, title)
+    await expect(seen).toBeVisible()
+    await expect(seen.getByRole('button', { name: 'Editar' })).toHaveCount(0)
+    await expect(seen.getByRole('button', { name: 'Excluir' })).toHaveCount(0)
+
+    const list = await callApi(page, 'GET', '/api/posts')
+    expect(list.status).toBe(200)
+    const create = await callApi(page, 'POST', '/api/posts', {
+      body: 'b',
+      title: 'do admin'
+    })
+    const update = await callApi(page, 'PUT', `/api/posts/${id}`, {
+      body: 'b',
+      title: 'editado pelo admin'
+    })
+    const remove = await callApi(page, 'DELETE', `/api/posts/${id}`)
+    for (const answer of [create, update, remove]) {
+      expect(answer.status).toBe(403)
+    }
+    await author.goto('/mural')
+    await expect(postNamed(author, title).getByTestId('post-body')).toHaveText(
+      'Corpo.'
+    )
+  } finally {
+    await callApi(author, 'DELETE', `/api/posts/${id}`)
+    await author.context().close()
+  }
 })

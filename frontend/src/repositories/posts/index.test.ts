@@ -12,6 +12,7 @@ const apiPost = {
   created_at: '2026-11-22T12:00:00Z',
   id: 7,
   mine: true,
+  removal: null,
   title: 'Olá',
   updated_at: '2026-11-22T12:00:00Z'
 }
@@ -37,6 +38,7 @@ describe('parsePostPage', () => {
           createdAt: '2026-11-22T12:00:00Z',
           id: 7,
           mine: true,
+          removal: null,
           title: 'Olá',
           updatedAt: '2026-11-22T12:00:00Z'
         }
@@ -44,6 +46,30 @@ describe('parsePostPage', () => {
       page: 2,
       pageSize: 20
     })
+  })
+
+  // 006 D-2: a removed post carries its reason.
+  it('converts a removed post', () => {
+    const removed = {
+      ...apiPost,
+      removal: { reason: 'Spam.', removed_at: '2026-11-22T13:00:00Z' }
+    }
+    expect(parsePostPage({ ...apiPage, items: [removed] })?.items[0]).toEqual(
+      expect.objectContaining({
+        removal: { reason: 'Spam.', removedAt: '2026-11-22T13:00:00Z' }
+      })
+    )
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['a string', 'removido'],
+    ['without a reason', { removed_at: '2026-11-22T13:00:00Z' }],
+    ['a numeric reason', { reason: 1, removed_at: '2026-11-22T13:00:00Z' }],
+    ['without removed_at', { reason: 'Spam.' }]
+  ])('rejects a page whose removal is %s', (_name, removal) => {
+    const item = { ...apiPost, removal }
+    expect(parsePostPage({ ...apiPage, items: [item] })).toBeNull()
   })
 
   it.each([

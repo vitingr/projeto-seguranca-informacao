@@ -14,7 +14,11 @@ import { networkError } from '@/domain/api-error'
 import { LOGIN_PATH } from '@/domain/login-path'
 import { loginUrl } from '@/domain/navigation'
 import { CSRF_HEADER } from '@/lib/api/contract'
-import type { PostRequest, UserResponse } from '@/lib/api/contract/types'
+import type {
+  PostRequest,
+  RemovalRequest,
+  UserResponse
+} from '@/lib/api/contract/types'
 import { csrfStore } from '@/lib/api/csrf'
 import { ApiRequestError, readError, toApiError } from '@/lib/api/errors'
 import { never } from '@/utils/helpers/never'
@@ -137,6 +141,17 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
     deletePost: id =>
       run(async () => {
         const res = await mutate('DELETE', postPath(id), undefined)
+        if (res.status !== 204)
+          return { error: await readError(res), ok: false }
+        return { data: undefined, ok: true }
+      }),
+
+    // An admin removes any post with a reason (006 D-2). The backend checks
+    // the role again and answers 403 to anyone else.
+    removePost: (id, reason) =>
+      run(async () => {
+        const body: RemovalRequest = { reason }
+        const res = await mutate('POST', `${postPath(id)}/removal`, body)
         if (res.status !== 204)
           return { error: await readError(res), ok: false }
         return { data: undefined, ok: true }

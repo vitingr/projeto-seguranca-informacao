@@ -1,1 +1,2 @@
-export type MessageContext = 'action' | 'cadastro' | 'login' | 'post'
+export type MessageContext =
+  'action' | 'cadastro' | 'login' | 'post' | 'removal'

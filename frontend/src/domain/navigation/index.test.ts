@@ -19,11 +19,14 @@ describe('safeNext', () => {
     ['/cadastrar-usuarios', 'admin', '/cadastrar-usuarios'],
     ['/minha-conta', 'comum', '/minha-conta'],
     ['/mural', 'comum', '/mural'],
+    // admins moderate from the wall (006 D-1)
+    ['/mural', 'admin', '/mural'],
+    ['/admin/auditoria', 'admin', '/admin/auditoria'],
+    ['/admin/auditoria', 'comum', '/minha-conta'],
     // a route of another role
     ['/admin', 'comum', '/minha-conta'],
     ['/cadastrar-usuarios', 'comum', '/minha-conta'],
     ['/minha-conta', 'admin', '/admin'],
-    ['/mural', 'admin', '/admin'],
     // no open redirect
     ['https://evil.example/admin', 'admin', '/admin'],
     ['//evil.example', 'admin', '/admin'],

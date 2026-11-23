@@ -25,6 +25,11 @@ describe('messageFor', () => {
     ['conflict', 'cadastro', 'Este login já está em uso.'],
     ['not_found', 'post', 'Este post não existe mais. Recarregue a página.'],
     [
+      'not_found',
+      'removal',
+      'Este post não existe mais ou já foi removido. Recarregue a página.'
+    ],
+    [
       'unprocessable_entity',
       'post',
       'Dados inválidos. Revise os campos e tente novamente.'

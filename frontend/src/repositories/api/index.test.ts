@@ -332,3 +332,60 @@ describe('posts (005 D-8)', () => {
     }
   )
 })
+
+describe('post removal (006 D-2)', () => {
+  const REMOVAL_7 = 'POST /api/posts/7/removal'
+
+  it('sends POST with the token and only the reason', async () => {
+    const s = setup({
+      [CSRF]: [csrfReply()],
+      [REMOVAL_7]: [emptyResponse(204)]
+    })
+    expect(await s.client.removePost(7, 'Spam.')).toEqual({
+      data: undefined,
+      ok: true
+    })
+    expect(s.sequence()).toEqual([CSRF, REMOVAL_7])
+    expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
+    expect(s.calls[1]?.headers['content-type']).toBe('application/json')
+    expect(s.calls[1]?.body).toEqual({ reason: 'Spam.' })
+  })
+
+  it.each([
+    [404, 'not_found'],
+    [422, 'unprocessable_entity']
+  ])('returns %i as an error', async (status, code) => {
+    const s = setup({
+      [CSRF]: [csrfReply()],
+      [REMOVAL_7]: [errorResponse(status, code)]
+    })
+    expect(await s.client.removePost(7, 'Spam.')).toMatchObject({
+      error: { code, status },
+      ok: false
+    })
+  })
+
+  it('a 403 after the retry is an error, never a success', async () => {
+    const s = setup({
+      [CSRF]: [csrfReply(), csrfReply()],
+      [REMOVAL_7]: [
+        errorResponse(403, 'forbidden'),
+        errorResponse(403, 'forbidden')
+      ]
+    })
+    expect(await s.client.removePost(7, 'Spam.')).toMatchObject({
+      error: { code: 'forbidden', status: 403 },
+      ok: false
+    })
+    expect(s.sequence()).toEqual([CSRF, REMOVAL_7, CSRF, REMOVAL_7])
+  })
+
+  it('refuses a malformed post id without a request', async () => {
+    const s = setup({ [CSRF]: [csrfReply()] })
+    expect(await s.client.removePost(0, 'Spam.')).toMatchObject({
+      error: { code: 'network' },
+      ok: false
+    })
+    expect(s.sequence()).toEqual([])
+  })
+})

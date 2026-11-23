@@ -2,7 +2,7 @@
 // Used by the server guard and the browser client.
 
 import { LOGIN_PATH } from '@/domain/login-path'
-import { PROTECTED_ROUTES } from '@/domain/protected-routes'
+import { PROTECTED_ROUTES, routeAllows } from '@/domain/protected-routes'
 import type { ProtectedRoute } from '@/domain/protected-routes/types'
 import type { Role } from '@/domain/roles/types'
 
@@ -23,7 +23,7 @@ export const safeNext = (next: unknown, role: Role): ProtectedRoute => {
   if (
     typeof next === 'string' &&
     isProtectedRoute(next) &&
-    PROTECTED_ROUTES[next] === role
+    routeAllows(next, role)
   ) {
     return next
   }

@@ -26,7 +26,12 @@ describe('decideAccess: the page guard matrix', () => {
     ['/cadastrar-usuarios', as('admin'), 'allowed'],
     ['/minha-conta', anonymous, 'login /login?next=%2Fminha-conta'],
     ['/minha-conta', as('comum'), 'allowed'],
-    ['/minha-conta', as('admin'), 'forbidden']
+    ['/minha-conta', as('admin'), 'forbidden'],
+    // 006 D-1: the wall is open to both roles, the audit log to admins only
+    ['/mural', as('admin'), 'allowed'],
+    ['/mural', as('comum'), 'allowed'],
+    ['/admin/auditoria', as('admin'), 'allowed'],
+    ['/admin/auditoria', as('comum'), 'forbidden']
   ])('%s', (route, session, want) => {
     const access = decideAccess(session, route)
     expect(access.kind === 'login' ? `login ${access.url}` : access.kind).toBe(

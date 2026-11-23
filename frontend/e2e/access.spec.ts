@@ -76,7 +76,9 @@ test.describe('admin', () => {
     const links = page.getByTestId('home-links')
     await expect(links.getByRole('link')).toHaveText([
       'Área do administrador',
-      'Cadastrar usuários'
+      'Cadastrar usuários',
+      'Mural',
+      'Auditoria'
     ])
   })
 

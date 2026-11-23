@@ -32,5 +32,6 @@ export interface ApiClient {
   login(input: LoginRequest): Promise<Result<UserResponse>>
   logout(): Promise<Result<void>>
   register(input: CadastroRequest): Promise<Result<UserResponse>>
+  removePost(id: number, reason: string): Promise<Result<void>>
   updatePost(id: number, input: PostInput): Promise<Result<void>>
 }

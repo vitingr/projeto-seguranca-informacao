@@ -18,6 +18,8 @@ export const MESSAGES = {
   invalidData: 'Dados inválidos. Revise os campos e tente novamente.',
   network: 'Não foi possível conectar ao servidor. Tente novamente.',
   postNotFound: 'Este post não existe mais. Recarregue a página.',
+  removalNotFound:
+    'Este post não existe mais ou já foi removido. Recarregue a página.',
   sessionExpired: 'Sua sessão expirou. Entre novamente.'
 } as const
 
@@ -42,9 +44,9 @@ export const messageFor = (
     case 'conflict':
       return MESSAGES.conflict
     case 'not_found':
-      return context === 'post'
-        ? MESSAGES.postNotFound
-        : (error.message ?? withRequestId(MESSAGES.internal, error.requestId))
+      if (context === 'post') return MESSAGES.postNotFound
+      if (context === 'removal') return MESSAGES.removalNotFound
+      return error.message ?? withRequestId(MESSAGES.internal, error.requestId)
     case 'unprocessable_entity':
       return MESSAGES.invalidData
     case 'internal':

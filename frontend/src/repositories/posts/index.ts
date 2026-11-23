@@ -1,5 +1,10 @@
 import { loginUrl } from '@/domain/navigation'
-import type { Post, PostPage, PostsResult } from '@/domain/post/types'
+import type {
+  Post,
+  PostPage,
+  PostRemoval,
+  PostsResult
+} from '@/domain/post/types'
 import { isSessionValue } from '@/lib/backend'
 import type { BackendGet } from '@/lib/backend/types'
 
@@ -10,10 +15,24 @@ const isPositiveInteger = (value: unknown): value is number =>
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 
+/**
+ * The removal of a post: null when the post is not removed, undefined when
+ * the value is not a valid removal (the whole page is then rejected).
+ */
+const parseRemoval = (value: unknown): PostRemoval | null | undefined => {
+  if (value === null) return null
+  if (typeof value !== 'object') return undefined
+  const { reason, removed_at } = value as Record<string, unknown>
+  if (!isString(reason) || !isString(removed_at)) return undefined
+  return { reason, removedAt: removed_at }
+}
+
 const parsePost = (value: unknown): Post | null => {
   if (typeof value !== 'object' || value === null) return null
-  const { author, body, created_at, id, mine, title, updated_at } =
+  const { author, body, created_at, id, mine, removal, title, updated_at } =
     value as Record<string, unknown>
+  const parsedRemoval = parseRemoval(removal)
+  if (parsedRemoval === undefined) return null
   if (typeof author !== 'object' || author === null) return null
   const { login, user_id: userId } = author as Record<string, unknown>
   if (
@@ -34,6 +53,7 @@ const parsePost = (value: unknown): Post | null => {
     createdAt: created_at,
     id,
     mine,
+    removal: parsedRemoval,
     title,
     updatedAt: updated_at
   }
@@ -62,8 +82,10 @@ export const parsePostPage = (value: unknown): PostPage | null => {
 }
 
 /**
- * One page of the wall. The backend stays the authority: 401 (the session
- * ended) → login, 403 (the role changed) → forbidden. Anything else that is
+ * One page of the wall: for a comum user, the posts that are not removed
+ * plus their own removed ones; for an admin, every post (006 D-1, D-2). The
+ * backend stays the authority: 401 (the session ended) → login, 403 (the
+ * role changed) → forbidden. Anything else that is
  * not a valid 200 throws (fail closed: the page shows an error, never a
  * partial wall).
  */

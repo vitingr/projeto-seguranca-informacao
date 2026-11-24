@@ -9,7 +9,6 @@ import type { LucideIcon } from 'lucide-react'
 
 import type { ProtectedRoute } from '@/domain/protected-routes/types'
 
-// Presentation copy for each area card on the signed-in home.
 export const AREA_DETAILS: Record<
   ProtectedRoute,
   { description: string; icon: LucideIcon; kicker: string }
@@ -42,7 +41,6 @@ export const AREA_DETAILS: Record<
   }
 }
 
-// Facts shown under the hero call to action.
 export const FACTS = [
   { label: 'hash das senhas', value: 'Argon2id' },
   { label: 'sem uso encerra a sessão', value: '15 min' },
@@ -110,3 +108,13 @@ export const CONTROLS = [
     title: 'Auditoria'
   }
 ] as const
+
+export const CONTAINER = 'mx-auto w-full max-w-7xl px-4 xl:px-0'
+
+export const RISE = 'motion-safe:animate-rise'
+
+export const SECTION_LINK =
+  'text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex h-9 items-center rounded-full px-3 text-sm outline-none focus-visible:ring-3 motion-safe:transition-colors'
+
+export const SECTION_TITLE =
+  'text-3xl font-semibold tracking-tight text-balance sm:text-4xl'

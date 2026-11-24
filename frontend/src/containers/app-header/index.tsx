@@ -12,7 +12,7 @@ import type { AppHeaderProps } from './types'
 // From md: one row.
 export const AppHeader: React.FC<AppHeaderProps> = ({ role }) => (
   <header className="bg-background/80 supports-backdrop-filter:bg-background/70 sticky top-0 z-40 border-b backdrop-blur-md">
-    <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6 md:flex-nowrap md:py-3 lg:px-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6 md:flex-nowrap md:py-3 lg:px-0">
       <Link
         aria-label="Sistemas da Informação"
         className="focus-visible:ring-ring/50 rounded-lg outline-none focus-visible:ring-3"

@@ -7,6 +7,7 @@ const apiUrl = parseApiUrl({ raw: process.env.API_URL })
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  cacheComponents: false,
   turbopack: {
     rules: {
       '*.css': {

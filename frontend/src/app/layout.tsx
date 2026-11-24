@@ -30,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       className={`${poppins.variable} ${geistMono.variable} h-full antialiased`}
       lang="pt-BR"
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col text-neutral-700">
+        {children}
+      </body>
     </html>
   )
 }

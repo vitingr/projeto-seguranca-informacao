@@ -4,32 +4,28 @@ import Link from 'next/link'
 
 import { AreaCard } from '@/components/area-card'
 import { Brand } from '@/components/brand'
-import { Eyebrow } from '@/components/eyebrow'
 import { SecurityDemo } from '@/components/security-demo'
 import { STAGGER } from '@/components/stagger'
 import { buttonVariants } from '@/components/ui/shadcn/button'
 import { AppHeader } from '@/containers/app-header'
 import { Reveal } from '@/containers/reveal'
 import { ROLE_LINKS } from '@/domain/role-links'
-import { ROLE_NAMES } from '@/domain/role-names'
 
-import { AREA_DETAILS, CONTROLS, FACTS, ROLES } from './constants'
+import {
+  AREA_DETAILS,
+  CONTAINER,
+  CONTROLS,
+  FACTS,
+  RISE,
+  ROLES,
+  SECTION_LINK,
+  SECTION_TITLE
+} from './constants'
 import type { RoleHomeProps } from './types'
 
-const CONTAINER = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8'
-
-const RISE = 'motion-safe:animate-rise'
-
-const SECTION_LINK =
-  'text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex h-9 items-center rounded-full px-3 text-sm outline-none focus-visible:ring-3 motion-safe:transition-colors'
-
-const SECTION_TITLE =
-  'text-3xl font-semibold tracking-tight text-balance sm:text-4xl'
-
-/** Home without a session: what the system does, for whom, and the way in. */
 export const PublicHome: React.FC = () => (
   <div className="flex min-h-dvh flex-col">
-    <header className="border-b">
+    <header className="border-b bg-white">
       <div
         className={cn(
           CONTAINER,
@@ -52,7 +48,7 @@ export const PublicHome: React.FC = () => (
     </header>
 
     <main className="flex flex-1 flex-col">
-      <section className="border-b">
+      <section className="border-b bg-white">
         <div
           className={cn(
             CONTAINER,
@@ -60,14 +56,11 @@ export const PublicHome: React.FC = () => (
           )}
         >
           <div className="flex flex-col items-start gap-7 lg:col-span-5">
-            <Eyebrow className={RISE}>
-              Sistema interno com acesso por papéis
-            </Eyebrow>
             <h1
               className={cn(
                 RISE,
                 STAGGER[1],
-                'text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl lg:text-5xl xl:text-6xl'
+                'text-4xl leading-tight font-semibold text-balance sm:text-5xl lg:text-5xl xl:text-6xl'
               )}
             >
               Cada acesso conferido no servidor. Cada ação{' '}
@@ -120,10 +113,8 @@ export const PublicHome: React.FC = () => (
                   className="flex flex-col-reverse justify-end gap-1"
                   key={fact.value}
                 >
-                  <dt className="text-muted-foreground text-xs text-pretty">
-                    {fact.label}
-                  </dt>
-                  <dd className="text-lg font-semibold tracking-tight sm:text-xl">
+                  <dt className="text-xs text-neutral-500">{fact.label}</dt>
+                  <dd className="text-lg font-semibold text-neutral-700 sm:text-xl">
                     {fact.value}
                   </dd>
                 </div>
@@ -143,7 +134,6 @@ export const PublicHome: React.FC = () => (
       <section className="scroll-mt-4" id="papeis">
         <div className={cn(CONTAINER, 'flex flex-col gap-10 py-16 sm:py-24')}>
           <Reveal className="flex max-w-2xl flex-col gap-4">
-            <Eyebrow>Papéis</Eyebrow>
             <h2 className={SECTION_TITLE}>
               Dois papéis, cada um com a sua área
             </h2>
@@ -155,11 +145,9 @@ export const PublicHome: React.FC = () => (
           <div className="grid gap-4 md:grid-cols-2">
             {ROLES.map((role, index) => (
               <Reveal className={cn('h-full', STAGGER[index])} key={role.name}>
-                <article className="bg-card hover:border-foreground/25 flex h-full flex-col gap-6 rounded-2xl border p-6 motion-safe:transition-colors motion-safe:duration-300 sm:p-8">
+                <article className="bg-card hover:border-foreground/25 flex h-full flex-col gap-6 rounded-sm border p-4 motion-safe:transition-colors motion-safe:duration-300 sm:p-6">
                   <div className="flex flex-col gap-1">
-                    <h3 className="text-xl font-semibold tracking-tight">
-                      {role.name}
-                    </h3>
+                    <h3 className="text-xl font-semibold">{role.name}</h3>
                     <p className="text-muted-foreground text-sm">
                       {role.summary}
                     </p>
@@ -185,17 +173,16 @@ export const PublicHome: React.FC = () => (
       <section className="bg-card scroll-mt-4 border-y" id="seguranca">
         <div className={cn(CONTAINER, 'flex flex-col gap-10 py-16 sm:py-24')}>
           <Reveal className="flex max-w-2xl flex-col gap-4">
-            <Eyebrow>Segurança</Eyebrow>
             <h2 className={SECTION_TITLE}>O que protege cada sessão</h2>
             <p className="text-muted-foreground text-pretty">
               Controles que valem para todos os papéis, aplicados pelo backend.
             </p>
           </Reveal>
           <Reveal>
-            <ol className="bg-border grid gap-px overflow-hidden rounded-2xl border sm:grid-cols-2 lg:grid-cols-3">
+            <ol className="bg-border grid gap-px overflow-hidden rounded-sm border sm:grid-cols-2 lg:grid-cols-3">
               {CONTROLS.map((control, index) => (
                 <li
-                  className="bg-card hover:bg-background flex flex-col gap-4 p-6 motion-safe:transition-colors motion-safe:duration-300"
+                  className="bg-card flex flex-col gap-4 p-6"
                   key={control.title}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -207,9 +194,7 @@ export const PublicHome: React.FC = () => (
                     </code>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <h3 className="text-base font-semibold tracking-tight">
-                      {control.title}
-                    </h3>
+                    <h3 className="text-base font-semibold">{control.title}</h3>
                     <p className="text-muted-foreground text-sm text-pretty">
                       {control.description}
                     </p>
@@ -224,11 +209,7 @@ export const PublicHome: React.FC = () => (
       <Reveal className={cn(CONTAINER, 'py-16 sm:py-24')}>
         <section className="bg-primary text-primary-foreground flex flex-col gap-8 rounded-3xl p-8 sm:p-12 md:flex-row md:items-end md:justify-between">
           <div className="flex max-w-xl flex-col gap-3">
-            <span
-              aria-hidden="true"
-              className="bg-brand h-1 w-10 rounded-full"
-            />
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h2 className="text-2xl font-semibold sm:text-3xl">
               Acesso só por convite
             </h2>
             <p className="text-primary-foreground/70 text-pretty">
@@ -264,21 +245,20 @@ export const PublicHome: React.FC = () => (
   </div>
 )
 
-/** Home with a session: the areas of the user's role. */
 export const RoleHome: React.FC<RoleHomeProps> = ({ role }) => {
   const links = ROLE_LINKS[role]
+
   return (
     <>
       <AppHeader role={role} />
-      <main className={cn(CONTAINER, 'flex flex-col gap-10 py-10 sm:py-14')}>
+      <main className={cn(CONTAINER, 'flex flex-col gap-10 py-12 lg:py-20')}>
         <section className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <div className="flex flex-col gap-4 lg:col-span-8">
-            <Eyebrow className={RISE}>Painel · {ROLE_NAMES[role]}</Eyebrow>
             <h1
               className={cn(
                 RISE,
                 STAGGER[1],
-                'text-4xl font-semibold tracking-tight sm:text-5xl'
+                'text-4xl font-semibold sm:text-5xl'
               )}
             >
               Início
@@ -293,32 +273,6 @@ export const RoleHome: React.FC<RoleHomeProps> = ({ role }) => {
               Escolha uma área para continuar. Você vê só as áreas do seu papel.
             </p>
           </div>
-          <aside
-            className={cn(
-              RISE,
-              STAGGER[3],
-              'bg-card flex flex-col gap-4 rounded-2xl border p-5 lg:col-span-4'
-            )}
-            aria-label="Sua sessão"
-          >
-            <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Sua sessão
-            </span>
-            <dl className="flex flex-col gap-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Papel</dt>
-                <dd className="font-medium">{ROLE_NAMES[role]}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Áreas liberadas</dt>
-                <dd className="font-medium">{links.length}</dd>
-              </div>
-            </dl>
-            <p className="text-muted-foreground border-t pt-4 text-xs text-pretty">
-              O servidor confere o seu papel a cada acesso. Ao sair, a sessão é
-              encerrada no servidor.
-            </p>
-          </aside>
         </section>
         <ul
           className={cn(

@@ -11,7 +11,6 @@ const Page = async ({ searchParams }: PageProps<'/login'>) => {
   const query = await searchParams
   const next = typeof query.next === 'string' ? query.next : undefined
 
-  // A logged-in user does not see the form.
   const session = await getSession()
   if (session.kind === 'user') redirect(safeNext(next, session.user.role))
 

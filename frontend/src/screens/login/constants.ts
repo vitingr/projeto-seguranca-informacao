@@ -24,3 +24,5 @@ export const STEP_DELAYS = [
   'motion-safe:anim-delay-300',
   'motion-safe:anim-delay-375'
 ] as const
+
+export const RISE = 'motion-safe:animate-rise'

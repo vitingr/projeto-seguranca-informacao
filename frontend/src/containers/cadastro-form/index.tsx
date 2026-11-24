@@ -1,10 +1,15 @@
 'use client'
 
+import { CircleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/shadcn/button'
 import { Field, FormMessage } from '@/components/ui/shadcn/field'
+import {
+  NativeSelect,
+  NativeSelectOption
+} from '@/components/ui/shadcn/native-select'
 import { messageFor } from '@/domain/messages'
 import { api } from '@/repositories/api'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -58,7 +63,7 @@ export const CadastroForm = () => {
 
   return (
     <form
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
     >
@@ -68,6 +73,7 @@ export const CadastroForm = () => {
         autoCapitalize="none"
         autoComplete="off"
         error={errors.login?.message}
+        hint="3 a 64 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."
         id="login"
         label="Login"
         spellCheck={false}
@@ -76,33 +82,55 @@ export const CadastroForm = () => {
       <Field
         autoComplete="new-password"
         error={errors.senha?.message}
+        hint="De 15 a 128 caracteres. Uma frase longa é mais fácil de lembrar."
         id="senha"
         label="Senha"
         type="password"
         {...register('senha')}
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <label className="text-sm font-medium" htmlFor="papel">
           Papel
         </label>
-        <select
-          aria-describedby={errors.papel ? 'papel-error' : undefined}
+        <NativeSelect
+          aria-describedby={errors.papel ? 'papel-error' : 'papel-hint'}
           aria-invalid={errors.papel ? true : undefined}
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3"
+          className="w-full"
           id="papel"
+          size="lg"
           {...register('papel')}
         >
-          <option value="">Escolha…</option>
-          <option value="comum">Usuário comum</option>
-          <option value="admin">Administrador</option>
-        </select>
+          <NativeSelectOption value="">Escolha…</NativeSelectOption>
+          <NativeSelectOption value="comum">Usuário comum</NativeSelectOption>
+          <NativeSelectOption value="admin">Administrador</NativeSelectOption>
+        </NativeSelect>
         {errors.papel ? (
-          <p className="text-destructive text-sm" id="papel-error">
+          <p
+            className="text-destructive motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex items-start gap-1.5 text-sm"
+            id="papel-error"
+          >
+            <CircleAlert
+              aria-hidden="true"
+              className="size-4 shrink-0 translate-y-0.5"
+            />
             {errors.papel.message}
           </p>
-        ) : null}
+        ) : (
+          <p
+            className="text-muted-foreground text-sm text-pretty"
+            id="papel-hint"
+          >
+            Define as páginas que a pessoa abre e as ações que o servidor
+            aceita.
+          </p>
+        )}
       </div>
-      <Button disabled={isSubmitting} size="lg" type="submit">
+      <Button
+        className="w-full"
+        disabled={isSubmitting}
+        size="xl"
+        type="submit"
+      >
         {isSubmitting ? 'Cadastrando…' : 'Cadastrar'}
       </Button>
     </form>

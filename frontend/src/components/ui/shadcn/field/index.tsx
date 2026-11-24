@@ -6,11 +6,14 @@ import type { FieldProps, FormMessageProps } from './types'
 export const Field = ({
   className,
   error,
+  hint,
   id,
   label,
   ...props
 }: FieldProps) => {
   const errorId = `${id}-error`
+  const hintId = `${id}-hint`
+  const describedBy = error ? errorId : hint ? hintId : undefined
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium" htmlFor={id}>
@@ -21,18 +24,25 @@ export const Field = ({
           'border-input bg-card placeholder:text-muted-foreground hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-ring/25 aria-invalid:border-destructive aria-invalid:ring-destructive/15 h-11 rounded-xl border px-3.5 text-sm outline-none focus-visible:ring-4 motion-safe:transition-[border-color,box-shadow]',
           className
         )}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
         id={id}
         {...props}
       />
       {error ? (
         <p
-          className="text-destructive motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex items-center gap-1.5 text-sm"
+          className="text-destructive motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex items-start gap-1.5 text-sm"
           id={errorId}
         >
-          <CircleAlert aria-hidden="true" className="size-4 shrink-0" />
+          <CircleAlert
+            aria-hidden="true"
+            className="size-4 shrink-0 translate-y-0.5"
+          />
           {error}
+        </p>
+      ) : hint ? (
+        <p className="text-muted-foreground text-sm text-pretty" id={hintId}>
+          {hint}
         </p>
       ) : null}
     </div>

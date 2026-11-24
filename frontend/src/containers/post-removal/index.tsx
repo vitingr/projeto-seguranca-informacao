@@ -1,11 +1,13 @@
 'use client'
 
+import { CircleAlert } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/shadcn/button'
 import { FormMessage } from '@/components/ui/shadcn/field'
+import { Textarea } from '@/components/ui/shadcn/textarea'
 import { messageFor } from '@/domain/messages'
 import { api } from '@/repositories/api'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,31 +53,45 @@ export const PostRemoval: React.FC<PostRemovalProps> = ({
   return (
     <form
       aria-label="Remover post"
-      className="border-border flex w-full flex-col gap-3 rounded-lg border p-3"
+      className="bg-background motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex w-full flex-col gap-4 rounded-xl border p-4"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
     >
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <label className="text-sm font-medium" htmlFor={id}>
           Motivo
         </label>
-        <textarea
-          aria-describedby={reasonError ? `${id}-error` : undefined}
+        <Textarea
+          aria-describedby={reasonError ? `${id}-error` : `${id}-hint`}
           aria-invalid={reasonError ? true : undefined}
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive min-h-20 rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
           id={id}
           rows={3}
           {...register('reason')}
         />
         {reasonError ? (
-          <p className="text-destructive text-sm" id={`${id}-error`}>
+          <p
+            className="text-destructive motion-safe:animate-in motion-safe:fade-in flex items-start gap-1.5 text-sm"
+            id={`${id}-error`}
+          >
+            <CircleAlert
+              aria-hidden="true"
+              className="size-4 shrink-0 translate-y-0.5"
+            />
             {reasonError}
           </p>
-        ) : null}
+        ) : (
+          <p
+            className="text-muted-foreground text-sm text-pretty"
+            id={`${id}-hint`}
+          >
+            O autor verá este motivo no lugar do post. A remoção vai para a
+            auditoria.
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={isSubmitting} type="submit" variant="destructive">
+        <Button disabled={isSubmitting} type="submit" variant="danger">
           {isSubmitting ? 'Removendo…' : 'Confirmar remoção'}
         </Button>
         <Button

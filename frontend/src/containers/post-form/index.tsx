@@ -1,12 +1,16 @@
 'use client'
 
+import { cn } from 'cn'
+import { CircleAlert, Send } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 
 import { Button } from '@/components/ui/shadcn/button'
 import { Field, FormMessage } from '@/components/ui/shadcn/field'
+import { Textarea } from '@/components/ui/shadcn/textarea'
 import { messageFor } from '@/domain/messages'
+import { POST_BODY_MAX, postLength } from '@/domain/post'
 import { api } from '@/repositories/api'
 import { zodResolver } from '@hookform/resolvers/zod'
 
@@ -27,6 +31,7 @@ export const PostForm = (props: PostFormProps) => {
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<number>(0)
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
@@ -61,10 +66,12 @@ export const PostForm = (props: PostFormProps) => {
   }
 
   const bodyError = errors.body?.message
+  // Display only: the schema above still decides what is valid.
+  const bodyLength = postLength(useWatch({ control, name: 'body' }) ?? '')
   return (
     <form
       aria-label={editing ? 'Editar post' : 'Novo post'}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
     >
@@ -76,26 +83,58 @@ export const PostForm = (props: PostFormProps) => {
         label="Título"
         {...register('title')}
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <label className="text-sm font-medium" htmlFor={`${prefix}-body`}>
           Texto
         </label>
-        <textarea
-          aria-describedby={bodyError ? `${prefix}-body-error` : undefined}
+        <Textarea
+          aria-describedby={
+            bodyError ? `${prefix}-body-error` : `${prefix}-body-count`
+          }
           aria-invalid={bodyError ? true : undefined}
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive min-h-24 rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
+          className="min-h-32"
           id={`${prefix}-body`}
           rows={4}
           {...register('body')}
         />
-        {bodyError ? (
-          <p className="text-destructive text-sm" id={`${prefix}-body-error`}>
-            {bodyError}
-          </p>
-        ) : null}
+        <div className="flex items-start justify-between gap-3">
+          {bodyError ? (
+            <p
+              className="text-destructive motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex items-start gap-1.5 text-sm"
+              id={`${prefix}-body-error`}
+            >
+              <CircleAlert
+                aria-hidden="true"
+                className="size-4 shrink-0 translate-y-0.5"
+              />
+              {bodyError}
+            </p>
+          ) : (
+            <span />
+          )}
+          <span
+            className={cn(
+              'text-xs tabular-nums',
+              bodyLength > POST_BODY_MAX
+                ? 'text-destructive'
+                : 'text-muted-foreground'
+            )}
+            id={`${prefix}-body-count`}
+          >
+            {bodyLength}/{POST_BODY_MAX}
+          </span>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={isSubmitting} size="lg" type="submit">
+        <Button
+          className={editing ? undefined : 'w-full sm:w-auto'}
+          disabled={isSubmitting}
+          size="xl"
+          type="submit"
+        >
+          {editing ? null : (
+            <Send aria-hidden="true" data-icon="inline-start" />
+          )}
           {editing
             ? isSubmitting
               ? 'Salvando…'
@@ -108,7 +147,7 @@ export const PostForm = (props: PostFormProps) => {
           <Button
             disabled={isSubmitting}
             onClick={props.onCancel}
-            size="lg"
+            size="xl"
             type="button"
             variant="outline"
           >

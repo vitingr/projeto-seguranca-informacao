@@ -42,16 +42,6 @@ export const AREA_DETAILS: Record<
   }
 }
 
-// Entrance stagger for lists, in order. Classes, not inline styles.
-export const STAGGER = [
-  'motion-safe:anim-delay-0',
-  'motion-safe:anim-delay-75',
-  'motion-safe:anim-delay-150',
-  'motion-safe:anim-delay-225',
-  'motion-safe:anim-delay-300',
-  'motion-safe:anim-delay-375'
-] as const
-
 // Facts shown under the hero call to action.
 export const FACTS = [
   { label: 'hash das senhas', value: 'Argon2id' },

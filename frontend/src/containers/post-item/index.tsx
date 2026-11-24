@@ -1,5 +1,6 @@
 'use client'
 
+import { Pencil, ShieldX, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -23,7 +24,11 @@ import type { PostItemProps } from './types'
  * A removed post is frozen: it has no actions for anyone. Admins can open
  * its body, collapsed; its author only sees the notice with the reason.
  */
-export const PostItem: React.FC<PostItemProps> = ({ post, viewerRole }) => {
+export const PostItem: React.FC<PostItemProps> = ({
+  className,
+  post,
+  viewerRole
+}) => {
   const router = useRouter()
   const [editing, setEditing] = useState<boolean>(false)
   const [removing, setRemoving] = useState<boolean>(false)
@@ -38,9 +43,13 @@ export const PostItem: React.FC<PostItemProps> = ({ post, viewerRole }) => {
   if (editing && canEdit) {
     return (
       <div
-        className="border-border flex flex-col gap-3 rounded-lg border p-4"
+        className="bg-card border-brand/50 flex flex-col gap-4 rounded-2xl border p-5 sm:p-6"
         data-testid="post-edit"
       >
+        <span className="text-brand-ink flex items-center gap-2 text-xs font-semibold tracking-widest uppercase">
+          <Pencil aria-hidden="true" className="size-3.5" />
+          Editando
+        </span>
         <PostForm
           mode="edit"
           onCancel={() => setEditing(false)}
@@ -70,30 +79,37 @@ export const PostItem: React.FC<PostItemProps> = ({ post, viewerRole }) => {
       <PostRemoval onCancel={() => setRemoving(false)} postId={post.id} />
     ) : (
       <Button onClick={() => setRemoving(true)} variant="destructive">
+        <ShieldX aria-hidden="true" data-icon="inline-start" />
         Remover
       </Button>
     )
   } else if (canEdit) {
     actions = confirming ? (
-      <>
-        <span className="text-sm">Excluir este post?</span>
-        <Button disabled={pending} onClick={remove} variant="destructive">
-          {pending ? 'Excluindo…' : 'Confirmar exclusão'}
-        </Button>
-        <Button
-          disabled={pending}
-          onClick={() => setConfirming(false)}
-          variant="outline"
-        >
-          Cancelar
-        </Button>
-      </>
+      <div className="bg-destructive-soft motion-safe:animate-in motion-safe:fade-in flex w-full flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-destructive text-sm font-medium">
+          Excluir este post?
+        </span>
+        <span className="flex flex-wrap gap-2">
+          <Button disabled={pending} onClick={remove} variant="danger">
+            {pending ? 'Excluindo…' : 'Confirmar exclusão'}
+          </Button>
+          <Button
+            disabled={pending}
+            onClick={() => setConfirming(false)}
+            variant="outline"
+          >
+            Cancelar
+          </Button>
+        </span>
+      </div>
     ) : (
       <>
         <Button onClick={() => setEditing(true)} variant="outline">
+          <Pencil aria-hidden="true" data-icon="inline-start" />
           Editar
         </Button>
-        <Button onClick={() => setConfirming(true)} variant="destructive">
+        <Button onClick={() => setConfirming(true)} variant="ghost">
+          <Trash2 aria-hidden="true" data-icon="inline-start" />
           Excluir
         </Button>
       </>
@@ -105,6 +121,7 @@ export const PostItem: React.FC<PostItemProps> = ({ post, viewerRole }) => {
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
       <PostCard
         actions={actions}
+        className={className}
         post={post}
         showRemovedBody={viewerRole === 'admin'}
       />

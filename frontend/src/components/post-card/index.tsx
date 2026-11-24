@@ -1,12 +1,26 @@
+import { cn } from 'cn'
+import { ChevronRight, ShieldAlert } from 'lucide-react'
+
+import { Badge } from '@/components/ui/shadcn/badge'
 import { formatDateTime } from '@/utils/helpers/format-date-time'
 
 import type { PostCardProps } from './types'
+
+const initials = (login: string) =>
+  login
+    .split(/[._-]/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || login.slice(0, 2).toUpperCase()
 
 // The title, body and removal reason are user content: they are rendered as
 // React text only, never as HTML or markdown (005 D-6, S-3).
 // whitespace-pre-wrap keeps the line breaks that were typed.
 export const PostCard: React.FC<PostCardProps> = ({
   actions,
+  className,
   post,
   showRemovedBody = false
 }) => {
@@ -14,44 +28,85 @@ export const PostCard: React.FC<PostCardProps> = ({
   const removed = post.removal !== null
   return (
     <article
-      className={
+      className={cn(
+        'flex flex-col gap-4 rounded-2xl border p-5 motion-safe:transition-colors motion-safe:duration-300 sm:p-6',
         removed
-          ? 'border-border bg-muted text-muted-foreground flex flex-col gap-3 rounded-lg border border-dashed p-4'
-          : 'border-border flex flex-col gap-3 rounded-lg border p-4'
-      }
+          ? 'bg-muted border-dashed'
+          : 'bg-card hover:border-foreground/20',
+        className
+      )}
       data-removed={removed ? 'true' : undefined}
       data-testid="post"
     >
-      <header className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold break-words">{post.title}</h2>
-        <p className="text-muted-foreground text-sm">
-          {post.author.login} ·{' '}
-          <time dateTime={post.createdAt}>
-            {formatDateTime(post.createdAt)}
-          </time>
-          {edited ? ' · editado' : null}
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            'flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+            removed
+              ? 'bg-background text-muted-foreground border'
+              : 'bg-brand-soft text-brand-ink'
+          )}
+          aria-hidden="true"
+        >
+          {initials(post.author.login)}
+        </span>
+        <p className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm font-medium">
+            {post.author.login}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            <time dateTime={post.createdAt}>
+              {formatDateTime(post.createdAt)}
+            </time>
+            {edited ? ' · editado' : null}
+          </span>
         </p>
-      </header>
+        {removed ? (
+          <Badge className="h-6 px-2.5" variant="warning">
+            Removido
+          </Badge>
+        ) : null}
+      </div>
+
+      <h2
+        className={cn(
+          'text-lg font-semibold tracking-tight break-words',
+          removed && 'text-muted-foreground'
+        )}
+      >
+        {post.title}
+      </h2>
+
       {post.removal ? (
         // A removed post shows the notice instead of its body (006 D-2).
         // Admins can still open the body, collapsed by default, to review
         // the moderation; authors never see it again.
         <>
           <p
-            className="text-foreground break-words whitespace-pre-wrap"
+            className="bg-warning-soft text-warning flex gap-2.5 rounded-xl px-4 py-3 text-sm break-words whitespace-pre-wrap"
             data-testid="post-removal"
           >
-            <span className="font-medium">Removido pela moderação:</span>{' '}
-            {post.removal.reason}
+            <ShieldAlert
+              aria-hidden="true"
+              className="size-4 shrink-0 translate-y-0.5"
+            />
+            <span>
+              <span className="font-semibold">Removido pela moderação:</span>{' '}
+              {post.removal.reason}
+            </span>
           </p>
           {showRemovedBody ? (
             <details data-testid="post-removed-content">
-              <summary className="text-foreground focus-visible:ring-ring/50 w-fit cursor-pointer rounded-sm text-sm font-medium outline-none focus-visible:ring-3">
+              <summary className="text-foreground focus-visible:ring-ring/50 flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-3">
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-4 in-open:rotate-90 motion-safe:transition-transform"
+                />
                 Ver conteúdo removido
               </summary>
-              <div className="pt-2">
+              <div className="pt-3">
                 <p
-                  className="border-border bg-background text-foreground rounded-md border p-3 break-words whitespace-pre-wrap"
+                  className="bg-card text-foreground rounded-xl border p-4 text-sm leading-relaxed break-words whitespace-pre-wrap"
                   data-testid="post-removed-body"
                 >
                   {post.body}
@@ -61,11 +116,18 @@ export const PostCard: React.FC<PostCardProps> = ({
           ) : null}
         </>
       ) : (
-        <p className="break-words whitespace-pre-wrap" data-testid="post-body">
+        <p
+          className="text-foreground/85 leading-relaxed break-words whitespace-pre-wrap"
+          data-testid="post-body"
+        >
           {post.body}
         </p>
       )}
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+          {actions}
+        </div>
+      ) : null}
     </article>
   )
 }

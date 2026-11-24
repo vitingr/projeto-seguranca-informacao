@@ -50,6 +50,7 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-foreground: var(--destructive-foreground);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -181,6 +182,7 @@
   --accent-foreground: oklch(0.2 0.008 60);
   --destructive: oklch(0.53 0.19 28);
   --destructive-soft: oklch(0.955 0.025 28);
+  --destructive-foreground: oklch(0.99 0.004 85);
   --border: oklch(0.9 0.008 80);
   --input: oklch(0.87 0.009 80);
   --ring: oklch(0.6 0.14 42);

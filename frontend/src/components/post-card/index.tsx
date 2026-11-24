@@ -2,18 +2,9 @@ import { cn } from 'cn'
 import { ChevronRight, ShieldAlert } from 'lucide-react'
 
 import { Badge } from '@/components/ui/shadcn/badge'
-import { formatDateTime } from '@/utils/helpers/format-date-time'
+import { formatDateTime, formatTime } from '@/utils/helpers/format-date-time'
 
 import type { PostCardProps } from './types'
-
-const initials = (login: string) =>
-  login
-    .split(/[._-]/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0])
-    .join('')
-    .toUpperCase() || login.slice(0, 2).toUpperCase()
 
 // The title, body and removal reason are user content: they are rendered as
 // React text only, never as HTML or markdown (005 D-6, S-3).
@@ -29,53 +20,43 @@ export const PostCard: React.FC<PostCardProps> = ({
   return (
     <article
       className={cn(
-        'flex flex-col gap-4 rounded-2xl border p-5 motion-safe:transition-colors motion-safe:duration-300 sm:p-6',
-        removed
-          ? 'bg-muted border-dashed'
-          : 'bg-card hover:border-foreground/20',
+        'flex w-full flex-col gap-2.5 rounded-2xl border px-4 py-3 sm:w-fit sm:max-w-xl sm:min-w-80',
+        'feed-dim:opacity-45 motion-safe:transition-[opacity,border-color] motion-safe:duration-300',
+        post.mine ? 'bg-muted' : 'bg-card',
+        removed ? 'border-dashed' : 'hover:border-foreground/20',
         className
       )}
+      data-mine={post.mine ? 'true' : undefined}
       data-removed={removed ? 'true' : undefined}
       data-testid="post"
     >
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-            removed
-              ? 'bg-background text-muted-foreground border'
-              : 'bg-brand-soft text-brand-ink'
-          )}
-          aria-hidden="true"
-        >
-          {initials(post.author.login)}
-        </span>
-        <p className="flex min-w-0 flex-1 flex-col">
+      <header className="flex items-baseline justify-between gap-4">
+        <p className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-medium">
             {post.author.login}
           </span>
-          <span className="text-muted-foreground text-xs">
-            <time dateTime={post.createdAt}>
-              {formatDateTime(post.createdAt)}
-            </time>
-            {edited ? ' · editado' : null}
-          </span>
+          {removed ? <Badge variant="warning">Removido</Badge> : null}
         </p>
-        {removed ? (
-          <Badge className="h-6 px-2.5" variant="warning">
-            Removido
-          </Badge>
-        ) : null}
-      </div>
+        <p className="text-muted-foreground shrink-0 text-xs tabular-nums">
+          <time
+            dateTime={post.createdAt}
+            title={formatDateTime(post.createdAt)}
+          >
+            {formatTime(post.createdAt)}
+          </time>
+          {edited ? ' · editado' : null}
+        </p>
+      </header>
 
-      <h2
+      <h3
         className={cn(
-          'text-lg font-semibold tracking-tight break-words',
+          'rounded-lg px-3 py-2 text-sm font-medium break-words',
+          post.mine ? 'bg-card' : 'bg-muted',
           removed && 'text-muted-foreground'
         )}
       >
         {post.title}
-      </h2>
+      </h3>
 
       {post.removal ? (
         // A removed post shows the notice instead of its body (006 D-2).
@@ -83,7 +64,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         // the moderation; authors never see it again.
         <>
           <p
-            className="bg-warning-soft text-warning flex gap-2.5 rounded-xl px-4 py-3 text-sm break-words whitespace-pre-wrap"
+            className="bg-warning-soft text-warning flex gap-2 rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap"
             data-testid="post-removal"
           >
             <ShieldAlert
@@ -91,22 +72,22 @@ export const PostCard: React.FC<PostCardProps> = ({
               className="size-4 shrink-0 translate-y-0.5"
             />
             <span>
-              <span className="font-semibold">Removido pela moderação:</span>{' '}
+              <span className="font-medium">Removido pela moderação:</span>{' '}
               {post.removal.reason}
             </span>
           </p>
           {showRemovedBody ? (
             <details data-testid="post-removed-content">
-              <summary className="text-foreground focus-visible:ring-ring/50 flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-3">
+              <summary className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-fit cursor-pointer list-none items-center gap-1 rounded-md text-xs font-medium outline-none focus-visible:ring-3 motion-safe:transition-colors">
                 <ChevronRight
                   aria-hidden="true"
-                  className="size-4 in-open:rotate-90 motion-safe:transition-transform"
+                  className="size-3.5 in-open:rotate-90 motion-safe:transition-transform"
                 />
                 Ver conteúdo removido
               </summary>
-              <div className="pt-3">
+              <div className="pt-2">
                 <p
-                  className="bg-card text-foreground rounded-xl border p-4 text-sm leading-relaxed break-words whitespace-pre-wrap"
+                  className="text-foreground rounded-lg border border-dashed px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap"
                   data-testid="post-removed-body"
                 >
                   {post.body}
@@ -117,16 +98,14 @@ export const PostCard: React.FC<PostCardProps> = ({
         </>
       ) : (
         <p
-          className="text-foreground/85 leading-relaxed break-words whitespace-pre-wrap"
+          className="text-foreground/90 text-sm leading-relaxed break-words whitespace-pre-wrap"
           data-testid="post-body"
         >
           {post.body}
         </p>
       )}
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-          {actions}
-        </div>
+        <div className="flex flex-wrap items-center gap-1.5">{actions}</div>
       ) : null}
     </article>
   )

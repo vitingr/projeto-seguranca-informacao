@@ -103,7 +103,8 @@ test.describe('post wall as comum', () => {
       }
       await page.reload()
       await expect(page.getByTestId('post')).toHaveCount(20)
-      await expect(page.getByTestId('post').first()).toContainText(
+      // Oldest at the top, newest at the bottom, next to the composer.
+      await expect(page.getByTestId('post').last()).toContainText(
         `Paginado ${tag} 21`
       )
       await expect(postNamed(page, `Paginado ${tag} 1`)).toHaveCount(0)

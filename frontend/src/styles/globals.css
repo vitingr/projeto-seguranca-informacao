@@ -216,6 +216,16 @@
   --sidebar-ring: oklch(0.6 0.14 42);
 }
 
+/* Wall focus: while the pointer rests on a post of a `data-feed` list, the
+   other posts step back. Only on devices that really hover. */
+@custom-variant feed-dim {
+  @media (hover: hover) {
+    &:where([data-feed]:has(article:hover) *):not(:hover) {
+      @slot;
+    }
+  }
+}
+
 /* Stagger: `anim-delay-150` delays an animation by 150 ms. */
 @utility anim-delay-* {
   animation-delay: calc(--value(integer) * 1ms);

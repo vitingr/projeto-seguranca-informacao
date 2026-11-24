@@ -53,36 +53,34 @@ export const PostRemoval: React.FC<PostRemovalProps> = ({
   return (
     <form
       aria-label="Remover post"
-      className="bg-background motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex w-full flex-col gap-4 rounded-xl border p-4"
+      className="bg-background motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 flex w-full flex-col gap-3 rounded-xl border p-3"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
     >
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium" htmlFor={id}>
+        <label className="text-xs font-medium" htmlFor={id}>
           Motivo
         </label>
         <Textarea
           aria-describedby={reasonError ? `${id}-error` : `${id}-hint`}
           aria-invalid={reasonError ? true : undefined}
+          className="min-h-20 text-sm"
           id={id}
           rows={3}
           {...register('reason')}
         />
         {reasonError ? (
           <p
-            className="text-destructive motion-safe:animate-in motion-safe:fade-in flex items-start gap-1.5 text-sm"
+            className="text-destructive motion-safe:animate-in motion-safe:fade-in flex items-start gap-1.5 text-xs"
             id={`${id}-error`}
           >
-            <CircleAlert
-              aria-hidden="true"
-              className="size-4 shrink-0 translate-y-0.5"
-            />
+            <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
             {reasonError}
           </p>
         ) : (
           <p
-            className="text-muted-foreground text-sm text-pretty"
+            className="text-muted-foreground text-xs text-pretty"
             id={`${id}-hint`}
           >
             O autor verá este motivo no lugar do post. A remoção vai para a
@@ -91,14 +89,20 @@ export const PostRemoval: React.FC<PostRemovalProps> = ({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={isSubmitting} type="submit" variant="danger">
+        <Button
+          disabled={isSubmitting}
+          size="sm"
+          type="submit"
+          variant="danger"
+        >
           {isSubmitting ? 'Removendo…' : 'Confirmar remoção'}
         </Button>
         <Button
           disabled={isSubmitting}
           onClick={onCancel}
+          size="sm"
           type="button"
-          variant="outline"
+          variant="ghost"
         >
           Cancelar
         </Button>

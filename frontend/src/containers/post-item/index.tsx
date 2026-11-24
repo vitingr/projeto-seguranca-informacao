@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from 'cn'
 import { Pencil, ShieldX, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -43,11 +44,11 @@ export const PostItem: React.FC<PostItemProps> = ({
   if (editing && canEdit) {
     return (
       <div
-        className="bg-card border-brand/50 flex flex-col gap-4 rounded-2xl border p-5 sm:p-6"
+        className="flex w-full flex-col gap-2 sm:max-w-xl"
         data-testid="post-edit"
       >
-        <span className="text-brand-ink flex items-center gap-2 text-xs font-semibold tracking-widest uppercase">
-          <Pencil aria-hidden="true" className="size-3.5" />
+        <span className="text-muted-foreground flex items-center gap-1.5 px-1 text-xs">
+          <Pencil aria-hidden="true" className="size-3" />
           Editando
         </span>
         <PostForm
@@ -78,37 +79,36 @@ export const PostItem: React.FC<PostItemProps> = ({
     actions = removing ? (
       <PostRemoval onCancel={() => setRemoving(false)} postId={post.id} />
     ) : (
-      <Button onClick={() => setRemoving(true)} variant="destructive">
+      <Button onClick={() => setRemoving(true)} size="xs" variant="destructive">
         <ShieldX aria-hidden="true" data-icon="inline-start" />
         Remover
       </Button>
     )
   } else if (canEdit) {
     actions = confirming ? (
-      <div className="bg-destructive-soft motion-safe:animate-in motion-safe:fade-in flex w-full flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-destructive text-sm font-medium">
+      <div className="motion-safe:animate-in motion-safe:fade-in flex flex-wrap items-center gap-1.5">
+        <span className="text-destructive px-1 text-xs font-medium">
           Excluir este post?
         </span>
-        <span className="flex flex-wrap gap-2">
-          <Button disabled={pending} onClick={remove} variant="danger">
-            {pending ? 'Excluindo…' : 'Confirmar exclusão'}
-          </Button>
-          <Button
-            disabled={pending}
-            onClick={() => setConfirming(false)}
-            variant="outline"
-          >
-            Cancelar
-          </Button>
-        </span>
+        <Button disabled={pending} onClick={remove} size="xs" variant="danger">
+          {pending ? 'Excluindo…' : 'Confirmar exclusão'}
+        </Button>
+        <Button
+          disabled={pending}
+          onClick={() => setConfirming(false)}
+          size="xs"
+          variant="ghost"
+        >
+          Cancelar
+        </Button>
       </div>
     ) : (
       <>
-        <Button onClick={() => setEditing(true)} variant="outline">
+        <Button onClick={() => setEditing(true)} size="xs" variant="outline">
           <Pencil aria-hidden="true" data-icon="inline-start" />
           Editar
         </Button>
-        <Button onClick={() => setConfirming(true)} variant="ghost">
+        <Button onClick={() => setConfirming(true)} size="xs" variant="outline">
           <Trash2 aria-hidden="true" data-icon="inline-start" />
           Excluir
         </Button>
@@ -117,7 +117,12 @@ export const PostItem: React.FC<PostItemProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={cn(
+        'flex w-full flex-col gap-2 sm:w-auto',
+        post.mine && 'sm:items-end'
+      )}
+    >
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
       <PostCard
         actions={actions}

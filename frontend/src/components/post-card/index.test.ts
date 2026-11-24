@@ -57,11 +57,18 @@ describe('PostCard renders user content as plain text', () => {
 })
 
 describe('PostCard', () => {
-  it('shows the author and the date', () => {
+  it('shows the author and the time, with the full date on hover', () => {
     const html = render(post())
     expect(html).toContain('maria')
-    expect(html).toContain('22/11/2026, 12:04')
+    expect(html).toMatch(
+      /<time dateTime="2026-11-22T15:04:00Z" title="22\/11\/2026, 12:04">12:04<\/time>/
+    )
     expect(html).not.toContain('editado')
+  })
+
+  it('marks the viewer’s own post', () => {
+    expect(render(post({ mine: true }))).toContain('data-mine="true"')
+    expect(render(post())).not.toContain('data-mine')
   })
 
   it('marks an edited post', () => {

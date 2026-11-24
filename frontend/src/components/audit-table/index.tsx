@@ -19,7 +19,7 @@ const targetText = (target: AuditTarget | null) => {
 // card, so the log reads from 360px wide without horizontal scrolling.
 const Cell: React.FC<AuditCellProps> = ({ children, label, testId }) => (
   <td
-    className="flex flex-wrap gap-1 break-words md:table-cell md:px-3 md:py-2"
+    className="flex flex-wrap gap-1 wrap-anywhere md:table-cell md:px-3 md:py-2"
     data-testid={testId}
   >
     <span className="text-muted-foreground md:hidden">{label}:</span>

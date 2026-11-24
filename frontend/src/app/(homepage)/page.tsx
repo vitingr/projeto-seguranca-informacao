@@ -1,8 +1,4 @@
-import Link from 'next/link'
-
-import { buttonVariants } from '@/components/ui/shadcn/button'
-import { AppHeader } from '@/containers/app-header'
-import { ROLE_LINKS } from '@/domain/role-links'
+import { PublicHome, RoleHome } from '@/screens/home'
 import { getSession } from '@/services/session'
 
 // Public page (spec D-10). Without a session cookie it does not call the
@@ -11,35 +7,10 @@ const Page = async () => {
   const session = await getSession()
 
   if (session.kind !== 'user') {
-    return (
-      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-16">
-        <h1 className="text-2xl font-semibold">Sistemas da Informação</h1>
-        <p>Entre para acessar as áreas do seu papel.</p>
-        <Link className={buttonVariants({ size: 'lg' })} href="/login">
-          Entrar
-        </Link>
-      </main>
-    )
+    return <PublicHome />
   }
 
-  const { role } = session.user
-  return (
-    <>
-      <AppHeader role={role} />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-10">
-        <h1 className="text-2xl font-semibold">Início</h1>
-        <ul className="flex flex-col gap-2" data-testid="home-links">
-          {ROLE_LINKS[role].map((link, index: number) => (
-            <li key={`${link.href}-${index}`}>
-              <Link className="hover:underline" href={link.href}>
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </main>
-    </>
-  )
+  return <RoleHome role={session.user.role} />
 }
 
 export default Page

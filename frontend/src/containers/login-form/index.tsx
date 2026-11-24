@@ -76,7 +76,7 @@ export const LoginForm = ({ expired, next }: LoginFormProps) => {
         type="password"
         {...register('senha')}
       />
-      <Button disabled={pending} size="lg" type="submit">
+      <Button className="w-full" disabled={pending} size="xl" type="submit">
         {pending ? 'Entrando…' : 'Entrar'}
       </Button>
     </form>

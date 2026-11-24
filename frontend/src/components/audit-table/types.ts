@@ -8,6 +8,7 @@ export interface AuditTableProps {
 
 export interface AuditCellProps {
   children: ReactNode
+  className?: string
   /** Shown before the value when the table is stacked (mobile). */
   label: string
   testId: string

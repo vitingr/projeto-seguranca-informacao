@@ -149,6 +149,7 @@ type otherData struct {
 const (
 	reasonNoData       = "missing dados"
 	reasonDuplicateKey = "duplicate key"
+	reasonInvalidUTF8  = "invalid utf-8"
 )
 
 // ticketRequestKeys are the keys of the outer object of a ticket request.
@@ -163,10 +164,17 @@ var ticketRequestKeys = []string{"tipo", "dados"}
 // therefore refused. Every shape error wraps domain.ErrInvalidInput with a
 // fixed reason and never quotes the body. An unknown "tipo" is not a shape
 // error: it decodes with empty fields and ValidateTicket refuses it.
+//
+// A body that is not valid UTF-8 is refused as a whole: encoding/json would
+// silently turn each invalid byte into U+FFFD, so the field rules would
+// never see it (spec section 4: text that is not valid UTF-8 is rejected).
 func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.TicketDraft, error) {
 	var raw json.RawMessage
 	if err := s.DecodeJSON(w, r, &raw); err != nil {
 		return domain.TicketDraft{}, err
+	}
+	if !utf8.Valid(raw) {
+		return domain.TicketDraft{}, invalidBody(reasonInvalidUTF8)
 	}
 	var req ticketRequest
 	if err := decodeObject(raw, ticketRequestKeys, &req); err != nil {

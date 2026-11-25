@@ -221,6 +221,44 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 	}
 }
 
+// The frontend pages moved to the paths the assignment requires (spec
+// 001-ticket-builder, AC-0.7). The backend never served page paths, so the
+// old ones fall through to the catch-all and get the generic 404.
+func TestOldPagePathsAnswer404(t *testing.T) {
+	t.Parallel()
+
+	_, app := newTestApp(t)
+	for _, path := range []string{"/minha-conta", "/admin", "/cadastrar-usuarios"} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+			rr := httptest.NewRecorder()
+			app.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404", rr.Code)
+			}
+			var body map[string]string
+			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+				t.Fatalf("error body is not JSON: %v", err)
+			}
+			want := map[string]string{
+				"error":      "not_found",
+				"message":    "Recurso não encontrado.",
+				"request_id": rr.Header().Get("X-Request-Id"),
+			}
+			if body["request_id"] == "" || len(body) != len(want) {
+				t.Fatalf("body = %v, want exactly the keys error, message, request_id", body)
+			}
+			for key, value := range want {
+				if body[key] != value {
+					t.Errorf("%s = %q, want %q", key, body[key], value)
+				}
+			}
+		})
+	}
+}
+
 func TestCSRFEndpointTellsHeaderName(t *testing.T) {
 	t.Parallel()
 

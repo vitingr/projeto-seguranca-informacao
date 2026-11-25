@@ -5,6 +5,7 @@ import { LOGIN_PATH } from '@/domain/login-path'
 import { PROTECTED_ROUTES } from '@/domain/protected-routes'
 import type { ProtectedRoute } from '@/domain/protected-routes/types'
 import type { Role } from '@/domain/roles/types'
+import type { Session } from '@/domain/session/types'
 
 /** Where a user goes after login when there is no valid `next`. */
 export const landingFor = (role: Role): ProtectedRoute =>
@@ -29,6 +30,16 @@ export const safeNext = (next: unknown, role: Role): ProtectedRoute => {
   }
   return landingFor(role)
 }
+
+/**
+ * Where `/` sends each visitor (spec AC-0.6): there is no public home, so
+ * an anonymous visitor or an expired session goes to the login page and a
+ * user goes to the landing page of their role.
+ */
+export const rootRedirect = (
+  session: Session
+): ProtectedRoute | typeof LOGIN_PATH =>
+  session.kind === 'user' ? landingFor(session.user.role) : LOGIN_PATH
 
 /** The login page, remembering where the user was. */
 export const loginUrl = (next: string, { expired = false } = {}): string => {

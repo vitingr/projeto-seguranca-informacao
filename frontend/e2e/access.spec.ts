@@ -22,11 +22,17 @@ const expectForbidden = async (page: Page, path: string) => {
   await expect(page.getByTestId('area')).toHaveCount(0)
 }
 
+const headerLinks = (page: Page) =>
+  page.getByRole('navigation', { name: 'Principal' }).getByRole('link')
+
 test.describe('anonymous', () => {
-  test('home is public and offers the login', async ({ page }) => {
+  // There is no public home (spec AC-0.6). Without a session cookie the
+  // server does not call the API, and neither does the browser.
+  test('/ goes to the login page', async ({ page }) => {
     const calls = recordApiCalls(page)
     await page.goto('/')
-    await expect(page.getByRole('link', { name: 'Entrar' })).toBeVisible()
+    await expect(page).toHaveURL('/login')
+    await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sair' })).toHaveCount(0)
     expect(calls).toEqual([])
   })
@@ -51,10 +57,12 @@ test.describe('comum', () => {
     await expectNothingInBrowserStorage(page)
   })
 
-  test('home shows only the comum links', async ({ page }) => {
+  test('/ goes to its area, and the header shows only the comum links', async ({
+    page
+  }) => {
     await page.goto('/')
-    const links = page.getByTestId('home-links')
-    await expect(links.getByRole('link')).toHaveText(['Minha conta'])
+    await expect(page).toHaveURL('/usuarios')
+    await expect(headerLinks(page)).toHaveText(['Início', 'Minha conta'])
     await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
   })
 
@@ -75,10 +83,13 @@ test.describe('admin', () => {
     await expectForbidden(page, '/usuarios')
   })
 
-  test('home shows the admin links', async ({ page }) => {
+  test('/ goes to its area, and the header shows the admin links', async ({
+    page
+  }) => {
     await page.goto('/')
-    const links = page.getByTestId('home-links')
-    await expect(links.getByRole('link')).toHaveText([
+    await expect(page).toHaveURL('/administradores')
+    await expect(headerLinks(page)).toHaveText([
+      'Início',
       'Área do administrador',
       'Cadastrar usuários'
     ])

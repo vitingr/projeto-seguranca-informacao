@@ -259,6 +259,32 @@ func TestOldPagePathsAnswer404(t *testing.T) {
 	}
 }
 
+// TestTooManyRequestsBody pins the 429 body of spec AC-6.7 and S-12: the
+// generic three keys, the too_many_requests code and the Portuguese text.
+func TestTooManyRequestsBody(t *testing.T) {
+	t.Parallel()
+
+	rr := httptest.NewRecorder()
+	WriteError(rr, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/tickets", http.NoBody), http.StatusTooManyRequests)
+
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429", rr.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	want := map[string]string{
+		"error":   "too_many_requests",
+		"message": "Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.",
+	}
+	for key, value := range want {
+		if body[key] != value {
+			t.Errorf("%s = %q, want %q", key, body[key], value)
+		}
+	}
+}
+
 func TestCSRFEndpointTellsHeaderName(t *testing.T) {
 	t.Parallel()
 
@@ -334,7 +360,7 @@ func TestWriteErrorNeverLeaksDetails(t *testing.T) {
 	statuses := []int{
 		http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden,
 		http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity,
-		http.StatusInternalServerError, http.StatusTeapot,
+		http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusTeapot,
 	}
 	generic := defaultMessage(http.StatusInternalServerError)
 	for _, status := range statuses {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -96,6 +98,42 @@ func (l *RateLimiter) Purge() int {
 		}
 	}
 	return n
+}
+
+// RateLimit limits the requests of each authenticated user with l. It runs
+// after Session, CSRF and Authorize (inside the route chain), so requests
+// those refuse never use a user's quota; every request that reaches it
+// counts, whatever its body. It fails closed: no principal → 401, no
+// limiter → 500. Over the limit it answers 429 with Retry-After in whole
+// seconds, rounded up, and the generic error body; the log reason is fixed
+// and holds no user input.
+func (s *Security) RateLimit(l *RateLimiter) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if l == nil {
+				s.deny(w, r, http.StatusInternalServerError, "ratelimit: no limiter")
+				return
+			}
+			principal, ok := PrincipalFrom(r.Context())
+			if !ok {
+				s.deny(w, r, http.StatusUnauthorized, "ratelimit: anonymous")
+				return
+			}
+			allowed, retryAfter := l.Allow(principal.UserID)
+			if !allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(retryAfter)))
+				s.deny(w, r, http.StatusTooManyRequests, "ratelimit: exceeded")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// retryAfterSeconds rounds a wait up to whole seconds, at least 1, so a
+// client that waits that long is let in.
+func retryAfterSeconds(d time.Duration) int {
+	return max(1, int((d+time.Second-1)/time.Second))
 }
 
 // PurgeIdleRateLimits runs l.Purge every interval until ctx is done, like

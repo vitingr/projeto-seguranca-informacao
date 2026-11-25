@@ -1,8 +1,13 @@
 package security
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -216,4 +221,141 @@ func TestRateLimiterConcurrentCalls(t *testing.T) {
 	if got := allowed.Load(); got != 2*TicketCreateLimit {
 		t.Errorf("allowed %d of 200 parallel requests by 2 users, want %d", got, 2*TicketCreateLimit)
 	}
+}
+
+func TestRetryAfterSeconds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		wait time.Duration
+		want int
+	}{
+		{time.Nanosecond, 1},
+		{time.Second, 1},
+		{time.Second + time.Nanosecond, 2},
+		{50 * time.Second, 50},
+		{59*time.Second + time.Millisecond, 60},
+		{time.Minute, 60},
+	}
+	for _, tt := range tests {
+		if got := retryAfterSeconds(tt.wait); got != tt.want {
+			t.Errorf("retryAfterSeconds(%v) = %d, want %d", tt.wait, got, tt.want)
+		}
+	}
+}
+
+// rateLimitFixture is the RateLimit middleware on a fake clock, with a
+// captured log and a next handler that counts its calls.
+type rateLimitFixture struct {
+	sec     *Security
+	limiter *RateLimiter
+	clock   *clock
+	log     *bytes.Buffer
+	calls   int
+	handler http.Handler
+}
+
+func newRateLimitFixture(t *testing.T) *rateLimitFixture {
+	t.Helper()
+	f := &rateLimitFixture{clock: newClock(), log: &bytes.Buffer{}}
+	f.sec = newTestSecurityWith(t, func(o *Options) {
+		o.Now = f.clock.Now
+		o.Logger = slog.New(slog.NewJSONHandler(f.log, nil))
+	})
+	l, err := f.sec.NewRateLimiter(TicketCreateLimit, TicketCreateWindow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.limiter = l
+	f.handler = f.sec.RateLimit(l)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		f.calls++
+		w.WriteHeader(http.StatusCreated)
+	}))
+	return f
+}
+
+// send posts a body holding marker, as user (0 = no principal).
+func (f *rateLimitFixture) send(t *testing.T, user domain.UserID) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/tickets",
+		strings.NewReader(`{"tipo":"outro","dados":{"titulo":"`+marker+`"}}`))
+	if user != 0 {
+		req = req.WithContext(context.WithValue(req.Context(), principalKey{}, Principal{UserID: user, Role: domain.RoleComum}))
+	}
+	rr := httptest.NewRecorder()
+	f.handler.ServeHTTP(rr, req)
+	return rr
+}
+
+func TestRateLimitMiddleware(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the 11th request of a user is 429 with Retry-After", func(t *testing.T) {
+		t.Parallel()
+		f := newRateLimitFixture(t)
+		for i := range TicketCreateLimit {
+			if rr := f.send(t, 1); rr.Code != http.StatusCreated {
+				t.Fatalf("request %d: status %d, want 201", i+1, rr.Code)
+			}
+			f.clock.Advance(time.Second)
+		}
+		rr := f.send(t, 1)
+		if rr.Code != http.StatusTooManyRequests {
+			t.Fatalf("11th request: status %d, want 429", rr.Code)
+		}
+		if got := rr.Header().Get("Retry-After"); got != "50" {
+			t.Errorf("Retry-After = %q, want %q (the oldest leaves in 50 s)", got, "50")
+		}
+		if f.calls != TicketCreateLimit {
+			t.Errorf("next called %d times, want %d", f.calls, TicketCreateLimit)
+		}
+		if rr := f.send(t, 2); rr.Code != http.StatusCreated {
+			t.Errorf("another user: status %d, want 201", rr.Code)
+		}
+		f.clock.Advance(50 * time.Second)
+		if rr := f.send(t, 1); rr.Code != http.StatusCreated {
+			t.Errorf("after Retry-After: status %d, want 201", rr.Code)
+		}
+	})
+
+	t.Run("the refusal is logged with a fixed reason and no user input", func(t *testing.T) {
+		t.Parallel()
+		f := newRateLimitFixture(t)
+		for range TicketCreateLimit + 1 {
+			f.send(t, 1)
+		}
+		logged := f.log.String()
+		if !strings.Contains(logged, `"reason":"ratelimit: exceeded"`) || !strings.Contains(logged, `"status":429`) {
+			t.Errorf("log = %s, want the ratelimit reason and status 429", logged)
+		}
+		if strings.Contains(logged, marker) {
+			t.Errorf("log holds the request body: %s", logged)
+		}
+	})
+
+	t.Run("no principal fails closed with 401 and uses no quota", func(t *testing.T) {
+		t.Parallel()
+		f := newRateLimitFixture(t)
+		if rr := f.send(t, 0); rr.Code != http.StatusUnauthorized {
+			t.Errorf("status %d, want 401", rr.Code)
+		}
+		if f.calls != 0 {
+			t.Error("next was called without a principal")
+		}
+		if users, _ := f.limiter.tracked(0); users != 0 {
+			t.Errorf("limiter tracks %d users, want 0", users)
+		}
+	})
+
+	t.Run("no limiter fails closed with 500", func(t *testing.T) {
+		t.Parallel()
+		f := newRateLimitFixture(t)
+		f.handler = f.sec.RateLimit(nil)(f.handler)
+		if rr := f.send(t, 1); rr.Code != http.StatusInternalServerError {
+			t.Errorf("status %d, want 500", rr.Code)
+		}
+		if f.calls != 0 {
+			t.Error("next was called without a limiter")
+		}
+	})
 }

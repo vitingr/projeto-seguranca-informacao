@@ -8,13 +8,15 @@
 //   backend answer 403 on a POST, because CSRF runs before Authorize; the
 //   retry then gets the 401);
 // - a 401 anywhere but POST /api/login discards the token and goes to the
-//   login page.
+//   login page;
+// - any other answer, 429 included, is returned as it is: the client never
+//   retries it by itself (spec 001 AC-6.7).
 
 import { networkError } from '@/domain/api-error'
 import { LOGIN_PATH } from '@/domain/login-path'
 import { loginUrl } from '@/domain/navigation'
 import { CSRF_HEADER } from '@/lib/api/contract'
-import type { UserResponse } from '@/lib/api/contract/types'
+import type { TicketResponse, UserResponse } from '@/lib/api/contract/types'
 import { csrfStore } from '@/lib/api/csrf'
 import { ApiRequestError, readError, toApiError } from '@/lib/api/errors'
 import { never } from '@/utils/helpers/never'
@@ -74,6 +76,14 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
   }
 
   return {
+    createTicket: input =>
+      run(async () => {
+        const res = await post('/api/tickets', input)
+        if (res.status !== 201)
+          return { error: await readError(res), ok: false }
+        return { data: await json<TicketResponse>(res), ok: true }
+      }),
+
     login: input =>
       run(async () => {
         const res = await post('/api/login', input, {

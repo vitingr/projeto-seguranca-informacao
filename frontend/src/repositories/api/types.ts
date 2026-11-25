@@ -1,7 +1,9 @@
 import type { ApiError } from '@/domain/api-error/types'
 import type {
   CadastroRequest,
+  CreateTicketRequest,
   LoginRequest,
+  TicketResponse,
   UserResponse
 } from '@/lib/api/contract/types'
 import type { CsrfStore } from '@/lib/api/csrf/types'
@@ -24,6 +26,8 @@ export interface ApiClientDeps {
 }
 
 export interface ApiClient {
+  /** POST /api/tickets. 201 → the new ticket; any error is returned once. */
+  createTicket(input: CreateTicketRequest): Promise<Result<TicketResponse>>
   login(input: LoginRequest): Promise<Result<UserResponse>>
   logout(): Promise<Result<void>>
   register(input: CadastroRequest): Promise<Result<UserResponse>>

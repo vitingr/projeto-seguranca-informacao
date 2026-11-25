@@ -18,6 +18,7 @@ const CSRF = 'GET /api/csrf'
 const LOGIN = 'POST /api/login'
 const LOGOUT = 'POST /api/logout'
 const CADASTRO = 'POST /api/cadastro'
+const TICKETS = 'POST /api/tickets'
 
 const cadastro = {
   login: 'maria',
@@ -239,5 +240,139 @@ describe('logout', () => {
     const result = await s.client.logout()
     expect(result).toMatchObject({ error: { code: 'internal' }, ok: false })
     expect(s.navigations).toEqual([])
+  })
+})
+
+describe('createTicket', () => {
+  const BUILDER = '/usuarios/tickets/novo'
+  const input = {
+    dados: {
+      justificativa: 'Preciso ver os painéis da equipe.',
+      nivel_acesso: 'leitura',
+      sistema: 'Grafana'
+    },
+    tipo: 'acesso'
+  } as const
+  const ticket = {
+    created_at: '2026-11-25T14:30:00.123456Z',
+    id: 7,
+    status: 'aberto',
+    title: 'Acesso a Grafana',
+    type: 'acesso',
+    updated_at: '2026-11-25T14:30:00.123456Z'
+  }
+
+  it('201: sends the body with the token and returns the ticket', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [TICKETS]: [jsonResponse(201, ticket)] },
+      BUILDER
+    )
+    expect(await s.client.createTicket(input)).toEqual({
+      data: ticket,
+      ok: true
+    })
+    expect(s.sequence()).toEqual([CSRF, TICKETS])
+    const post = s.calls[1]
+    expect(post?.headers['x-csrf-token']).toMatch(/^token-/)
+    expect(post?.headers['content-type']).toBe('application/json')
+    expect(post?.body).toEqual(input)
+    expect(s.navigations).toEqual([])
+  })
+
+  it.each([
+    [422, 'unprocessable_entity'],
+    [500, 'internal']
+  ])('%i: returns the error with its request_id', async (status, code) => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply()],
+        [TICKETS]: [errorResponse(status, code, { request_id: 'req-42' })]
+      },
+      BUILDER
+    )
+    expect(await s.client.createTicket(input)).toEqual({
+      error: { code, message: `msg ${code}`, requestId: 'req-42', status },
+      ok: false
+    })
+    expect(s.sequence()).toEqual([CSRF, TICKETS])
+    expect(s.navigations).toEqual([])
+  })
+
+  it('429: returns the error and never retries', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply()],
+        [TICKETS]: [errorResponse(429, 'too_many_requests')]
+      },
+      BUILDER
+    )
+    const result = await s.client.createTicket(input)
+    expect(result).toMatchObject({
+      error: { code: 'too_many_requests', status: 429 },
+      ok: false
+    })
+    // A second reply would be "unexpected request": only one POST was sent.
+    expect(s.sequence()).toEqual([CSRF, TICKETS])
+    expect(s.navigations).toEqual([])
+  })
+
+  it('403: refreshes the token and retries once', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply(), csrfReply()],
+        [TICKETS]: [errorResponse(403, 'forbidden'), jsonResponse(201, ticket)]
+      },
+      BUILDER
+    )
+    expect(await s.client.createTicket(input)).toEqual({
+      data: ticket,
+      ok: true
+    })
+    expect(s.sequence()).toEqual([CSRF, TICKETS, CSRF, TICKETS])
+    const [first, second] = s.tokens()
+    expect(second).not.toBe(first)
+  })
+
+  it('403 twice (lost permission): returns forbidden after one retry', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply(), csrfReply()],
+        [TICKETS]: [
+          errorResponse(403, 'forbidden'),
+          errorResponse(403, 'forbidden')
+        ]
+      },
+      BUILDER
+    )
+    const result = await s.client.createTicket(input)
+    expect(result).toMatchObject({ error: { code: 'forbidden' }, ok: false })
+    expect(s.sequence().filter(c => c === TICKETS)).toHaveLength(2)
+  })
+
+  it('401: discards the token and goes to login with sessao=expirada', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply(), csrfReply()],
+        [TICKETS]: [errorResponse(401, 'unauthorized')]
+      },
+      BUILDER
+    )
+    expect(await settled(s.client.createTicket(input))).toBe('pending')
+    expect(s.navigations).toEqual([
+      'go /login?next=%2Fusuarios%2Ftickets%2Fnovo&sessao=expirada'
+    ])
+    // The token is gone: the next call fetches a new one.
+    await s.csrf.get()
+    expect(s.sequence()).toEqual([CSRF, TICKETS, CSRF])
+  })
+
+  it.each([
+    ['a failed fetch', new TypeError('fetch failed')],
+    ['the proxy 500', textResponse(500, 'Internal Server Error')]
+  ])('reports %s as a network error', async (_name, reply) => {
+    const s = setup({ [CSRF]: [csrfReply()], [TICKETS]: [reply] }, BUILDER)
+    const result = await s.client.createTicket(input)
+    expect(result).toMatchObject({ error: { code: 'network' }, ok: false })
+    expect(s.sequence()).toEqual([CSRF, TICKETS])
   })
 })

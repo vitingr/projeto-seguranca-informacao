@@ -17,7 +17,9 @@ export const MESSAGES = {
   invalidCredentials: 'Login ou senha incorretos.',
   invalidData: 'Dados inválidos. Revise os campos e tente novamente.',
   network: 'Não foi possível conectar ao servidor. Tente novamente.',
-  sessionExpired: 'Sua sessão expirou. Entre novamente.'
+  sessionExpired: 'Sua sessão expirou. Entre novamente.',
+  tooManyRequests:
+    'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
 } as const
 
 const withRequestId = (text: string, requestId?: string) =>
@@ -42,6 +44,8 @@ export const messageFor = (
       return MESSAGES.conflict
     case 'unprocessable_entity':
       return MESSAGES.invalidData
+    case 'too_many_requests':
+      return MESSAGES.tooManyRequests
     case 'internal':
       return withRequestId(MESSAGES.internal, error.requestId)
     default:

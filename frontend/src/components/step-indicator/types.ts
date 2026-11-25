@@ -1,0 +1,12 @@
+export interface StepIndicatorStep {
+  id: string
+  label: string
+}
+
+export interface StepIndicatorProps {
+  /** Index of the step on screen. */
+  current: number
+  /** Called with the index of a step already done. */
+  onSelect: (index: number) => void
+  steps: readonly StepIndicatorStep[]
+}

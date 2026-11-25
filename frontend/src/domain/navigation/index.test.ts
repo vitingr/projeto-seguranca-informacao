@@ -19,6 +19,11 @@ describe('safeNext', () => {
     ['/administradores', 'admin', '/administradores'],
     ['/cadastro', 'admin', '/cadastro'],
     ['/usuarios', 'comum', '/usuarios'],
+    // the ticket builder: comum only (spec AC-1.3)
+    ['/usuarios/tickets/novo', 'comum', '/usuarios/tickets/novo'],
+    ['/usuarios/tickets/novo', 'admin', '/administradores'],
+    ['/usuarios/tickets/novo/', 'comum', '/usuarios'],
+    ['/usuarios/tickets', 'comum', '/usuarios'],
     // a route of another role
     ['/administradores', 'comum', '/usuarios'],
     ['/cadastro', 'comum', '/usuarios'],

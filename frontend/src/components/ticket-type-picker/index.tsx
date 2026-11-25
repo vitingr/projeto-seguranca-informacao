@@ -1,6 +1,7 @@
 import { CheckIcon } from 'lucide-react'
 import { useId } from 'react'
 
+import { TicketTypeIcon } from '@/components/ticket-type-icon'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group'
 import type { TicketType } from '@/domain/tickets/types'
 
@@ -9,8 +10,8 @@ import type { TicketTypePickerProps } from './types'
 /**
  * The four ticket types as a single-choice group of bordered cards. Arrow
  * keys move and select (radio group), Space selects, and Enter selects the
- * focused card too (spec AC-2.5). The selected card has a dark border and a
- * check mark.
+ * focused card too (spec AC-2.5). Each card has the type icon in a tile;
+ * the selected card has a dark border, a dark tile and a check mark.
  */
 export const TicketTypePicker = ({
   error,
@@ -49,19 +50,23 @@ export const TicketTypePicker = ({
           const descriptionId = `${id}-${option.code}-description`
           return (
             <label
-              className="border-border hover:bg-muted/50 has-data-checked:border-foreground has-focus-visible:ring-ring/50 group/type flex cursor-pointer items-start gap-3 rounded-sm border p-4 transition-colors has-focus-visible:ring-3 motion-reduce:transition-none"
+              className="border-border hover:bg-muted/50 has-data-checked:border-foreground has-focus-visible:ring-ring/50 group/type relative flex cursor-pointer items-start gap-3 rounded-sm border p-4 transition-colors has-focus-visible:ring-3 motion-reduce:transition-none"
               data-testid={`ticket-type-${option.code}`}
               key={option.code}
             >
-              <span className="flex pt-0.5">
-                {/* The card shows the focus ring; the circle has a 3:1 border. */}
-                <RadioGroupItem
-                  aria-describedby={descriptionId}
-                  aria-labelledby={labelId}
-                  className="border-muted-foreground focus-visible:border-primary focus-visible:ring-0"
-                  value={option.code}
-                />
-              </span>
+              {/* The card is the visible control: it shows the focus ring,
+                  the dark border and the check; the radio stays in the
+                  accessibility tree and keeps the keyboard behavior. */}
+              <RadioGroupItem
+                aria-describedby={descriptionId}
+                aria-labelledby={labelId}
+                className="sr-only absolute"
+                value={option.code}
+              />
+              <TicketTypeIcon
+                selected={value === option.code}
+                type={option.code}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-sm font-medium" id={labelId}>
                   {option.label}

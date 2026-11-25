@@ -13,7 +13,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ role }) => (
   <header className="border-border relative border-b">
     <nav
       aria-label="Principal"
-      className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3"
+      className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8"
     >
       <div className="flex items-center gap-4">
         <Link className="font-semibold" href="/">

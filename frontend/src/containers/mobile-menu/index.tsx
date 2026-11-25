@@ -56,7 +56,7 @@ export const MobileMenu = ({ links, roleName }: MobileMenuProps) => {
         hidden={!open}
         id={panelId}
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-1 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-1 px-4 py-3 sm:px-6">
           <p className="text-muted-foreground px-2 py-1 text-sm">
             Papel: {roleName}
           </p>

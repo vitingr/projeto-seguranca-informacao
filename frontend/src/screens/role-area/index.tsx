@@ -18,7 +18,7 @@ export const RoleArea: React.FC<RoleAreaProps> = async ({
     <>
       <AppHeader role={user.role} />
       {area?.kind === 'ok' ? (
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-10">
+        <main className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-10 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-semibold">{title}</h1>
           <p>{description}</p>
           <p className="text-muted-foreground text-sm" data-testid="area">

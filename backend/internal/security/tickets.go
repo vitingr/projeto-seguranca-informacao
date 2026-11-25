@@ -1,7 +1,10 @@
 package security
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -109,6 +112,105 @@ var (
 	optionalText = multiLine(0, ticketLongMax)
 	repoURL      = httpsURL(ticketURLMax)
 )
+
+// Request shapes of POST /api/tickets (plan section 2): the outer object
+// holds only "tipo" and "dados", and "dados" holds only the keys of that
+// type. Keys are in Portuguese, like CadastroRequest.
+type ticketRequest struct {
+	Tipo  string          `json:"tipo"`
+	Dados json.RawMessage `json:"dados"`
+}
+
+type accessData struct {
+	Sistema       string `json:"sistema"`
+	NivelAcesso   string `json:"nivel_acesso"`
+	Justificativa string `json:"justificativa"`
+}
+
+type bugData struct {
+	Sistema    string `json:"sistema"`
+	Descricao  string `json:"descricao"`
+	Passos     string `json:"passos"`
+	Severidade string `json:"severidade"`
+}
+
+type deployData struct {
+	Projeto     string  `json:"projeto"`
+	Repositorio string  `json:"repositorio"`
+	Ambiente    string  `json:"ambiente"`
+	Observacoes *string `json:"observacoes"`
+}
+
+type otherData struct {
+	Titulo    string `json:"titulo"`
+	Descricao string `json:"descricao"`
+}
+
+const reasonNoData = "missing dados"
+
+// DecodeTicket reads a ticket request in two strict steps: the outer object
+// through DecodeJSON (content type, size limit, unknown keys, trailing
+// data), then "dados" into the struct of its "tipo", again refusing unknown
+// keys. A key of another type, or one the server owns (author, status, id,
+// dates), is therefore an unknown key. Every shape error wraps
+// domain.ErrInvalidInput with a fixed reason and never quotes the body. An
+// unknown "tipo" is not a shape error: it decodes with empty fields and
+// ValidateTicket refuses it.
+func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.TicketDraft, error) {
+	var req ticketRequest
+	if err := s.DecodeJSON(w, r, &req); err != nil {
+		return domain.TicketDraft{}, err
+	}
+	if len(req.Dados) == 0 || bytes.Equal(req.Dados, []byte("null")) {
+		return domain.TicketDraft{}, invalidBody(reasonNoData)
+	}
+
+	d := domain.TicketDraft{Type: domain.TicketType(req.Tipo)}
+	switch d.Type {
+	case domain.TicketTypeAccess:
+		var v accessData
+		if err := decodeData(req.Dados, &v); err != nil {
+			return domain.TicketDraft{}, err
+		}
+		d.System, d.AccessLevel, d.Justification = v.Sistema, v.NivelAcesso, v.Justificativa
+	case domain.TicketTypeBug:
+		var v bugData
+		if err := decodeData(req.Dados, &v); err != nil {
+			return domain.TicketDraft{}, err
+		}
+		d.System, d.Description, d.Steps, d.Severity = v.Sistema, v.Descricao, v.Passos, v.Severidade
+	case domain.TicketTypeDeploy:
+		var v deployData
+		if err := decodeData(req.Dados, &v); err != nil {
+			return domain.TicketDraft{}, err
+		}
+		d.Project, d.Repository, d.Environment, d.Notes = v.Projeto, v.Repositorio, v.Ambiente, v.Observacoes
+	case domain.TicketTypeOther:
+		var v otherData
+		if err := decodeData(req.Dados, &v); err != nil {
+			return domain.TicketDraft{}, err
+		}
+		d.Title, d.Description = v.Titulo, v.Descricao
+	default:
+		// Still a JSON object, so the shape rules hold for every request.
+		var v map[string]json.RawMessage
+		if err := decodeData(req.Dados, &v); err != nil || v == nil {
+			return domain.TicketDraft{}, invalidBody(reasonMalformed)
+		}
+	}
+	return d, nil
+}
+
+// decodeData decodes "dados" into dst, refusing unknown keys. The raw bytes
+// were already size-checked by DecodeJSON and hold exactly one JSON value.
+func decodeData(raw json.RawMessage, dst any) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return invalidBody(reasonMalformed)
+	}
+	return nil
+}
 
 // ticketFields names the draft fields each type has, by their request key.
 var ticketFields = map[domain.TicketType][]string{

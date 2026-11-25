@@ -146,19 +146,30 @@ type otherData struct {
 	Descricao string `json:"descricao"`
 }
 
-const reasonNoData = "missing dados"
+const (
+	reasonNoData       = "missing dados"
+	reasonDuplicateKey = "duplicate key"
+)
+
+// ticketRequestKeys are the keys of the outer object of a ticket request.
+var ticketRequestKeys = []string{"tipo", "dados"}
 
 // DecodeTicket reads a ticket request in two strict steps: the outer object
-// through DecodeJSON (content type, size limit, unknown keys, trailing
-// data), then "dados" into the struct of its "tipo", again refusing unknown
-// keys. A key of another type, or one the server owns (author, status, id,
-// dates), is therefore an unknown key. Every shape error wraps
-// domain.ErrInvalidInput with a fixed reason and never quotes the body. An
-// unknown "tipo" is not a shape error: it decodes with empty fields and
-// ValidateTicket refuses it.
+// (after DecodeJSON's content type, size limit and trailing data checks),
+// then "dados" against its "tipo". At both levels every key must be one of
+// the documented names, spelled exactly (encoding/json alone would match
+// any case), and no key may repeat, even in another case (plan P-10). A key
+// of another type, or one the server owns (author, status, id, dates), is
+// therefore refused. Every shape error wraps domain.ErrInvalidInput with a
+// fixed reason and never quotes the body. An unknown "tipo" is not a shape
+// error: it decodes with empty fields and ValidateTicket refuses it.
 func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.TicketDraft, error) {
+	var raw json.RawMessage
+	if err := s.DecodeJSON(w, r, &raw); err != nil {
+		return domain.TicketDraft{}, err
+	}
 	var req ticketRequest
-	if err := s.DecodeJSON(w, r, &req); err != nil {
+	if err := decodeObject(raw, ticketRequestKeys, &req); err != nil {
 		return domain.TicketDraft{}, err
 	}
 	if len(req.Dados) == 0 || bytes.Equal(req.Dados, []byte("null")) {
@@ -166,47 +177,86 @@ func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.
 	}
 
 	d := domain.TicketDraft{Type: domain.TicketType(req.Tipo)}
+	keys := ticketFields[d.Type]
 	switch d.Type {
 	case domain.TicketTypeAccess:
 		var v accessData
-		if err := decodeData(req.Dados, &v); err != nil {
+		if err := decodeObject(req.Dados, keys, &v); err != nil {
 			return domain.TicketDraft{}, err
 		}
 		d.System, d.AccessLevel, d.Justification = v.Sistema, v.NivelAcesso, v.Justificativa
 	case domain.TicketTypeBug:
 		var v bugData
-		if err := decodeData(req.Dados, &v); err != nil {
+		if err := decodeObject(req.Dados, keys, &v); err != nil {
 			return domain.TicketDraft{}, err
 		}
 		d.System, d.Description, d.Steps, d.Severity = v.Sistema, v.Descricao, v.Passos, v.Severidade
 	case domain.TicketTypeDeploy:
 		var v deployData
-		if err := decodeData(req.Dados, &v); err != nil {
+		if err := decodeObject(req.Dados, keys, &v); err != nil {
 			return domain.TicketDraft{}, err
 		}
 		d.Project, d.Repository, d.Environment, d.Notes = v.Projeto, v.Repositorio, v.Ambiente, v.Observacoes
 	case domain.TicketTypeOther:
 		var v otherData
-		if err := decodeData(req.Dados, &v); err != nil {
+		if err := decodeObject(req.Dados, keys, &v); err != nil {
 			return domain.TicketDraft{}, err
 		}
 		d.Title, d.Description = v.Titulo, v.Descricao
 	default:
-		// Still a JSON object, so the shape rules hold for every request.
-		var v map[string]json.RawMessage
-		if err := decodeData(req.Dados, &v); err != nil || v == nil {
-			return domain.TicketDraft{}, invalidBody(reasonMalformed)
+		// Unknown keys cannot be judged, but "dados" must still be an object
+		// with no duplicate key, so the shape rules hold for every request.
+		if err := checkKeys(req.Dados, nil); err != nil {
+			return domain.TicketDraft{}, err
 		}
 	}
 	return d, nil
 }
 
-// decodeData decodes "dados" into dst, refusing unknown keys. The raw bytes
-// were already size-checked by DecodeJSON and hold exactly one JSON value.
-func decodeData(raw json.RawMessage, dst any) error {
+// decodeObject checks the keys of raw (see checkKeys), then decodes it into
+// dst, refusing unknown keys and wrong JSON types. The raw bytes were
+// already size-checked by DecodeJSON and hold exactly one JSON value.
+func decodeObject(raw json.RawMessage, allowed []string, dst any) error {
+	if err := checkKeys(raw, allowed); err != nil {
+		return err
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
+		return invalidBody(reasonMalformed)
+	}
+	return nil
+}
+
+// checkKeys requires raw to be a JSON object whose keys do not repeat,
+// compared without case, and, when allowed is not nil, are each exactly one
+// of allowed. Values are not inspected.
+func checkKeys(raw json.RawMessage, allowed []string) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return invalidBody(reasonMalformed)
+	}
+	seen := make(map[string]bool)
+	for dec.More() {
+		tok, err := dec.Token()
+		key, ok := tok.(string)
+		if err != nil || !ok {
+			return invalidBody(reasonMalformed)
+		}
+		folded := strings.ToLower(key)
+		if seen[folded] {
+			return invalidBody(reasonDuplicateKey)
+		}
+		seen[folded] = true
+		if allowed != nil && !slices.Contains(allowed, key) {
+			return invalidBody(reasonMalformed)
+		}
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return invalidBody(reasonMalformed)
+		}
+	}
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('}') {
 		return invalidBody(reasonMalformed)
 	}
 	return nil

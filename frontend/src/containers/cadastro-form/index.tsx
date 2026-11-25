@@ -88,7 +88,7 @@ export const CadastroForm = () => {
         <select
           aria-describedby={errors.papel ? 'papel-error' : undefined}
           aria-invalid={errors.papel ? true : undefined}
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3"
+          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-sm border px-3 text-sm outline-none focus-visible:ring-3"
           id="papel"
           {...register('papel')}
         >

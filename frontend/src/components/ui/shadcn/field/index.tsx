@@ -17,7 +17,7 @@ export const Field = ({
       </label>
       <input
         className={cn(
-          'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3',
+          'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-sm border px-3 text-sm outline-none focus-visible:ring-3',
           className
         )}
         aria-describedby={error ? errorId : undefined}
@@ -38,7 +38,7 @@ export const Field = ({
 export const FormMessage = ({ children, tone }: FormMessageProps) => (
   <p
     className={cn(
-      'rounded-lg border px-3 py-2 text-sm',
+      'rounded-sm border px-3 py-2 text-sm',
       tone === 'error'
         ? 'border-destructive/40 text-destructive'
         : 'border-border text-foreground'

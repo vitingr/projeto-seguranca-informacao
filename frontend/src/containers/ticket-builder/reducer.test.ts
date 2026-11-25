@@ -9,6 +9,7 @@ const run = (actions: BuilderAction[], from: BuilderState = initialState) =>
 describe('type step', () => {
   it('starts on "tipo" with no type selected (AC-2.1)', () => {
     expect(initialState).toEqual({
+      pendingType: null,
       step: 'tipo',
       type: null,
       typeError: false
@@ -26,7 +27,12 @@ describe('type step', () => {
       { type: 'continueFromType' },
       { ticketType: 'bug', type: 'selectType' }
     ])
-    expect(state).toEqual({ step: 'tipo', type: 'bug', typeError: false })
+    expect(state).toEqual({
+      pendingType: null,
+      step: 'tipo',
+      type: 'bug',
+      typeError: false
+    })
   })
 
   it('continues to "detalhes" with a type (AC-2.3)', () => {
@@ -36,6 +42,114 @@ describe('type step', () => {
     ])
     expect(state.step).toBe('detalhes')
     expect(state.type).toBe('deploy')
+  })
+})
+
+describe('changing the type (AC-2.4)', () => {
+  const backWithData = run([
+    { ticketType: 'bug', type: 'selectType' },
+    { type: 'continueFromType' },
+    { step: 'tipo', type: 'goToStep' }
+  ])
+
+  it('changes at once while the form has no data', () => {
+    const state = run(
+      [{ hasData: false, ticketType: 'outro', type: 'selectType' }],
+      backWithData
+    )
+    expect(state.type).toBe('outro')
+    expect(state.pendingType).toBeNull()
+  })
+
+  it('waits for confirmation while the form has data', () => {
+    const state = run(
+      [{ hasData: true, ticketType: 'outro', type: 'selectType' }],
+      backWithData
+    )
+    expect(state.type).toBe('bug')
+    expect(state.pendingType).toBe('outro')
+  })
+
+  it('discards only after "confirm"', () => {
+    const state = run(
+      [
+        { hasData: true, ticketType: 'outro', type: 'selectType' },
+        { type: 'confirmTypeChange' }
+      ],
+      backWithData
+    )
+    expect(state.type).toBe('outro')
+    expect(state.pendingType).toBeNull()
+  })
+
+  it('keeps the type on "cancel"', () => {
+    const state = run(
+      [
+        { hasData: true, ticketType: 'outro', type: 'selectType' },
+        { type: 'cancelTypeChange' }
+      ],
+      backWithData
+    )
+    expect(state.type).toBe('bug')
+    expect(state.pendingType).toBeNull()
+  })
+
+  it('picking the same type again asks nothing', () => {
+    const state = run(
+      [
+        { hasData: true, ticketType: 'outro', type: 'selectType' },
+        { hasData: true, ticketType: 'bug', type: 'selectType' }
+      ],
+      backWithData
+    )
+    expect(state.type).toBe('bug')
+    expect(state.pendingType).toBeNull()
+  })
+
+  it('continuing keeps the current type and drops the pending one', () => {
+    const state = run(
+      [
+        { hasData: true, ticketType: 'outro', type: 'selectType' },
+        { type: 'continueFromType' }
+      ],
+      backWithData
+    )
+    expect(state).toMatchObject({
+      pendingType: null,
+      step: 'detalhes',
+      type: 'bug'
+    })
+  })
+
+  it('confirming with nothing pending changes nothing', () => {
+    expect(run([{ type: 'confirmTypeChange' }], backWithData)).toBe(
+      backWithData
+    )
+  })
+})
+
+describe('details step', () => {
+  it('continues to "revisao" from "detalhes" (AC-3.6)', () => {
+    const state = run([
+      { ticketType: 'acesso', type: 'selectType' },
+      { type: 'continueFromType' },
+      { type: 'continueFromDetails' }
+    ])
+    expect(state.step).toBe('revisao')
+  })
+
+  it('ignores "continueFromDetails" on other steps', () => {
+    expect(run([{ type: 'continueFromDetails' }])).toBe(initialState)
+  })
+
+  it('goes back from "revisao" to "detalhes" (AC-4.2)', () => {
+    const state = run([
+      { ticketType: 'acesso', type: 'selectType' },
+      { type: 'continueFromType' },
+      { type: 'continueFromDetails' },
+      { step: 'detalhes', type: 'goToStep' }
+    ])
+    expect(state.step).toBe('detalhes')
   })
 })
 

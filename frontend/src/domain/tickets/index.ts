@@ -113,8 +113,10 @@ export const FIELD_LIMITS = {
 export const TITLE_MAX = 120
 
 /**
- * The form of each type, in the order the fields are shown. `key` is the
- * request key of `dados`; `hint` is a short example under the label.
+ * The form of each type, in the request key order of `dados` (the screen
+ * may group short fields first). `hint` is help text (under the long
+ * fields, or a format rule); `placeholder` is a short example inside the
+ * empty control.
  */
 export const TICKET_FIELDS = {
   acesso: [
@@ -123,6 +125,7 @@ export const TICKET_FIELDS = {
       key: 'sistema',
       kind: 'short',
       label: 'Sistema ou recurso',
+      placeholder: 'Ex.: Grafana, VPN',
       required: true
     },
     {
@@ -130,6 +133,7 @@ export const TICKET_FIELDS = {
       kind: 'choice',
       label: 'Nível de acesso',
       options: ACCESS_LEVELS,
+      placeholder: 'Escolha o nível',
       required: true
     },
     {
@@ -137,6 +141,7 @@ export const TICKET_FIELDS = {
       key: 'justificativa',
       kind: 'long',
       label: 'Justificativa',
+      placeholder: 'Ex.: Preciso consultar os painéis de uso durante o mês.',
       required: true
     }
   ],
@@ -146,6 +151,7 @@ export const TICKET_FIELDS = {
       key: 'sistema',
       kind: 'short',
       label: 'Sistema afetado',
+      placeholder: 'Ex.: Portal do aluno',
       required: true
     },
     {
@@ -153,6 +159,7 @@ export const TICKET_FIELDS = {
       key: 'descricao',
       kind: 'long',
       label: 'Descrição',
+      placeholder: 'Ex.: Ao salvar o formulário, a página mostra erro 500.',
       required: true
     },
     {
@@ -160,6 +167,7 @@ export const TICKET_FIELDS = {
       key: 'passos',
       kind: 'long',
       label: 'Passos para reproduzir',
+      placeholder: '1. Abra o portal\n2. Clique em Salvar',
       required: true
     },
     {
@@ -167,6 +175,7 @@ export const TICKET_FIELDS = {
       kind: 'choice',
       label: 'Severidade',
       options: SEVERITIES,
+      placeholder: 'Escolha a severidade',
       required: true
     }
   ],
@@ -176,6 +185,7 @@ export const TICKET_FIELDS = {
       key: 'projeto',
       kind: 'short',
       label: 'Nome do projeto',
+      placeholder: 'Ex.: api-de-pagamentos',
       required: true
     },
     {
@@ -183,6 +193,7 @@ export const TICKET_FIELDS = {
       key: 'repositorio',
       kind: 'url',
       label: 'Repositório',
+      placeholder: 'https://github.com/org/projeto',
       required: true
     },
     {
@@ -190,6 +201,7 @@ export const TICKET_FIELDS = {
       kind: 'choice',
       label: 'Ambiente',
       options: ENVIRONMENTS,
+      placeholder: 'Escolha o ambiente',
       required: true
     },
     {
@@ -197,6 +209,7 @@ export const TICKET_FIELDS = {
       key: 'observacoes',
       kind: 'optional',
       label: 'Observações',
+      placeholder: 'Ex.: Publicar depois das 18h.',
       required: false
     }
   ],
@@ -206,6 +219,7 @@ export const TICKET_FIELDS = {
       key: 'titulo',
       kind: 'short',
       label: 'Título',
+      placeholder: 'Ex.: Liberar uma porta no firewall',
       required: true
     },
     {
@@ -213,6 +227,8 @@ export const TICKET_FIELDS = {
       key: 'descricao',
       kind: 'long',
       label: 'Descrição',
+      placeholder:
+        'Ex.: Preciso da porta 8443 aberta para o servidor de testes.',
       required: true
     }
   ]

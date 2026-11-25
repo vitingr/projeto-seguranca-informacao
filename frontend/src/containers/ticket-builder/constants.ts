@@ -32,11 +32,21 @@ export const STEPS = [
 }[]
 
 export const BUILDER_MESSAGES = {
-  noType: 'Escolha um tipo de ticket.'
+  noType: 'Escolha um tipo de ticket.',
+  /** AC-2.4: the inline confirmation, never a browser dialog. */
+  typeChange: (next: string, current: string) =>
+    `Trocar para "${next}" descarta os campos preenchidos de "${current}".`
 } as const
 
 export const BUILDER_TEXTS = {
   cancel: 'Cancelar',
+  confirmTypeChange: 'Trocar e descartar',
+  detailsIntro: (type: string) =>
+    `${type}: preencha os campos. Os marcados com * são obrigatórios.`,
+  keepType: 'Manter o tipo atual',
+  /** AC-3.7. */
+  sessionNote:
+    'Sua sessão expira após um período sem atividade. Envie o ticket antes de sair da página.',
   subtitle: 'Abra um pedido para a equipe de infraestrutura em três etapas.',
   title: 'Novo ticket'
 } as const

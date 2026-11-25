@@ -10,6 +10,7 @@ export const ERROR_CODES = [
   'not_found',
   'conflict',
   'unprocessable_entity',
+  'too_many_requests',
   'internal'
 ] as const
 

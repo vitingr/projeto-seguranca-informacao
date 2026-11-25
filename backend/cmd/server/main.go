@@ -116,22 +116,30 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	ticketLimiter, err := sec.NewRateLimiter(security.TicketCreateLimit, security.TicketCreateWindow)
+	if err != nil {
+		return err
+	}
 	handler, err := web.NewHandler(web.Deps{
-		Logger:   logger,
-		Security: sec,
-		Auth:     auth,
-		Users:    service.NewUsers(users, sec, sec),
-		Tickets:  service.NewTickets(repository.NewTickets(db), sec),
+		Logger:        logger,
+		Security:      sec,
+		Auth:          auth,
+		Users:         service.NewUsers(users, sec, sec),
+		Tickets:       service.NewTickets(repository.NewTickets(db), sec),
+		TicketLimiter: ticketLimiter,
 	})
 	if err != nil {
 		return err
 	}
 
 	// D-9: purge expired sessions every idle timeout. The deferred wait runs
-	// before db.Close, so the purge never uses a closed pool.
+	// before db.Close, so the purge never uses a closed pool. Users with no
+	// ticket request inside the rate limit window leave the limiter's
+	// memory once per window.
 	purgeCtx, stopPurge := context.WithCancel(ctx)
 	var purge sync.WaitGroup
 	purge.Go(func() { sec.PurgeExpiredSessions(purgeCtx, cfg.SessionIdleTimeout) })
+	purge.Go(func() { sec.PurgeIdleRateLimits(purgeCtx, ticketLimiter, security.TicketCreateWindow) })
 	defer func() {
 		stopPurge()
 		purge.Wait()

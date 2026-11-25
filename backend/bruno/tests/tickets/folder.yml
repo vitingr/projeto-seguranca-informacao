@@ -3,9 +3,16 @@
 #
 # POST /api/tickets as the comum user that the access matrix registered
 # (BRUNO_COMUM_LOGIN): login (2-3), the CSRF refusals (4-6), the 400 and 422
-# answers (7-8), one ticket of each remaining type (9-11), logout (12). The
-# Go tests in internal/web cover every refusal class and check that nothing
-# is stored; these requests check the running stack.
+# answers (7-8), one ticket of each remaining type (9-11), logout (12).
+#
+# Then the rate limit (S-12) with a user of its own, so no other request
+# shares its quota: the seed admin registers BRUNO_COMUM_LOGIN + ".rl"
+# (13-17), that user logs in (18-20), and tickets-rate-limit (21) sends 10
+# creations with bru.sendRequest before its own request, the 11th, which
+# gets 429. It runs last, after every other ticket request.
+#
+# The Go tests in internal/web cover every refusal class and check that
+# nothing is stored; these requests check the running stack.
 info:
   name: tickets
   type: folder

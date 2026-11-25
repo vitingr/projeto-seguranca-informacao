@@ -21,8 +21,8 @@ const newUser = () => generateComumCredentials(randomBytes)
 
 test.describe('registration as admin', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, seedAdmin(), '/admin')
-    await page.goto('/cadastrar-usuarios')
+    await loginAs(page, seedAdmin(), '/administradores')
+    await page.goto('/cadastro')
   })
 
   test('registers a user, then the same login is taken', async ({ page }) => {
@@ -107,21 +107,14 @@ test.describe('registration as admin', () => {
     })
 
     // 403 (no session) → new token → retry → 401 → login with the notice.
-    await expect(page).toHaveURL(
-      '/login?next=%2Fcadastrar-usuarios&sessao=expirada'
-    )
+    await expect(page).toHaveURL('/login?next=%2Fcadastro&sessao=expirada')
     await expect(page.getByTestId('form-error')).toHaveText(
       'Sua sessão expirou. Entre novamente.'
     )
     expect(calls.filter(c => c === 'POST /api/cadastro')).toHaveLength(2)
 
     // The user was not created: the same login can still be registered.
-    await loginAs(
-      page,
-      seedAdmin(),
-      '/cadastrar-usuarios',
-      '?next=%2Fcadastrar-usuarios'
-    )
+    await loginAs(page, seedAdmin(), '/cadastro', '?next=%2Fcadastro')
     await fillCadastro(page, {
       login: user.login,
       papel: 'comum',
@@ -136,12 +129,12 @@ test('registration is forbidden for comum and needs a session', async ({
   page
 }) => {
   const anonymous = await browser.newPage()
-  await anonymous.goto('/cadastrar-usuarios')
-  await expect(anonymous).toHaveURL('/login?next=%2Fcadastrar-usuarios')
+  await anonymous.goto('/cadastro')
+  await expect(anonymous).toHaveURL('/login?next=%2Fcadastro')
   await anonymous.close()
 
-  await loginAs(page, comumUser(), '/minha-conta')
-  await page.goto('/cadastrar-usuarios')
+  await loginAs(page, comumUser(), '/usuarios')
+  await page.goto('/cadastro')
   await expect(page.getByTestId('forbidden')).toBeVisible()
   await expect(page.getByLabel('Papel')).toHaveCount(0)
 })
@@ -150,16 +143,16 @@ test('a role change applies on the next page load, with no new login', async ({
   page
 }) => {
   const comum = comumUser()
-  await loginAs(page, comum, '/minha-conta')
-  await page.goto('/admin')
+  await loginAs(page, comum, '/usuarios')
+  await page.goto('/administradores')
   await expect(page.getByTestId('forbidden')).toBeVisible()
   try {
     setRole(comum.login, 'admin')
-    await page.goto('/admin')
+    await page.goto('/administradores')
     await expect(page.getByTestId('area')).toContainText('administradores')
   } finally {
     setRole(comum.login, 'comum')
   }
-  await page.goto('/admin')
+  await page.goto('/administradores')
   await expect(page.getByTestId('forbidden')).toBeVisible()
 })

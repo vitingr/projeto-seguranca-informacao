@@ -8,7 +8,7 @@ import type { Role } from '@/domain/roles/types'
 
 /** Where a user goes after login when there is no valid `next`. */
 export const landingFor = (role: Role): ProtectedRoute =>
-  role === 'admin' ? '/admin' : '/minha-conta'
+  role === 'admin' ? '/administradores' : '/usuarios'
 
 const isProtectedRoute = (value: string): value is ProtectedRoute =>
   Object.hasOwn(PROTECTED_ROUTES, value)

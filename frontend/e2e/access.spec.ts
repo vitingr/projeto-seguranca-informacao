@@ -5,6 +5,8 @@ import { loginAs, recordApiCalls } from './support/login'
 import { expectNothingInBrowserStorage } from './support/storage'
 
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
+const COMUM_TEXT = 'Página de acesso restrito aos usuários comuns'
+const ADMIN_TEXT = 'Página de acesso restrito aos usuários administradores'
 
 const expectArea = async (page: Page, path: string, area: string) => {
   await page.goto(path)
@@ -29,7 +31,7 @@ test.describe('anonymous', () => {
     expect(calls).toEqual([])
   })
 
-  for (const path of ['/admin', '/minha-conta']) {
+  for (const path of ['/administradores', '/usuarios']) {
     test(`${path} goes to login`, async ({ page }) => {
       await page.goto(path)
       await expect(page).toHaveURL(`/login?next=${encodeURIComponent(path)}`)
@@ -39,12 +41,13 @@ test.describe('anonymous', () => {
 
 test.describe('comum', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, comumUser(), '/minha-conta')
+    await loginAs(page, comumUser(), '/usuarios')
   })
 
   test('sees its area, and the admin area is forbidden', async ({ page }) => {
-    await expectArea(page, '/minha-conta', 'usuarios')
-    await expectForbidden(page, '/admin')
+    await expectArea(page, '/usuarios', 'usuarios')
+    await expect(page.getByText(COMUM_TEXT, { exact: true })).toBeVisible()
+    await expectForbidden(page, '/administradores')
     await expectNothingInBrowserStorage(page)
   })
 
@@ -57,18 +60,19 @@ test.describe('comum', () => {
 
   test('/login sends it to its landing page', async ({ page }) => {
     await page.goto('/login')
-    await expect(page).toHaveURL('/minha-conta')
+    await expect(page).toHaveURL('/usuarios')
   })
 })
 
 test.describe('admin', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, seedAdmin(), '/admin')
+    await loginAs(page, seedAdmin(), '/administradores')
   })
 
   test('sees its area, and the comum area is forbidden', async ({ page }) => {
-    await expectArea(page, '/admin', 'administradores')
-    await expectForbidden(page, '/minha-conta')
+    await expectArea(page, '/administradores', 'administradores')
+    await expect(page.getByText(ADMIN_TEXT, { exact: true })).toBeVisible()
+    await expectForbidden(page, '/usuarios')
   })
 
   test('home shows the admin links', async ({ page }) => {
@@ -83,10 +87,10 @@ test.describe('admin', () => {
   test('the forbidden screen links back to the landing page', async ({
     page
   }) => {
-    await page.goto('/minha-conta')
+    await page.goto('/usuarios')
     await page
       .getByRole('link', { name: 'Ir para a minha página inicial' })
       .click()
-    await expect(page).toHaveURL('/admin')
+    await expect(page).toHaveURL('/administradores')
   })
 })

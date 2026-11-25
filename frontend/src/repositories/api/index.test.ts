@@ -26,10 +26,7 @@ const cadastro = {
 } as const
 const user = { login: 'maria', role: 'comum', user_id: 2 }
 
-const setup = (
-  routes: Record<string, Reply[]>,
-  path = '/cadastrar-usuarios'
-) => {
+const setup = (routes: Record<string, Reply[]>, path = '/cadastro') => {
   const f = fakeFetch(routes)
   const navigations: string[] = []
   const csrf = createCsrfStore({ fetchFn: f.fetch })
@@ -139,7 +136,7 @@ describe('register', () => {
     })
     expect(await settled(s.client.register(cadastro))).toBe('pending')
     expect(s.navigations).toEqual([
-      'go /login?next=%2Fcadastrar-usuarios&sessao=expirada'
+      'go /login?next=%2Fcadastro&sessao=expirada'
     ])
     expect(s.sequence().filter(c => c === CADASTRO)).toHaveLength(2)
   })

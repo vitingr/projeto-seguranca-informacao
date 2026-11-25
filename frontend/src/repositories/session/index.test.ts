@@ -68,7 +68,7 @@ describe('loadArea', () => {
   const area = (answer: BackendAnswer) =>
     loadArea(
       '/api/administradores',
-      '/admin',
+      '/administradores',
       SESSION,
       backend({ '/api/administradores': answer }).get
     )
@@ -88,7 +88,10 @@ describe('loadArea', () => {
   it('401 (session ended in between) goes to login with the notice', async () => {
     expect(
       await area({ body: { error: 'unauthorized' }, status: 401 })
-    ).toEqual({ kind: 'login', url: '/login?next=%2Fadmin&sessao=expirada' })
+    ).toEqual({
+      kind: 'login',
+      url: '/login?next=%2Fadministradores&sessao=expirada'
+    })
   })
 
   it.each<[string, BackendAnswer]>([

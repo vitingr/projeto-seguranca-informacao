@@ -79,8 +79,8 @@ The checks to run before every commit are listed in
   (`src/lib/api/csrf`): fetched before the first POST, fetched again
   after login, discarded at logout. It is never written to Web Storage,
   IndexedDB, cookies or URLs.
-- **Protected pages** (`/admin`, `/cadastrar-usuarios` for `admin`,
-  `/minha-conta` for `comum`) check the session on the server in each page
+- **Protected pages** (`/administradores`, `/cadastro` for `admin`,
+  `/usuarios` for `comum`) check the session on the server in each page
   (`src/services/session`). No cookie or a 401 → `/login?next=<page>`;
   another role → the "no permission" screen. The area pages also call
   their backend endpoint, whose 403 has the last word. A role change in

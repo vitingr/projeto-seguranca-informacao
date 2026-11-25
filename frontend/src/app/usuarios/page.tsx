@@ -6,9 +6,9 @@ export const metadata: Metadata = { title: 'Minha conta' }
 
 const Page = () => (
   <RoleArea
-    description="Esta área é exclusiva para usuários comuns."
+    description="Página de acesso restrito aos usuários comuns"
     endpoint="/api/usuarios"
-    route="/minha-conta"
+    route="/usuarios"
     title="Minha conta"
   />
 )

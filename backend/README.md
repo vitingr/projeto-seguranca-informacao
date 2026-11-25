@@ -165,6 +165,19 @@ Fixed in code:
 - Clients must call `GET /api/csrf` again after login, because the CSRF
   token changes with the session.
 
+## Known limitations
+
+- **The ticket creation rate limit lives in process memory.** At most 10
+  ticket creation requests per user in any 60-second window
+  (`security.RateLimiter`, `TicketCreateLimit` and `TicketCreateWindow`),
+  answered with 429 and `Retry-After` over the limit. The counts are kept
+  in the memory of the backend process: a restart resets every count, and
+  with more than one backend instance each instance counts on its own, so a
+  user could send 10 per instance. The stack runs a single backend
+  container, so this is accepted. If the backend ever scales out, the fix is
+  a shared store for the counts (PostgreSQL or Redis) behind the same
+  `RateLimiter` API.
+
 ## Go version
 
 The module requires Go 1.27: `go 1.27.0` with `toolchain go1.27.4` in

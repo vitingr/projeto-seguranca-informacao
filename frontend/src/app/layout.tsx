@@ -1,15 +1,14 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Poppins } from 'next/font/google'
 import '@/styles/globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin']
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin']
+// Poppins is not a variable font, so each weight in use is listed. Next
+// downloads the files at build time and serves them itself.
+const poppins = Poppins({
+  style: ['normal'],
+  subsets: ['latin', 'latin-ext'],
+  variable: '--font-poppins',
+  weight: ['400', '500', '600', '700']
 })
 
 export const metadata: Metadata = {
@@ -22,10 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      lang="pt-BR"
-    >
+    <html className={`${poppins.variable} h-full antialiased`} lang="pt-BR">
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   )

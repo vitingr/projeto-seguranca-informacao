@@ -1,0 +1,37 @@
+info:
+  name: tickets-invalid-400
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "Dúvida",
+          "descricao": "Como peço acesso à VPN?"
+        },
+        "status": "fechado"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A key the server owns (status) is an unknown key: 400, nothing stored (S-5).
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          const body = res.getBody();
+          expect(body.error).to.equal("bad_request");
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+        });

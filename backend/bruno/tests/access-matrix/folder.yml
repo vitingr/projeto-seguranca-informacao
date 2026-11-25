@@ -1,10 +1,11 @@
 # Hand-written. Run by "mage brunoRun" after the root requests of tests/
-# (bru run tests tests/access-matrix, 003 D-15).
+# (bru run tests tests/access-matrix tests/tickets, 003 D-15).
 #
-# The 15-cell access matrix (003 D-2), one caller at a time, with the shared
-# cookie jar: anonymous (2-6) -> seed admin (9-11, 14-15) -> the comum user
-# that the admin registers in 11 (19-23). Requests 12 and 13 check the 409
-# and 422 of POST /api/cadastro.
+# The 18-cell access matrix (003 D-2, plus POST /api/tickets from spec
+# 001-ticket-builder), one caller at a time, with the shared cookie jar:
+# anonymous (2-7) -> seed admin (10-12, 15-17) -> the comum user that the
+# admin registers in 12 (21-26). Requests 13 and 14 check the 409 and 422 of
+# POST /api/cadastro.
 #
 # The comum credentials come from BRUNO_COMUM_LOGIN and BRUNO_COMUM_PASSWORD,
 # which "mage brunoRun" generates with crypto/rand for every run (003 D-13),

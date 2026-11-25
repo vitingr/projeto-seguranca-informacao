@@ -1,0 +1,255 @@
+info:
+  name: Create ticket
+  type: http
+  seq: 1
+  tags:
+    - tickets
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "acesso",
+        "dados": {
+          "sistema": "Grafana",
+          "nivel_acesso": "leitura",
+          "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 201 Response
+    description: Ticket created with status `aberto`.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": 1,
+            "type": "acesso",
+            "title": "Acesso a Grafana",
+            "status": "aberto",
+            "created_at": "2026-11-25T14:30:00.123456Z",
+            "updated_at": "2026-11-25T14:30:00.123456Z"
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 422 Response
+    description: A ticket value is invalid. The answer never says which field.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unprocessable_entity",
+            "message": "Dados inválidos. Revise os campos e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Creates a support ticket for the `comum` user of the session. Administrators get 403.
+
+  `tipo` picks the type and `dados` carries only the fields of that type (see `CreateTicketRequest`). Text fields are trimmed and their lengths are counted in Unicode characters (code points). Single-line fields accept no control character, line break or tab; multi-line fields accept line feed, carriage return and tab only. `repositorio` must be an absolute `https://` URL with a host and no user name or password.
+
+  The author is the user of the session, the status is always `aberto`, and the id and the dates are set by the server: the body cannot carry them. Titles of `acesso`, `bug` and `deploy` tickets are built by the server: `Acesso a <sistema>`, `Bug em <sistema>`, `Deploy de <projeto> em <ambiente>` (with the environment label), cut to 120 characters; `outro` keeps `titulo`.
+
+  **400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a body that is not valid UTF-8, a `Content-Type` other than `application/json`, a key that is not one of the documented names spelled exactly (case-sensitive), a key of another type, a duplicate key (also when only the case differs), a field of the wrong JSON type, or `dados` missing or `null`. Keys the server owns (`author`, `user_id`, `status`, `id`, `created_at`, ...) are unknown keys.
+
+  **422** (`unprocessable_entity`): the body is well-formed but a value is invalid: an unknown `tipo`, a missing or empty required field, a length out of its limits, a forbidden character, a code outside its list, or a repository that is not an https URL. The answer never names the field.
+
+  Nothing is stored when the answer is not 201. The response does not echo the field contents.

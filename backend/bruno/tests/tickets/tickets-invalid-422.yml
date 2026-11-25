@@ -1,0 +1,41 @@
+info:
+  name: tickets-invalid-422
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "acesso",
+        "dados": {
+          "sistema": "G",
+          "nivel_acesso": "leitura",
+          "justificativa": "Preciso ver os painéis da equipe."
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // "sistema" has 1 character (minimum 2): 422 with the generic message,
+        // which never names the field (AC-6.1, Q-12).
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("error is unprocessable_entity", function () {
+          const body = res.getBody();
+          expect(body.error).to.equal("unprocessable_entity");
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+        });
+        test("message is the generic one", function () {
+          expect(res.getBody().message).to.equal("Dados inválidos. Revise os campos e tente novamente.");
+        });

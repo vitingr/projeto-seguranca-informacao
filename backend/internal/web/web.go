@@ -19,19 +19,24 @@ type UserService interface {
 	Register(ctx context.Context, in service.RegisterInput) (domain.User, error)
 }
 
+type TicketService interface {
+	Create(ctx context.Context, author domain.UserID, draft domain.TicketDraft) (domain.Ticket, error)
+}
+
 type Deps struct {
 	Logger   *slog.Logger
 	Security *security.Security
 	Auth     AuthService
 	Users    UserService
+	Tickets  TicketService
 }
 
 func NewHandler(d Deps) (http.Handler, error) {
-	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil {
+	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
-	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users}
+	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users, tickets: d.Tickets}
 
 	mux := http.NewServeMux()
 	for _, rt := range h.routes() {

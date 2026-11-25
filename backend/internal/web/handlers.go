@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"backend_si/internal/domain"
 	"backend_si/internal/security"
@@ -17,10 +18,11 @@ const (
 )
 
 type handlers struct {
-	logger *slog.Logger
-	sec    *security.Security
-	auth   AuthService
-	users  UserService
+	logger  *slog.Logger
+	sec     *security.Security
+	auth    AuthService
+	users   UserService
+	tickets TicketService
 }
 
 type loginRequest struct {
@@ -38,6 +40,17 @@ type userResponse struct {
 	UserID domain.UserID `json:"user_id"`
 	Login  string        `json:"login,omitempty"`
 	Role   domain.Role   `json:"role"`
+}
+
+// ticketResponse is what the confirmation shows (spec AC-5.2). It never
+// echoes the field contents.
+type ticketResponse struct {
+	ID        domain.TicketID     `json:"id"`
+	Type      domain.TicketType   `json:"type"`
+	Title     string              `json:"title"`
+	Status    domain.TicketStatus `json:"status"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 type csrfResponse struct {
@@ -148,6 +161,62 @@ func (h *handlers) auditRegistered(r *http.Request, user domain.User) {
 		slog.Int64("actor_user_id", int64(actor)),
 		slog.Int64("user_id", int64(user.ID)),
 		slog.String("role", string(user.Role)),
+	)
+}
+
+// createTicket creates a support ticket for the comum user of the session
+// (spec 001-ticket-builder). A body that is not well-formed for the type is
+// 400; a well-formed body with an invalid value is 422 with the generic
+// message, never naming the field (Q-12). The author comes only from the
+// session (S-4). The log holds ids, the type and a fixed reason, never a
+// field value (S-7).
+func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
+	p, ok := security.PrincipalFrom(r.Context())
+	if !ok {
+		WriteError(w, r, http.StatusUnauthorized)
+		return
+	}
+
+	draft, err := h.sec.DecodeTicket(w, r)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			h.ticketRefused(r, p.UserID, err)
+		}
+		h.badRequest(w, r, err)
+		return
+	}
+
+	ticket, err := h.tickets.Create(r.Context(), p.UserID, draft)
+	switch {
+	case errors.Is(err, domain.ErrInvalidInput):
+		h.ticketRefused(r, p.UserID, err)
+		writeErrorMessage(w, r, http.StatusUnprocessableEntity, msgDadosInvalidos)
+	case err != nil:
+		h.sec.RespondError(w, r, err)
+	default:
+		h.logger.InfoContext(r.Context(), "ticket created",
+			slog.Int64("ticket_id", int64(ticket.ID)),
+			slog.Int64("author_id", int64(ticket.AuthorID)),
+			slog.String("type", string(ticket.Type)),
+		)
+		writeJSON(w, http.StatusCreated, ticketResponse{
+			ID:        ticket.ID,
+			Type:      ticket.Type,
+			Title:     ticket.Title,
+			Status:    ticket.Status,
+			CreatedAt: ticket.CreatedAt,
+			UpdatedAt: ticket.UpdatedAt,
+		})
+	}
+}
+
+// ticketRefused logs a refused ticket request. The reason is the error
+// text, which the security and service layers build from fixed strings and
+// field names only, never from the body.
+func (h *handlers) ticketRefused(r *http.Request, author domain.UserID, err error) {
+	h.logger.InfoContext(r.Context(), "ticket refused",
+		slog.Int64("author_id", int64(author)),
+		slog.String("reason", err.Error()),
 	)
 }
 

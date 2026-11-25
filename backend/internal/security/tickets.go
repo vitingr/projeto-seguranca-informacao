@@ -278,6 +278,17 @@ var ticketFields = map[domain.TicketType][]string{
 	domain.TicketTypeOther:  {"titulo", "descricao"},
 }
 
+// TicketDataKeys returns, for each ticket type, the keys that "dados"
+// accepts in POST /api/tickets. The contract test compares them with
+// api/openapi.json, so the decoder and the contract cannot drift apart.
+func TicketDataKeys() map[domain.TicketType][]string {
+	out := make(map[domain.TicketType][]string, len(ticketFields))
+	for typ, keys := range ticketFields {
+		out[typ] = slices.Clone(keys)
+	}
+	return out
+}
+
 // ValidateTicket applies the rules of spec section 4 to a decoded request
 // and returns the ticket with trimmed values (BR-4). The type must be known,
 // every field of the type valid, and no field of another type set. Empty

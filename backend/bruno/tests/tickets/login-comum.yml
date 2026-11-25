@@ -1,0 +1,29 @@
+info:
+  name: login-comum
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The comum user registered by the access matrix.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().role).to.equal("comum");
+        });

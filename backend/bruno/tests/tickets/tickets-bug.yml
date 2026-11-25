@@ -1,0 +1,39 @@
+info:
+  name: tickets-bug
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "bug",
+        "dados": {
+          "sistema": "Portal do aluno",
+          "descricao": "A página de notas não carrega.",
+          "passos": "Entrar e abrir Notas.",
+          "severidade": "critica"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the ticket with the server title", function () {
+          const body = res.getBody();
+          expect(body.type).to.equal("bug");
+          expect(body.title).to.equal("Bug em Portal do aluno");
+          expect(body.status).to.equal("aberto");
+          expect(body.created_at).to.equal(body.updated_at);
+        });

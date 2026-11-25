@@ -29,6 +29,7 @@ const (
 	brunoCollection = "backend_si"
 	brunoTests      = "tests" // the root requests "mage brunoRun" runs first
 	brunoMatrix     = "tests/access-matrix"
+	brunoTickets    = "tests/tickets"     // runs last: it logs in as the comum user the matrix registers
 	brunoEnv        = "local"             // environment in bruno/environments
 	brunoBaseURL    = "https://localhost" // baseUrl of the local environment
 	brunoReport     = "bruno-report.xml"  // JUnit report written by "mage brunoRun"
@@ -96,7 +97,7 @@ func BrunoRun() error {
 // carry credentials: those reach bru as environment variables.
 func brunoRunArgs(override string) []string {
 	args := []string{
-		"--yes", brunoCLI, "run", brunoTests, brunoMatrix,
+		"--yes", brunoCLI, "run", brunoTests, brunoMatrix, brunoTickets,
 		"--env", brunoEnv,
 		"--cacert", filepath.Join("..", certFile),
 		"--ignore-truststore",

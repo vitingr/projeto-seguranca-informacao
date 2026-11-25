@@ -340,6 +340,11 @@ func TestBrunoComumEnv(t *testing.T) {
 		if i := slices.Index(args, "run"); i < 0 || len(args) < i+3 || args[i+1] != brunoTests || args[i+2] != brunoMatrix {
 			t.Errorf("args = %v, want run %s %s", args, brunoTests, brunoMatrix)
 		}
+		// Spec 001-ticket-builder: the ticket requests run after the matrix,
+		// which registers the comum user they log in as.
+		if i := slices.Index(args, "run"); i < 0 || len(args) < i+4 || args[i+3] != brunoTickets {
+			t.Errorf("args = %v, want %s after %s", args, brunoTickets, brunoMatrix)
+		}
 		if got := fmt.Sprint(args); override != "" && !strings.Contains(got, "baseUrl="+override) {
 			t.Errorf("args = %v, want the baseUrl override", args)
 		}

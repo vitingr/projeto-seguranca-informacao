@@ -1,0 +1,33 @@
+info:
+  name: tickets-csrf
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "Dúvida",
+          "descricao": "Como peço acesso à VPN?"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // No X-CSRF-Token: the CSRF check answers 403 and nothing is stored (S-3).
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+        });
+        test("error is forbidden", function () {
+          const body = res.getBody();
+          expect(body.error).to.equal("forbidden");
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+        });

@@ -1,13 +1,14 @@
 # backend_si
 
 HTTPS JSON API consumed by the frontend (in `../frontend`). It is written in
-Go and stores users and server-side sessions in PostgreSQL.
+Go and stores users, server-side sessions and support tickets in PostgreSQL.
 
 Users log in with a login and password (Argon2id hashes) and get a
 server-side session in a cookie. State-changing requests need a CSRF token,
 and each route declares which roles may call it (see
 [Access control](#access-control)). Administrators register users through
-`POST /api/cadastro`.
+`POST /api/cadastro`; comum users open support tickets through
+`POST /api/tickets`.
 
 ## Prerequisites
 
@@ -57,7 +58,7 @@ Run `go tool mage -l` for the full list.
 | `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers one `e2e.*` comum user (see [Test users](#test-users-left-by-mage-brunorun)). |
+| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers one `e2e.*` comum user (see [Test users](#test-users-left-by-mage-brunorun)). |
 
 ## API contract and Bruno collection
 
@@ -73,7 +74,7 @@ The only exception is the 404 catch-all, which stays out of the contract.
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
-- **Generated folders.** `health/`, `auth/`, `users/` and `areas/` are
+- **Generated folders.** `health/`, `auth/`, `users/`, `areas/` and `tickets/` are
   created by `mage bruno`, one per contract tag. Never edit them by hand;
   change the contract and run `mage bruno`. CI fails when they are out of
   date.
@@ -82,10 +83,12 @@ The only exception is the 404 catch-all, which stays out of the contract.
   the assertions that `mage brunoRun` runs, in `seq` order with a shared
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
-  `tests/access-matrix/` runs next (`bru run tests tests/access-matrix`; `-r`
-  would run subfolders first): the 15 cells of the
+  `tests/access-matrix/` runs next (`bru run tests tests/access-matrix
+  tests/tickets`; `-r` would run subfolders first): the 18 cells of the
   [access matrix](#access-control), anonymous, then as the seed
   administrator, who registers a comum user, then as that user.
+  `tests/tickets/` runs last, as that comum user: the CSRF refusals, a 400,
+  a 422 and one ticket of each type.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -103,10 +106,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `POST /api/cadastro` | 401 | 403 | 201 |
 | `GET /api/me` | 401 | 200 | 200 |
 | `POST /api/logout` | 401 | 204 | 204 |
+| `POST /api/tickets` | 401 | 201 | 403 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
-The Go test `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 15 cells.
+They do not create tickets either. The Go test `TestAccessMatrix`
+(`internal/web`) and the Bruno folder `tests/access-matrix` both cover the
+18 cells.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -128,13 +133,37 @@ Every registration is logged at Info as `user registered`, with the
 administrator's `actor_user_id`, the new `user_id` and the `role`. The log
 never has the login or the password.
 
+**Tickets** (`POST /api/tickets`, comum only) answer:
+- 201 with `{id, type, title, status, created_at, updated_at}`. The author
+  is the session user, the status is always `aberto`, and the id and dates
+  come from the database. The body never sets them. The title of `acesso`,
+  `bug` and `deploy` tickets is built by the server (`Acesso a <sistema>`,
+  `Bug em <sistema>`, `Deploy de <projeto> em <ambiente>`), cut to 120
+  characters; `outro` keeps `titulo`.
+- 400 `bad_request` when the body is not well-formed: malformed JSON, not
+  valid UTF-8, a key that is not a documented name spelled exactly, a key of
+  another type, a duplicate key (also in another case), a wrong JSON type,
+  or `dados` missing or `null`.
+- 422 `unprocessable_entity`, with a message that names no field, when a
+  value breaks a rule: an unknown `tipo`, a missing or empty field, a
+  length, a control character, a code outside its list, or a repository
+  that is not an `https://` URL without credentials.
+
+Nothing is stored unless the answer is 201. The rules live in
+`internal/security` (`DecodeTicket`, `ValidateTicket`), and the `tickets`
+table repeats them as CHECK constraints. Every creation is logged at Info as
+`ticket created` with `ticket_id`, `author_id` and `type`; refusals as
+`ticket refused` with `author_id` and a fixed reason. The log never has a
+field value.
+
 ### Test users left by `mage brunoRun`
 
 The access matrix registers a comum user through the seed administrator.
 `mage brunoRun` generates its login (`e2e.` and 26 random characters) and
 password with `crypto/rand` for every run and passes them to Bruno as the
 `BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
-as arguments. So every run leaves one `e2e.*` user in the database.
+as arguments. So every run leaves one `e2e.*` user in the database, with
+the tickets it created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 
@@ -143,10 +172,12 @@ To delete them, with the `POSTGRES_USER` and `POSTGRES_DB` values of
 
 ```sh
 docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
+  -c "DELETE FROM tickets WHERE author_id IN (SELECT id FROM users WHERE login LIKE 'e2e.%');" \
   -c "DELETE FROM users WHERE login LIKE 'e2e.%';"
 ```
 
-Their sessions are deleted with them (`ON DELETE CASCADE`).
+Their sessions are deleted with them (`ON DELETE CASCADE`). Tickets are
+not (they are history), so they are deleted first.
 
 ## Sessions and security settings
 

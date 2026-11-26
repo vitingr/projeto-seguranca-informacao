@@ -1608,3 +1608,451 @@ func TestThreadIntegration(t *testing.T) {
 		}
 	})
 }
+
+// openConcurrentTestDB opens a pool with room for a lock holder and the
+// writers that wait behind it (openTestDB keeps 2 connections).
+func openConcurrentTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL não definida")
+	}
+	db, err := Open(t.Context(), url, PoolOptions{MaxOpenConns: 12, MaxIdleConns: 12})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+// ticketState is what a write may change on a ticket.
+type ticketState struct {
+	status    domain.TicketStatus
+	updatedAt time.Time
+	entries   int
+}
+
+func readTicketState(ctx context.Context, t *testing.T, db *sql.DB, ticket domain.TicketID) ticketState {
+	t.Helper()
+	var s ticketState
+	err := db.QueryRowContext(ctx, `
+		SELECT status, updated_at, (SELECT count(*) FROM ticket_entries WHERE ticket_id = $1)
+		FROM tickets WHERE id = $1`, ticket).Scan(&s.status, &s.updatedAt, &s.entries)
+	if err != nil {
+		t.Fatalf("read ticket %d: %v", ticket, err)
+	}
+	return s
+}
+
+// lockTicket holds the row lock of ticket in an open transaction, as a
+// write in progress would; release commits it.
+func lockTicket(ctx context.Context, t *testing.T, db *sql.DB, ticket domain.TicketID) (release func()) {
+	t.Helper()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if _, err := tx.ExecContext(ctx, `SELECT 1 FROM tickets WHERE id = $1 FOR UPDATE`, ticket); err != nil {
+		_ = tx.Rollback()
+		t.Fatalf("lock ticket: %v", err)
+	}
+	done := false
+	t.Cleanup(func() {
+		if !done {
+			_ = tx.Rollback()
+		}
+	})
+	return func() {
+		done = true
+		if err := tx.Commit(); err != nil {
+			t.Errorf("release lock: %v", err)
+		}
+	}
+}
+
+// waitForLockWaiters waits until n statements of this database are blocked
+// on a lock, so the writes started by a test are known to overlap.
+func waitForLockWaiters(t *testing.T, db *sql.DB, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var waiting int
+		err := db.QueryRowContext(t.Context(), `
+			SELECT count(*) FROM pg_stat_activity
+			WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'UPDATE tickets SET%'`).Scan(&waiting)
+		if err != nil {
+			t.Fatalf("pg_stat_activity: %v", err)
+		}
+		if waiting >= n {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d writes waiting on the ticket lock after 10s, want %d", waiting, n)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+type writeResult struct {
+	entry domain.TicketEntry
+	err   error
+}
+
+// TestTicketWritesIntegration covers AddMessage and ChangeStatus one at a
+// time (spec 003 BR-4 to BR-8, BR-10; plan section 4).
+func TestTicketWritesIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	entries := NewTicketEntries(db)
+	author, authorLogin := newTrackingUser(t, db, domain.RoleComum)
+	admin, adminLogin := newTrackingUser(t, db, domain.RoleAdmin)
+	newTicket := func(status domain.TicketStatus) domain.TicketID {
+		created, err := NewTickets(db).Create(ctx, sampleTickets(author)[3])
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE tickets SET status = $2 WHERE id = $1`, created.ID, string(status)); err != nil {
+			t.Fatalf("set status: %v", err)
+		}
+		return created.ID
+	}
+	var missing domain.TicketID
+	if err := db.QueryRowContext(ctx, `SELECT COALESCE(max(id), 0) + 1000 FROM tickets`).Scan(&missing); err != nil {
+		t.Fatalf("max id: %v", err)
+	}
+
+	t.Run("a message moves updated_at, not the status", func(t *testing.T) {
+		for _, status := range []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusInProgress, domain.TicketStatusResolved} {
+			ticket := newTicket(status)
+			before := readTicketState(ctx, t, db, ticket)
+			for _, actor := range []struct {
+				id    domain.UserID
+				login string
+				role  domain.Role
+			}{{author, authorLogin, domain.RoleComum}, {admin, adminLogin, domain.RoleAdmin}} {
+				got, err := entries.AddMessage(ctx, ticket, actor.id, "Linha 1\nLinha 2")
+				if err != nil {
+					t.Fatalf("AddMessage on %s: %v", status, err)
+				}
+				want := domain.TicketEntry{
+					ID: got.ID, TicketID: ticket, ActorID: actor.id, ActorLogin: actor.login, ActorRole: actor.role,
+					Kind: domain.EntryKindMessage, Body: "Linha 1\nLinha 2", CreatedAt: got.CreatedAt,
+				}
+				if got != want || got.ID == 0 {
+					t.Errorf("AddMessage = %+v, want %+v", got, want)
+				}
+				after := readTicketState(ctx, t, db, ticket)
+				if after.status != status || after.entries != before.entries+1 {
+					t.Errorf("after a message: %+v, want status %s and one more entry than %+v", after, status, before)
+				}
+				if !after.updatedAt.Equal(got.CreatedAt) || !after.updatedAt.After(before.updatedAt) {
+					t.Errorf("updated_at %v, entry %v, before %v: want the entry's time, later", after.updatedAt, got.CreatedAt, before.updatedAt)
+				}
+				before = after
+			}
+		}
+	})
+
+	t.Run("no message on a closed ticket", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusClosed)
+		before := readTicketState(ctx, t, db, ticket)
+		_, err := entries.AddMessage(ctx, ticket, author, "Ainda está acontecendo.")
+		if !errors.Is(err, domain.ErrTicketClosed) || !errors.Is(err, domain.ErrConflict) {
+			t.Errorf("AddMessage on fechado = %v, want ErrTicketClosed", err)
+		}
+		if after := readTicketState(ctx, t, db, ticket); after != before {
+			t.Errorf("ticket %+v → %+v: a refused message changed it", before, after)
+		}
+	})
+
+	t.Run("status changes along BR-3", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusOpen)
+		path := []domain.TicketStatus{domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
+		from := domain.TicketStatusOpen
+		for _, to := range path {
+			before := readTicketState(ctx, t, db, ticket)
+			got, err := entries.ChangeStatus(ctx, ticket, admin, from, to)
+			if err != nil {
+				t.Fatalf("ChangeStatus %s → %s: %v", from, to, err)
+			}
+			want := domain.TicketEntry{
+				ID: got.ID, TicketID: ticket, ActorID: admin, ActorLogin: adminLogin, ActorRole: domain.RoleAdmin,
+				Kind: domain.EntryKindStatusChange, From: from, To: to, CreatedAt: got.CreatedAt,
+			}
+			if got != want {
+				t.Errorf("ChangeStatus = %+v, want %+v", got, want)
+			}
+			after := readTicketState(ctx, t, db, ticket)
+			if after.status != to || after.entries != before.entries+1 || !after.updatedAt.Equal(got.CreatedAt) || !after.updatedAt.After(before.updatedAt) {
+				t.Errorf("after %s → %s: %+v (before %+v, entry at %v)", from, to, after, before, got.CreatedAt)
+			}
+			from = to
+		}
+	})
+
+	t.Run("stale status writes nothing", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusInProgress)
+		before := readTicketState(ctx, t, db, ticket)
+		for _, from := range []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusResolved, domain.TicketStatusClosed} {
+			_, err := entries.ChangeStatus(ctx, ticket, admin, from, domain.TicketStatusClosed)
+			if !errors.Is(err, domain.ErrStaleStatus) || !errors.Is(err, domain.ErrConflict) {
+				t.Errorf("ChangeStatus from %s on em_andamento = %v, want ErrStaleStatus", from, err)
+			}
+		}
+		if after := readTicketState(ctx, t, db, ticket); after != before {
+			t.Errorf("ticket %+v → %+v: a refused change wrote", before, after)
+		}
+	})
+
+	t.Run("missing ticket", func(t *testing.T) {
+		if _, err := entries.AddMessage(ctx, missing, author, "Oi"); !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("AddMessage on a missing ticket = %v, want ErrNotFound", err)
+		}
+		if _, err := entries.ChangeStatus(ctx, missing, admin, domain.TicketStatusOpen, domain.TicketStatusClosed); !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("ChangeStatus on a missing ticket = %v, want ErrNotFound", err)
+		}
+	})
+
+	// BR-10: when the second statement fails, the first one (the ticket's
+	// UPDATE, which already ran) is rolled back too.
+	t.Run("a failure after the ticket update rolls back both", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			write func(ticket domain.TicketID) error
+		}{
+			{"message by an unknown actor", func(ticket domain.TicketID) error {
+				_, err := entries.AddMessage(ctx, ticket, -1, "Oi")
+				return err
+			}},
+			{"message with an empty body", func(ticket domain.TicketID) error {
+				_, err := entries.AddMessage(ctx, ticket, author, "")
+				return err
+			}},
+			{"message over 2000 characters", func(ticket domain.TicketID) error {
+				_, err := entries.AddMessage(ctx, ticket, author, chars(2001))
+				return err
+			}},
+			{"change BR-3 forbids, past the service", func(ticket domain.TicketID) error {
+				_, err := entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusOpen, domain.TicketStatusResolved)
+				return err
+			}},
+			{"change by an unknown actor", func(ticket domain.TicketID) error {
+				_, err := entries.ChangeStatus(ctx, ticket, -1, domain.TicketStatusOpen, domain.TicketStatusInProgress)
+				return err
+			}},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				ticket := newTicket(domain.TicketStatusOpen)
+				before := readTicketState(ctx, t, db, ticket)
+				var pgErr *pgconn.PgError
+				if err := tt.write(ticket); !errors.As(err, &pgErr) {
+					t.Fatalf("write = %v, want the database to refuse the entry", err)
+				}
+				if after := readTicketState(ctx, t, db, ticket); after != before {
+					t.Errorf("ticket %+v → %+v: the UPDATE was not rolled back", before, after)
+				}
+			})
+		}
+	})
+}
+
+// TestTicketWritesConcurrencyIntegration runs the concurrent cases of plan
+// section 4 with real transactions: a test transaction holds the ticket's
+// row lock, the writes start and wait on it (checked in pg_stat_activity),
+// then the lock is released and PostgreSQL serializes them.
+func TestTicketWritesConcurrencyIntegration(t *testing.T) {
+	db := openConcurrentTestDB(t)
+	ctx := t.Context()
+	entries := NewTicketEntries(db)
+	author, _ := newTrackingUser(t, db, domain.RoleComum)
+	admin, _ := newTrackingUser(t, db, domain.RoleAdmin)
+	other, _ := newTrackingUser(t, db, domain.RoleAdmin)
+	newTicket := func(status domain.TicketStatus) domain.TicketID {
+		created, err := NewTickets(db).Create(ctx, sampleTickets(author)[3])
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE tickets SET status = $2 WHERE id = $1`, created.ID, string(status)); err != nil {
+			t.Fatalf("set status: %v", err)
+		}
+		return created.ID
+	}
+	// start runs write in a goroutine and waits until it is blocked on the
+	// lock, behind waiting writes already started.
+	start := func(t *testing.T, waiting int, write func() (domain.TicketEntry, error)) <-chan writeResult {
+		t.Helper()
+		out := make(chan writeResult, 1)
+		go func() {
+			e, err := write()
+			out <- writeResult{e, err}
+		}()
+		waitForLockWaiters(t, db, waiting)
+		return out
+	}
+	statusChanges := func(t *testing.T, ticket domain.TicketID) int {
+		t.Helper()
+		var n int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM ticket_entries WHERE ticket_id = $1 AND kind = 'status_change'`, ticket).Scan(&n); err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		return n
+	}
+
+	t.Run("two admins change from the same status: one applies", func(t *testing.T) {
+		for round := range 5 {
+			ticket := newTicket(domain.TicketStatusOpen)
+			release := lockTicket(ctx, t, db, ticket)
+			first := start(t, 1, func() (domain.TicketEntry, error) {
+				return entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusOpen, domain.TicketStatusInProgress)
+			})
+			second := start(t, 2, func() (domain.TicketEntry, error) {
+				return entries.ChangeStatus(ctx, ticket, other, domain.TicketStatusOpen, domain.TicketStatusClosed)
+			})
+			release()
+			a, b := <-first, <-second
+			if a.err != nil || !errors.Is(b.err, domain.ErrStaleStatus) {
+				t.Errorf("round %d: first = %v, second = %v; want the first applied and the second ErrStaleStatus", round, a.err, b.err)
+			}
+			if s := readTicketState(ctx, t, db, ticket); s.status != domain.TicketStatusInProgress || statusChanges(t, ticket) != 1 {
+				t.Errorf("round %d: status %s with %d history entries, want em_andamento and 1", round, s.status, statusChanges(t, ticket))
+			}
+		}
+	})
+
+	t.Run("eight admins at once: exactly one applies", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusResolved)
+		release := lockTicket(ctx, t, db, ticket)
+		results := make([]<-chan writeResult, 0, 8)
+		for i := range 8 {
+			to := domain.TicketStatusInProgress
+			if i%2 == 1 {
+				to = domain.TicketStatusClosed
+			}
+			results = append(results, start(t, i+1, func() (domain.TicketEntry, error) {
+				return entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusResolved, to)
+			}))
+		}
+		release()
+		applied, stale := 0, 0
+		var winner domain.TicketEntry
+		for _, ch := range results {
+			r := <-ch
+			switch {
+			case r.err == nil:
+				applied++
+				winner = r.entry
+			case errors.Is(r.err, domain.ErrStaleStatus):
+				stale++
+			default:
+				t.Errorf("unexpected error: %v", r.err)
+			}
+		}
+		s := readTicketState(ctx, t, db, ticket)
+		if applied != 1 || stale != 7 || statusChanges(t, ticket) != 1 || s.status != winner.To {
+			t.Errorf("%d applied, %d stale, %d history entries, status %s (winner %s); want 1, 7, 1 and the winner's", applied, stale, statusChanges(t, ticket), s.status, winner.To)
+		}
+	})
+
+	t.Run("close first, then the reply: the reply is refused", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusInProgress)
+		release := lockTicket(ctx, t, db, ticket)
+		closing := start(t, 1, func() (domain.TicketEntry, error) {
+			return entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusInProgress, domain.TicketStatusClosed)
+		})
+		reply := start(t, 2, func() (domain.TicketEntry, error) {
+			return entries.AddMessage(ctx, ticket, author, "Ainda está acontecendo.")
+		})
+		release()
+		c, r := <-closing, <-reply
+		if c.err != nil || !errors.Is(r.err, domain.ErrTicketClosed) {
+			t.Errorf("close = %v, reply = %v; want the close applied and the reply ErrTicketClosed", c.err, r.err)
+		}
+		if s := readTicketState(ctx, t, db, ticket); s.status != domain.TicketStatusClosed || s.entries != 1 {
+			t.Errorf("ticket %+v, want fechado with only the status change", s)
+		}
+	})
+
+	t.Run("reply first, then the close: both stored, the reply before", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusInProgress)
+		release := lockTicket(ctx, t, db, ticket)
+		reply := start(t, 1, func() (domain.TicketEntry, error) {
+			return entries.AddMessage(ctx, ticket, author, "Ainda está acontecendo.")
+		})
+		closing := start(t, 2, func() (domain.TicketEntry, error) {
+			return entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusInProgress, domain.TicketStatusClosed)
+		})
+		release()
+		r, c := <-reply, <-closing
+		if r.err != nil || c.err != nil {
+			t.Fatalf("reply = %v, close = %v; want both stored", r.err, c.err)
+		}
+		s := readTicketState(ctx, t, db, ticket)
+		if s.status != domain.TicketStatusClosed || s.entries != 2 || r.entry.ID >= c.entry.ID || r.entry.CreatedAt.After(c.entry.CreatedAt) {
+			t.Errorf("ticket %+v, reply %d at %v, close %d at %v; want fechado, the reply first", s, r.entry.ID, r.entry.CreatedAt, c.entry.ID, c.entry.CreatedAt)
+		}
+	})
+
+	t.Run("a reply and a status change: both stored, updated_at the later", func(t *testing.T) {
+		for _, replyFirst := range []bool{true, false} {
+			ticket := newTicket(domain.TicketStatusOpen)
+			release := lockTicket(ctx, t, db, ticket)
+			reply := func() (domain.TicketEntry, error) { return entries.AddMessage(ctx, ticket, author, "Mais um detalhe.") }
+			change := func() (domain.TicketEntry, error) {
+				return entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusOpen, domain.TicketStatusInProgress)
+			}
+			var r, c <-chan writeResult
+			if replyFirst {
+				r, c = start(t, 1, reply), start(t, 2, change)
+			} else {
+				c, r = start(t, 1, change), start(t, 2, reply)
+			}
+			release()
+			rr, cr := <-r, <-c
+			if rr.err != nil || cr.err != nil {
+				t.Fatalf("reply = %v, change = %v; want both stored (a reply never makes a change fail, P-6)", rr.err, cr.err)
+			}
+			last := cr.entry
+			if replyFirst != (rr.entry.ID < cr.entry.ID) {
+				t.Errorf("reply %d, change %d: not in lock order (reply first: %v)", rr.entry.ID, cr.entry.ID, replyFirst)
+			}
+			if rr.entry.ID > cr.entry.ID {
+				last = rr.entry
+			}
+			s := readTicketState(ctx, t, db, ticket)
+			if s.status != domain.TicketStatusInProgress || s.entries != 2 || !s.updatedAt.Equal(last.CreatedAt) ||
+				rr.entry.CreatedAt.After(s.updatedAt) || cr.entry.CreatedAt.After(s.updatedAt) {
+				t.Errorf("ticket %+v, reply at %v, change at %v; want em_andamento, 2 entries, updated_at of the later", s, rr.entry.CreatedAt, cr.entry.CreatedAt)
+			}
+		}
+	})
+
+	t.Run("updated_at never goes back while writes wait", func(t *testing.T) {
+		ticket := newTicket(domain.TicketStatusOpen)
+		release := lockTicket(ctx, t, db, ticket)
+		results := make([]<-chan writeResult, 0, 6)
+		for i := range 6 {
+			results = append(results, start(t, i+1, func() (domain.TicketEntry, error) {
+				return entries.AddMessage(ctx, ticket, author, fmt.Sprintf("Mensagem %d", i))
+			}))
+		}
+		release()
+		var stored []domain.TicketEntry
+		for _, ch := range results {
+			r := <-ch
+			if r.err != nil {
+				t.Fatalf("AddMessage: %v", r.err)
+			}
+			stored = append(stored, r.entry)
+		}
+		slices.SortFunc(stored, func(a, b domain.TicketEntry) int { return cmp.Compare(a.ID, b.ID) })
+		for i := 1; i < len(stored); i++ {
+			if stored[i].CreatedAt.Before(stored[i-1].CreatedAt) {
+				t.Errorf("entry %d at %v is before entry %d at %v", stored[i].ID, stored[i].CreatedAt, stored[i-1].ID, stored[i-1].CreatedAt)
+			}
+		}
+		if s := readTicketState(ctx, t, db, ticket); !s.updatedAt.Equal(stored[len(stored)-1].CreatedAt) {
+			t.Errorf("updated_at %v, want the last entry's %v", s.updatedAt, stored[len(stored)-1].CreatedAt)
+		}
+	})
+}

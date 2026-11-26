@@ -1,10 +1,25 @@
 # Frontend
 
 Next.js 16 app for the backend in [`../backend`](../backend/README.md):
-login, the role areas (`admin` and `comum`), user registration for
-administrators, and logout. The backend is the only authority on sessions
+login, the role areas (`admin` and `comum`, the latter with the user's
+profile), user registration for administrators, the ticket builder for
+`comum` users, and logout. The backend is the only authority on sessions
 and roles; this app talks to it through a same-origin proxy and never
 handles the session cookie in JavaScript.
+
+## Pages
+
+| Path | Who | What |
+|---|---|---|
+| `/` | everyone | Redirects: anonymous → `/login`, `admin` → `/administradores`, `comum` → `/usuarios`. |
+| `/login` | anonymous | Login form; `?next=` accepts only an exact protected path. |
+| `/administradores` | `admin` | Admin area. |
+| `/cadastro` | `admin` | User registration. |
+| `/usuarios` | `comum` | `comum` area: the user's profile (generated avatar, login, role, registration date) and the "Novo ticket" action. |
+| `/usuarios/tickets/novo` | `comum` | Ticket builder (below). |
+
+Any other path, including the old `/minha-conta`, `/admin` and
+`/cadastrar-usuarios`, is Next's 404.
 
 ## Prerequisites
 
@@ -80,7 +95,8 @@ The checks to run before every commit are listed in
   after login, discarded at logout. It is never written to Web Storage,
   IndexedDB, cookies or URLs.
 - **Protected pages** (`/administradores`, `/cadastro` for `admin`,
-  `/usuarios` for `comum`) check the session on the server in each page
+  `/usuarios` and `/usuarios/tickets/novo` for `comum`) check the session
+  on the server in each page
   (`src/services/session`). No cookie or a 401 → `/login?next=<page>`;
   another role → the "no permission" screen. The area pages also call
   their backend endpoint, whose 403 has the last word. A role change in
@@ -95,16 +111,77 @@ The checks to run before every commit are listed in
   not a backend error (backend down, proxy error) is shown as a connection
   error.
 
+## Ticket builder
+
+`/usuarios/tickets/novo` (`src/containers/ticket-builder`) creates a ticket
+with `POST /api/tickets` in three steps and a confirmation: **Tipo** (one of
+"Solicitar acesso", "Suporte em bug", "Deploy de projeto", "Outro"),
+**Detalhes** (the form of that type), **Revisão**, then the confirmation
+with the ticket number and the status "Aberto".
+
+- **Validation.** The zod schemas of each type (`schemas.ts`) apply the
+  same limits and formats as the backend (`internal/security/tickets.go`):
+  trimmed values, lengths in code points, no control characters in
+  single-line fields, `https://` repository URLs with a host and no
+  credentials. An invalid form sends nothing. The backend still validates
+  everything; its 400 and 422 are shown as a generic message.
+- **Plain text.** Values are rendered as React text only, never as HTML;
+  ESLint forbids `dangerouslySetInnerHTML` (`react/no-danger` is an error).
+- **No draft anywhere.** Typed values live only in React memory: never in
+  Web Storage, IndexedDB, cookies or the URL. The URL carries only the
+  step (`?etapa=detalhes|revisao|confirmacao`), so the browser's Back and
+  Forward move one step and never re-send. A reload or an expired session
+  loses the data, which the form says.
+- **Leave guard.** With unsent data, closing or reloading the tab asks the
+  browser's `beforeunload` prompt, and an internal link or "Sair" shows an
+  inline "Sair sem enviar?" bar instead of leaving.
+- **Send.** One request per click (a second click is ignored); the send
+  progress ("Validando campos", "Registrando ticket", "Preparando
+  confirmação") only marks what really happened and never delays the
+  answer. Errors (422, 429, 403, 500, network) keep the data and allow
+  sending again; a 429 is not retried by the client. With reduced motion
+  the same states appear without animation.
+- **Titles.** `ticketTitle` (`src/domain/tickets`) builds the title the
+  server will store (BR-3), from the same test vectors as the Go service.
+
+## Design rules
+
+- **Look.** Poppins, light theme only, thin borders, one blue accent
+  (`--brand`) used only by the send progress and the active step.
+- **Hard rules**, checked by `src/test/design-rules.test.ts` over every
+  `src/**/*.{ts,tsx,css}` file (comments included): radius `rounded-sm`
+  only (plus `rounded-full` and `rounded-none`), no `shadow-*` or
+  `box-shadow`, no gradients, no `tracking-*` classes. The shadow tokens in
+  `globals.css` are empty shadows.
+- **Components.** shadcn first (`src/components/ui/shadcn`, adapted to the
+  rules above). Where shadcn has no fit, only affectUI components whose
+  page says "Free and open source (MIT)" may be added, with their styles
+  adapted to the tokens; anything marked "Part of affectUI Pro" is
+  forbidden. No affectUI component is used today.
+- **Avatars** are generated in the browser from the login (initials and a
+  figure in an inline SVG, `src/domain/avatar`): no image, no request to
+  another origin.
+
 ## Tests
 
 - **Unit** (`pnpm test`, Vitest in Node): the API client and CSRF token
   rules, error messages, the server session rules, the `next` filter after
-  login, form validation, the dev launcher, and a check that
-  `src/lib/api/contract` matches `backend/api/openapi.json`.
+  login and the root redirect, form validation (including the ticket
+  schemas with the backend's boundary values), the ticket titles, the
+  builder's reducer, history and send rules, the avatar (with an AA
+  contrast check of every tint), components rendered to static markup
+  with `react-dom/server` (no DOM library), the design guard, the dev
+  launcher, and a check that `src/lib/api/contract` matches
+  `backend/api/openapi.json`.
 - **End-to-end** (`pnpm e2e`, Playwright and Chromium) against the real
   backend: the proxy and cookie attributes, login, the role matrix of the
-  pages, registration (including a taken login and an expired session),
-  a role change, and logout (including the Back button).
+  pages, the root redirect and the old paths (404), the header on small
+  screens, registration (including a taken login and an expired session),
+  a role change, logout (including the Back button), the profile on
+  `/usuarios`, and the ticket builder (each type to the confirmation,
+  field errors with no request, HTML shown as text, Back and reload,
+  the leave guard, each send error simulated with `page.route`, reduced
+  motion, nothing left in browser storage).
   - Chromium trusts only the backend certificate's public key
     (`--ignore-certificate-errors-spki-list`); any other certificate error
     fails the tests.

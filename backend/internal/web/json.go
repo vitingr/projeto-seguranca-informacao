@@ -48,6 +48,8 @@ func errorCode(status int) string {
 		return "conflict"
 	case http.StatusUnprocessableEntity:
 		return "unprocessable_entity"
+	case http.StatusTooManyRequests:
+		return "too_many_requests"
 	default:
 		return "internal"
 	}
@@ -67,6 +69,8 @@ func defaultMessage(status int) string {
 		return "O recurso já existe."
 	case http.StatusUnprocessableEntity:
 		return "Dados inválidos. Revise os campos e tente novamente."
+	case http.StatusTooManyRequests:
+		return "Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente."
 	default:
 		return "Ocorreu um erro inesperado. Tente novamente mais tarde."
 	}

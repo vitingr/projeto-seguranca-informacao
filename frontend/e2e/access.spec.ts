@@ -105,3 +105,29 @@ test.describe('admin', () => {
     await expect(page).toHaveURL('/administradores')
   })
 })
+
+// The pages moved to the paths the assignment requires (spec AC-0.7): the
+// old paths are gone for everyone, with no redirect.
+test.describe('old page paths', () => {
+  const OLD_PATHS = ['/minha-conta', '/admin', '/cadastrar-usuarios']
+  const who = {
+    admin: (page: Page) => loginAs(page, seedAdmin(), '/administradores'),
+    anonymous: async () => {},
+    comum: (page: Page) => loginAs(page, comumUser(), '/usuarios')
+  }
+
+  for (const [name, signIn] of Object.entries(who)) {
+    test(`answer 404 for ${name}`, async ({ page }) => {
+      await signIn(page)
+      for (const path of OLD_PATHS) {
+        const response = await page.goto(path)
+        expect(response?.status(), path).toBe(404)
+        await expect(page).toHaveURL(path)
+        await expect(page.getByTestId('area')).toHaveCount(0)
+        await expect(page.getByTestId('forbidden')).toHaveCount(0)
+        await expect(page.getByLabel('Login')).toHaveCount(0)
+        await expect(page.getByLabel('Papel')).toHaveCount(0)
+      }
+    })
+  }
+})

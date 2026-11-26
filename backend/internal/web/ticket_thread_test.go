@@ -472,6 +472,117 @@ func TestReplyLogsNoText(t *testing.T) {
 	}
 }
 
+// TestReplyAdminTicket covers AC-5.4 (server), Q-6, S-13 and BR-8 on R9: 201
+// with the admin entry; the author's thread shows it on side support with
+// no login; the ticket moves to the top of "Meus tickets" and the queue.
+func TestReplyAdminTicket(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeBug, "Bug em Portal")
+	newer := a.store.seed(trackMariaID, domain.TicketTypeOther, "Mais novo")
+	rr := a.replyAs(t, anaLogin, fmt.Sprintf("/api/administradores/tickets/%d/mensagens", ticket.ID), replyBody(" Estamos vendo. "), nil)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201 (%s)", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["side"] != "support" || body["mine"] != true || body["actor_login"] != anaLogin || body["text"] != "Estamos vendo." {
+		t.Errorf("entry = %v", body)
+	}
+	if a.store.ticket(ticket.ID).Status != domain.TicketStatusOpen {
+		t.Error("an admin reply changed the status")
+	}
+
+	author := a.mustLogin(t, comumLogin)
+	thread := a.send(t, http.MethodGet, fmt.Sprintf("/api/tickets/%d/mensagens", ticket.ID), "", author, nil)
+	if strings.Contains(thread.Body.String(), anaLogin) || strings.Contains(thread.Body.String(), "actor") {
+		t.Errorf("the author's thread names the admin: %s", thread.Body.String())
+	}
+	_, tb := a.get(t, fmt.Sprintf("/api/tickets/%d/mensagens", ticket.ID), author)
+	if e := entriesOf(t, tb); len(e) != 1 || e[0]["side"] != "support" || e[0]["mine"] != false {
+		t.Errorf("the author's thread = %v, want one support entry", e)
+	}
+
+	_, own := a.get(t, "/api/tickets", author)
+	_, queue := a.get(t, "/api/administradores/tickets", a.mustLogin(t, flowLogin))
+	for name, page := range map[string]map[string]any{"own list": own, "queue": queue} {
+		if ids := itemIDs(t, page); len(ids) != 2 || ids[0] != ticket.ID || ids[1] != newer.ID {
+			t.Errorf("%s order = %v, want the replied ticket %d first", name, ids, ticket.ID)
+		}
+	}
+}
+
+// TestReplyAdminRefusals covers BR-5, S-5, S-6, S-8 on R9, like R4.
+func TestReplyAdminRefusals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       string
+		headers    map[string]string
+		closed     bool
+		wantStatus int
+	}{
+		{name: "server key", body: `{"texto":"oi","ticket_id":1}`, wantStatus: http.StatusBadRequest},
+		{name: "empty text", body: replyBody("  "), wantStatus: http.StatusUnprocessableEntity},
+		{name: "closed", body: replyBody("oi"), closed: true, wantStatus: http.StatusConflict},
+		{name: "no token", body: replyBody("oi"), headers: map[string]string{security.CSRFHeaderName: ""}, wantStatus: http.StatusForbidden},
+		{name: "wrong token", body: replyBody("oi"), headers: map[string]string{security.CSRFHeaderName: "AAAAAAAAAAAAAAAAAAAAAAAAAA"}, wantStatus: http.StatusForbidden},
+		{name: "cross-site", body: replyBody("oi"), headers: map[string]string{"Sec-Fetch-Site": "cross-site"}, wantStatus: http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			a := newTrackingApp(t, nil)
+			ticket := a.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida")
+			if tt.closed {
+				a.store.setStatus(ticket.ID, domain.TicketStatusClosed)
+			}
+			rr := a.replyAs(t, flowLogin, fmt.Sprintf("/api/administradores/tickets/%d/mensagens", ticket.ID), tt.body, tt.headers)
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d (%s)", rr.Code, tt.wantStatus, rr.Body.String())
+			}
+			if tt.closed {
+				checkErrorBody(t, rr, "conflict", msgTicketClosed)
+			}
+			if _, entries := a.store.sizes(); entries != 0 {
+				t.Errorf("%d entries stored, want 0", entries)
+			}
+		})
+	}
+}
+
+// TestReplyAdminRateLimit is S-9 on R9: an admin's quota is their own (30
+// a minute, the 31st is 429); the author keeps theirs.
+func TestReplyAdminRateLimit(t *testing.T) {
+	t.Parallel()
+
+	var logBuf bytes.Buffer
+	a := newTrackingApp(t, &logBuf)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida")
+	path := fmt.Sprintf("/api/administradores/tickets/%d/mensagens", ticket.ID)
+	cookie, token := a.loginAs(t, flowLogin)
+	headers := map[string]string{security.CSRFHeaderName: token}
+	const secret = "texto-do-suporte" //nolint:gosec // a message text to look for in the log, not a credential
+	for i := 1; i <= security.MessageCreateLimit; i++ {
+		if rr := a.send(t, http.MethodPost, path, replyBody(fmt.Sprintf("%s %d", secret, i)), cookie, headers); rr.Code != http.StatusCreated {
+			t.Fatalf("reply %d: status = %d", i, rr.Code)
+		}
+	}
+	if rr := a.send(t, http.MethodPost, path, replyBody(secret), cookie, headers); rr.Code != http.StatusTooManyRequests || rr.Header().Get("Retry-After") == "" {
+		t.Errorf("reply 31: status = %d, Retry-After %q; want 429 with Retry-After", rr.Code, rr.Header().Get("Retry-After"))
+	}
+	if rr := a.replyAs(t, comumLogin, fmt.Sprintf("/api/tickets/%d/mensagens", ticket.ID), replyBody("oi"), nil); rr.Code != http.StatusCreated {
+		t.Errorf("the author after the admin's 31: status = %d, want 201", rr.Code)
+	}
+	if strings.Contains(logBuf.String(), secret) {
+		t.Error("the log holds the admin's text")
+	}
+}
+
 func TestNewHandlerRequiresMessageLimiter(t *testing.T) {
 	t.Parallel()
 

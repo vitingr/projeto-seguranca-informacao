@@ -611,6 +611,45 @@
           "404": { "$ref": "#/components/responses/TicketNotFound" },
           "500": { "$ref": "#/components/responses/InternalError" }
         }
+      },
+      "post": {
+        "operationId": "replyAdminTicket",
+        "tags": ["admin-tickets"],
+        "summary": "Reply on a ticket of the queue",
+        "description": "Adds a message of the calling administrator to any ticket's thread, with the rules of `POST /api/tickets/{id}/mensagens` (body, 400, 409, 422). Every administrator reply is visible to the author, who sees it on the `support` side with no login. It moves `updated_at` and never the status.\n\n**404** (`not_found`): the ticket does not exist or the id is malformed.\n\n**429** (`too_many_requests`): 30 reply requests in 60 seconds by the same administrator (their own quota, in the same limiter as the comum replies).",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateMessageRequest" },
+              "example": { "texto": "Estamos analisando. Retornamos ainda hoje." }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored message, as it appears in the admin thread.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminThreadEntry" },
+                "example": { "id": 11, "kind": "message", "side": "support", "mine": true, "actor_login": "ana.lima", "text": "Estamos analisando. Retornamos ainda hoje.", "created_at": "2026-11-26T09:30:00.123456Z" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "409": { "$ref": "#/components/responses/TicketClosed" },
+          "422": { "$ref": "#/components/responses/InvalidMessage" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
       }
     }
   },

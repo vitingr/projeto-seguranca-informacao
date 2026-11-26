@@ -130,6 +130,19 @@ func (h *handlers) replyOwnTicket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// replyAdminTicket stores an admin's message on any ticket (spec 003 AC-5.4).
+// Every admin reply is visible to the author, as "Suporte" (Q-6). It shares
+// the message limiter, whose quota is per user.
+func (h *handlers) replyAdminTicket(w http.ResponseWriter, r *http.Request) {
+	p, ref, ok := h.ticketCaller(w, r)
+	if !ok {
+		return
+	}
+	if entry, ok := h.reply(w, r, p, ref); ok {
+		writeJSON(w, http.StatusCreated, newAdminThreadEntry(&entry, ref, p.UserID))
+	}
+}
+
 // reply decodes and stores a message of p on the ticket ref. A body that is
 // not well-formed is 400, a text that breaks the message rule 422, a
 // "fechado" ticket 409; nothing is stored then. The log holds ids and a

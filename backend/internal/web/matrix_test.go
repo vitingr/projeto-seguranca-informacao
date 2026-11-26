@@ -89,9 +89,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusUnauthorized},
 		{comumLogin, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusForbidden},
 		{flowLogin, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusOK},
+		{anonymous, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusForbidden},
+		{flowLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusCreated},
 	}
-	if len(tests) != 42 {
-		t.Fatalf("matrix has %d cells, want 42 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 45 {
+		t.Fatalf("matrix has %d cells, want 45 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
@@ -120,7 +123,7 @@ func TestAccessMatrix(t *testing.T) {
 					body = matrixCadastroBody
 				case "/api/tickets":
 					body = matrixTicketBody
-				case matrixTicket + "/mensagens":
+				case matrixTicket + "/mensagens", matrixAdminTicket + "/mensagens":
 					body = matrixReplyBody
 				}
 			}

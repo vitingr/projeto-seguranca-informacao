@@ -1,0 +1,28 @@
+info:
+  name: admin-reply-comum
+  type: http
+  seq: 219
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Pela rota do suporte"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-4: the author cannot write as the support team.
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+          expect(res.getBody().error).to.equal("forbidden");
+        });

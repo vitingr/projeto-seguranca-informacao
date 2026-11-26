@@ -1,0 +1,352 @@
+info:
+  name: Reply on a ticket of the queue
+  type: http
+  seq: 5
+  tags:
+    - admin-tickets
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Estamos analisando. Retornamos ainda hoje."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 201 Response
+    description: The stored message, as it appears in the admin thread.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": 11,
+            "kind": "message",
+            "side": "support",
+            "mine": true,
+            "actor_login": "ana.lima",
+            "text": "Estamos analisando. Retornamos ainda hoje.",
+            "created_at": "2026-11-26T09:30:00.123456Z"
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Recurso não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 409 Response
+    description: "The ticket is `fechado`: it accepts no new message."
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "conflict",
+            "message": "Este ticket foi fechado e não aceita novas mensagens.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 422 Response
+    description: The text breaks the message rule. The answer never quotes it.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unprocessable_entity",
+            "message": "Dados inválidos. Revise os campos e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 429 Response
+    description: Too many requests by this user in a short time. Nothing was done.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "too_many_requests",
+            "message": "Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "texto": "Estamos analisando. Retornamos ainda hoje."
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Adds a message of the calling administrator to any ticket's thread, with the rules of `POST /api/tickets/{id}/mensagens` (body, 400, 409, 422). Every administrator reply is visible to the author, who sees it on the `support` side with no login. It moves `updated_at` and never the status.
+
+  **404** (`not_found`): the ticket does not exist or the id is malformed.
+
+  **429** (`too_many_requests`): 30 reply requests in 60 seconds by the same administrator (their own quota, in the same limiter as the comum replies).

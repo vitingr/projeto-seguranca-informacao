@@ -162,6 +162,13 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind 4 leaves buttons with the default cursor. Only enabled buttons
+     get the pointer; utilities such as `disabled:cursor-not-allowed` still
+     win, since they live in a later layer. */
+  button:not(:disabled):not([aria-disabled='true']),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
 }
 
 /* Send progress (spec AC-5.5 to AC-5.10, after criacao-tickety.mp4). Used

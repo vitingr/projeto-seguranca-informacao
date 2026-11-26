@@ -583,6 +583,174 @@ func TestReplyAdminRateLimit(t *testing.T) {
 	}
 }
 
+func statusBody(from, to string) string {
+	return fmt.Sprintf(`{"de":%q,"para":%q}`, from, to)
+}
+
+// patchStatus sends a status change as login with a valid CSRF token, plus
+// headers.
+func (a trackingApp) patchStatus(t *testing.T, login string, ticket domain.TicketID, body string, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	cookie, token := a.loginAs(t, login)
+	h := map[string]string{security.CSRFHeaderName: token}
+	maps.Copy(h, headers)
+	return a.send(t, http.MethodPatch, fmt.Sprintf("/api/administradores/tickets/%d/status", ticket), body, cookie, h)
+}
+
+// TestChangeStatus covers AC-6.2, AC-6.5, BR-3, BR-4, BR-8 on R10: the path
+// aberto → em_andamento → resolvido → fechado, each answer with the new
+// status and last update, one status_change entry per change.
+func TestChangeStatus(t *testing.T) {
+	t.Parallel()
+
+	var logBuf bytes.Buffer
+	a := newTrackingApp(t, &logBuf)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeBug, "Bug em Portal")
+	steps := [][2]string{{"aberto", "em_andamento"}, {"em_andamento", "resolvido"}, {"resolvido", "em_andamento"}, {"em_andamento", "fechado"}}
+	last := ticket.UpdatedAt
+	for i, s := range steps {
+		rr := a.patchStatus(t, flowLogin, ticket.ID, statusBody(s[0], s[1]), nil)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s → %s: status = %d (%s)", s[0], s[1], rr.Code, rr.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if got := keysOf(body); !slices.Equal(got, []string{"id", "status", "updated_at"}) || body["status"] != s[1] || body["id"] != float64(ticket.ID) {
+			t.Errorf("%s → %s: body = %v", s[0], s[1], body)
+		}
+		after := a.store.ticket(ticket.ID)
+		if string(after.Status) != s[1] || !after.UpdatedAt.After(last) {
+			t.Errorf("step %d: ticket = %s at %v, want %s after %v", i, after.Status, after.UpdatedAt, s[1], last)
+		}
+		last = after.UpdatedAt
+	}
+	_, thread := a.get(t, fmt.Sprintf("/api/tickets/%d/mensagens", ticket.ID), a.mustLogin(t, comumLogin))
+	entries := entriesOf(t, thread)
+	if len(entries) != len(steps) {
+		t.Fatalf("%d entries, want %d status changes", len(entries), len(steps))
+	}
+	for i, e := range entries {
+		if e["kind"] != "status_change" || e["from"] != steps[i][0] || e["to"] != steps[i][1] || e["side"] != "support" {
+			t.Errorf("entry %d = %v", i, e)
+		}
+	}
+	logged := logBuf.String()
+	if !strings.Contains(logged, `"msg":"ticket status changed"`) || !strings.Contains(logged, `"from":"resolvido","to":"em_andamento"`) {
+		t.Errorf("log has no status change with from and to:\n%s", logged)
+	}
+}
+
+// TestChangeStatusRefusals covers AC-6.3, AC-6.4, AC-6.5, S-4, S-5, S-6,
+// S-7, S-8 on R10: every refused change leaves the ticket and the thread
+// as they were.
+func TestChangeStatusRefusals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		login      string
+		status     domain.TicketStatus // the ticket's current status
+		body       string
+		headers    map[string]string
+		wantStatus int
+		wantMsg    string
+	}{
+		{name: "stale de", login: flowLogin, status: domain.TicketStatusInProgress, body: statusBody("aberto", "fechado"), wantStatus: http.StatusConflict, wantMsg: msgStaleStatus},
+		{name: "from fechado", login: flowLogin, status: domain.TicketStatusClosed, body: statusBody("fechado", "aberto"), wantStatus: http.StatusConflict, wantMsg: msgStaleStatus},
+		{name: "from fechado to fechado", login: flowLogin, status: domain.TicketStatusClosed, body: statusBody("fechado", "fechado"), wantStatus: http.StatusConflict, wantMsg: msgStaleStatus},
+		{name: "pair never allowed", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "resolvido"), wantStatus: http.StatusUnprocessableEntity, wantMsg: msgDadosInvalidos},
+		{name: "same status", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "aberto"), wantStatus: http.StatusUnprocessableEntity, wantMsg: msgDadosInvalidos},
+		{name: "back to aberto", login: flowLogin, status: domain.TicketStatusInProgress, body: statusBody("em_andamento", "aberto"), wantStatus: http.StatusUnprocessableEntity, wantMsg: msgDadosInvalidos},
+		{name: "unknown de", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("open", "fechado"), wantStatus: http.StatusUnprocessableEntity, wantMsg: msgDadosInvalidos},
+		{name: "unknown para", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "Fechado"), wantStatus: http.StatusUnprocessableEntity, wantMsg: msgDadosInvalidos},
+		{name: "missing para", login: flowLogin, status: domain.TicketStatusOpen, body: `{"de":"aberto"}`, wantStatus: http.StatusBadRequest, wantMsg: msgBadRequest},
+		{name: "actor", login: flowLogin, status: domain.TicketStatusOpen, body: `{"de":"aberto","para":"fechado","actor":1}`, wantStatus: http.StatusBadRequest, wantMsg: msgBadRequest},
+		{name: "updated_at", login: flowLogin, status: domain.TicketStatusOpen, body: `{"de":"aberto","para":"fechado","updated_at":"2026-01-01T00:00:00Z"}`, wantStatus: http.StatusBadRequest, wantMsg: msgBadRequest},
+		{name: "id", login: flowLogin, status: domain.TicketStatusOpen, body: `{"de":"aberto","para":"fechado","id":2}`, wantStatus: http.StatusBadRequest, wantMsg: msgBadRequest},
+		{name: "the author", login: comumLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "fechado"), wantStatus: http.StatusForbidden, wantMsg: msgForbidden},
+		{name: "no CSRF token", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "fechado"), headers: map[string]string{security.CSRFHeaderName: ""}, wantStatus: http.StatusForbidden, wantMsg: msgForbidden},
+		{name: "wrong CSRF token", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "fechado"), headers: map[string]string{security.CSRFHeaderName: "AAAAAAAAAAAAAAAAAAAAAAAAAA"}, wantStatus: http.StatusForbidden, wantMsg: msgForbidden},
+		{name: "cross-site", login: flowLogin, status: domain.TicketStatusOpen, body: statusBody("aberto", "fechado"), headers: map[string]string{"Sec-Fetch-Site": "cross-site"}, wantStatus: http.StatusForbidden, wantMsg: msgForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var logBuf bytes.Buffer
+			a := newTrackingApp(t, &logBuf)
+			ticket := a.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida")
+			a.store.setStatus(ticket.ID, tt.status)
+			before := a.store.ticket(ticket.ID)
+
+			rr := a.patchStatus(t, tt.login, ticket.ID, tt.body, tt.headers)
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d (%s)", rr.Code, tt.wantStatus, rr.Body.String())
+			}
+			var body errorResponse
+			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil || body.Message != tt.wantMsg {
+				t.Errorf("message = %q (%v), want %q", body.Message, err, tt.wantMsg)
+			}
+			after := a.store.ticket(ticket.ID)
+			if after.Status != before.Status || !after.UpdatedAt.Equal(before.UpdatedAt) {
+				t.Errorf("ticket changed: %s at %v", after.Status, after.UpdatedAt)
+			}
+			if _, entries := a.store.sizes(); entries != 0 {
+				t.Errorf("%d entries written, want 0", entries)
+			}
+			for _, raw := range []string{"open", "Fechado"} {
+				if strings.Contains(tt.body, raw) && strings.Contains(logBuf.String(), raw) {
+					t.Errorf("the log holds the code sent %q", raw)
+				}
+			}
+		})
+	}
+}
+
+// TestChangeStatusRateLimit is S-9 on R10: 30 status requests a minute per
+// admin, valid or not; the 31st is 429; replies do not use the status
+// quota, and status requests do not use the reply quota.
+func TestChangeStatusRateLimit(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida")
+	cookie, token := a.loginAs(t, flowLogin)
+	headers := map[string]string{security.CSRFHeaderName: token}
+	path := fmt.Sprintf("/api/administradores/tickets/%d/status", ticket.ID)
+	for i := 1; i <= security.StatusChangeLimit; i++ {
+		if rr := a.send(t, http.MethodPatch, path, statusBody("resolvido", "fechado"), cookie, headers); rr.Code != http.StatusConflict {
+			t.Fatalf("request %d: status = %d, want 409 (stale de)", i, rr.Code)
+		}
+	}
+	rr := a.send(t, http.MethodPatch, path, statusBody("aberto", "em_andamento"), cookie, headers)
+	if rr.Code != http.StatusTooManyRequests || rr.Header().Get("Retry-After") == "" {
+		t.Fatalf("request 31: status = %d, want 429 with Retry-After", rr.Code)
+	}
+	if a.store.ticket(ticket.ID).Status != domain.TicketStatusOpen {
+		t.Error("the 31st request changed the status")
+	}
+	if rr := a.send(t, http.MethodPost, fmt.Sprintf("/api/administradores/tickets/%d/mensagens", ticket.ID), replyBody("oi"), cookie, headers); rr.Code != http.StatusCreated {
+		t.Errorf("a reply after the status quota: status = %d, want 201", rr.Code)
+	}
+	if ok, _ := a.messages.Allow(trackAdminID); !ok {
+		t.Error("the status requests used the reply quota")
+	}
+}
+
+func TestNewHandlerRequiresStatusLimiter(t *testing.T) {
+	t.Parallel()
+
+	h, _ := newTestApp(t)
+	d := Deps{
+		Logger: h.logger, Security: h.sec, Auth: h.auth, Users: h.users, Tickets: h.tickets,
+		TicketLimiter: h.ticketLimiter, MessageLimiter: h.messageLimiter,
+	}
+	if _, err := NewHandler(d); err == nil {
+		t.Fatal("NewHandler without StatusLimiter must fail: the status route would answer 500")
+	}
+}
+
 func TestNewHandlerRequiresMessageLimiter(t *testing.T) {
 	t.Parallel()
 

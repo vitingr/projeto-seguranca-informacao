@@ -1,0 +1,35 @@
+info:
+  name: login-rla
+  type: http
+  seq: 601
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.rla",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // status-rate-limit sends its first 30 requests with
+        // bru.sendRequest, which does not use the cookie jar.
+        const cookies = [].concat(res.getHeader("set-cookie") || []);
+        const session = cookies.find((c) => c.startsWith("__Host-session="));
+        bru.setVar("rlaCookie", session ? session.split(";")[0] : "");
+    - type: tests
+      code: |-
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().role).to.equal("admin");
+        });

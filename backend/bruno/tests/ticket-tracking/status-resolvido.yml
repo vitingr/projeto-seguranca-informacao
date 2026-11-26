@@ -1,0 +1,29 @@
+info:
+  name: status-resolvido
+  type: http
+  seq: 251
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "em_andamento",
+        "para": "resolvido"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-6.2, BR-3: em_andamento → resolvido.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().status).to.equal("resolvido");
+        });

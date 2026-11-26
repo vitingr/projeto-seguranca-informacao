@@ -1,0 +1,28 @@
+info:
+  name: admin-reply-closed-409
+  type: http
+  seq: 256
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Mais uma mensagem"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // BR-5: a fechado ticket accepts no message, from anyone.
+        test("status is 409", function () {
+          expect(res.getStatus()).to.equal(409);
+          expect(res.getBody().message).to.equal("Este ticket foi fechado e não aceita novas mensagens.");
+        });

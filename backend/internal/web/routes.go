@@ -57,6 +57,7 @@ func (h *handlers) routes() []route {
 		{http.MethodGet, "/api/administradores/tickets/{id}", chain(http.HandlerFunc(h.getAdminTicket), h.sec.TicketAccess), admin},
 		{http.MethodGet, "/api/administradores/tickets/{id}/mensagens", chain(http.HandlerFunc(h.getAdminThread), h.sec.TicketAccess), admin},
 		{http.MethodPost, "/api/administradores/tickets/{id}/mensagens", chain(http.HandlerFunc(h.replyAdminTicket), h.sec.RateLimit(h.messageLimiter), h.sec.TicketAccess), admin},
+		{http.MethodPatch, "/api/administradores/tickets/{id}/status", chain(http.HandlerFunc(h.changeTicketStatus), h.sec.RateLimit(h.statusLimiter), h.sec.TicketAccess), admin},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

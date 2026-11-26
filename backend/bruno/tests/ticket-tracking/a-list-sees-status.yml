@@ -1,0 +1,23 @@
+info:
+  name: a-list-sees-status
+  type: http
+  seq: 521
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-6.7, BR-8: A sees the new status on the next load; the close
+        // (255) is the latest change, so ticketA1 is first again; 520
+        // changed nothing.
+        test("ticketA1 is fechado and first, ticketA2 still aberto", function () {
+          const items = res.getBody().items;
+          expect(items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA1"), bru.getVar("ticketA2")]);
+          expect(items[0].status).to.equal("fechado");
+          expect(items[1].status).to.equal("aberto");
+        });

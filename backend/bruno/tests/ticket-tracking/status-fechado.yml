@@ -1,0 +1,30 @@
+info:
+  name: status-fechado
+  type: http
+  seq: 255
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "resolvido",
+        "para": "fechado"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-6.5: resolvido → fechado; the refusals of 252-254 changed
+        // nothing, so the ticket was still resolvido.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().status).to.equal("fechado");
+        });

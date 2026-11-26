@@ -92,9 +92,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusUnauthorized},
 		{comumLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusForbidden},
 		{flowLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusCreated},
+		{anonymous, http.MethodPatch, matrixAdminTicket + "/status", http.StatusUnauthorized},
+		{comumLogin, http.MethodPatch, matrixAdminTicket + "/status", http.StatusForbidden}, // the author
+		{flowLogin, http.MethodPatch, matrixAdminTicket + "/status", http.StatusOK},
 	}
-	if len(tests) != 45 {
-		t.Fatalf("matrix has %d cells, want 45 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 48 {
+		t.Fatalf("matrix has %d cells, want 48 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
@@ -116,7 +119,7 @@ func TestAccessMatrix(t *testing.T) {
 
 			body := ""
 			headers := map[string]string{}
-			if tt.method == http.MethodPost {
+			if tt.method != http.MethodGet {
 				headers[security.CSRFHeaderName] = token
 				switch tt.path {
 				case "/api/cadastro":
@@ -125,6 +128,8 @@ func TestAccessMatrix(t *testing.T) {
 					body = matrixTicketBody
 				case matrixTicket + "/mensagens", matrixAdminTicket + "/mensagens":
 					body = matrixReplyBody
+				case matrixAdminTicket + "/status":
+					body = `{"de":"aberto","para":"em_andamento"}`
 				}
 			}
 

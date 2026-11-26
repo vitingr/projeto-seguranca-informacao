@@ -10,6 +10,13 @@
 # BRUNO_COMUM_LOGIN + ".rlm" (registered in 6, 400-490): 30 replies with
 # bru.sendRequest, then the 31st gets 429.
 #
+# The seed admin works A's tickets at 200-390: the queue with filters, the
+# admin page and thread, a reply, the status path aberto -> em_andamento ->
+# resolvido -> fechado with the 409, 422 and 403 refusals. A comes back at
+# 500-590 (the support reply as "support", status 403, reply on fechado
+# 409). The status rate limit runs with an admin of its own,
+# BRUNO_COMUM_LOGIN + ".rla" (registered in 7, 600-690).
+#
 # The gaps in seq leave room for the later requests of the stack. The Go
 # tests in internal/web cover every refusal class and check that nothing is
 # stored; these requests check the running stack.

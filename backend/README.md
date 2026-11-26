@@ -121,11 +121,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `GET /api/administradores/tickets/{id}` | 401 | 403 | 200 |
 | `GET /api/administradores/tickets/{id}/mensagens` | 401 | 403 | 200 |
 | `POST /api/administradores/tickets/{id}/mensagens` | 401 | 403 | 201 |
+| `PATCH /api/administradores/tickets/{id}/status` | 401 | 403 | 200 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
 They do not create tickets either, nor read "Meus tickets". The Go test
 `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 45 cells (the `{id}` cells use a
+`tests/access-matrix` both cover the 48 cells (the `{id}` cells use a
 ticket of the comum user).
 
 Routes with a ticket id also run `security.TicketAccess`, after the role
@@ -226,6 +227,20 @@ Administrators work the tickets on their own routes (comum users get 403):
   administrator's reply with the rules of the comum reply. The author sees
   it on the `support` side, with no login. Replies of both sides share one
   limiter, with a quota per user.
+- `PATCH /api/administradores/tickets/{id}/status` with `{"de", "para"}`
+  (`de` is the status the administrator saw) answers 200 with
+  `{id, status, updated_at}` and records the change in the thread. Allowed:
+  `aberto` → `em_andamento` or `fechado`; `em_andamento` → `resolvido` or
+  `fechado`; `resolvido` → `em_andamento` or `fechado`; `fechado` is final.
+  409 when the status is not `de` any more or `de` is `fechado` (nothing
+  changes); 422 for an unknown code or a pair never allowed (also
+  `de` = `para`); 400 for any other key; 429 after 30 requests in 60
+  seconds by the same administrator. The author gets 403.
+
+Messages and status changes are logged at Info (`ticket message created`,
+`ticket status changed` with `from` and `to`) and their refusals with a
+fixed reason (`ticket message refused`, `ticket status refused`), with the
+ticket and actor ids; never a message text or a code the client sent.
 
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.
@@ -239,8 +254,9 @@ password with `crypto/rand` for every run and passes them to Bruno as the
 as arguments. `tests/tickets` registers a second one, the same login plus
 `.rl`, for the rate limit test, and `tests/ticket-tracking` registers users
 A and B, the same login plus `.a` and `.b`, and the reply rate limit user,
-plus `.rlm`. So every run leaves five `e2e.*` users in the database, with
-the tickets and messages they created.
+plus `.rlm`, and the administrator of the status rate limit, plus `.rla`.
+So every run leaves six `e2e.*` users in the database, with the tickets,
+messages and status changes they created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 
@@ -288,7 +304,9 @@ Fixed in code:
   container, so this is accepted. If the backend ever scales out, the fix is
   a shared store for the counts (PostgreSQL or Redis) behind the same
   `RateLimiter` API. The reply limit of spec 003 (`MessageCreateLimit`,
-  30 per user in 60 seconds) has the same limitation.
+  30 per user in 60 seconds) and the status change limit
+  (`StatusChangeLimit`, 30 per administrator in 60 seconds) have the same
+  limitation.
 
 ## Go version
 

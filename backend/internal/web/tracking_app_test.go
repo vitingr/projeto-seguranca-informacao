@@ -387,7 +387,19 @@ func trackingDeps(t *testing.T, logger *slog.Logger, sec *security.Security, tic
 		Logger: logger, Security: sec, Auth: trackingAuth{}, Users: fakeUsers{},
 		Tickets: tickets, TicketLimiter: newTicketLimiter(t, sec),
 		MessageLimiter: newMessageLimiter(t, sec),
+		StatusLimiter:  newStatusLimiter(t, sec),
 	}
+}
+
+// newStatusLimiter is the production limiter of status changes: 30 per
+// admin in any 60-second window (spec 003 S-9).
+func newStatusLimiter(t *testing.T, sec *security.Security) *security.RateLimiter {
+	t.Helper()
+	l, err := sec.NewRateLimiter(security.StatusChangeLimit, security.StatusChangeWindow)
+	if err != nil {
+		t.Fatalf("NewRateLimiter: %v", err)
+	}
+	return l
 }
 
 // newMessageLimiter is the production limiter of replies: 30 per user in

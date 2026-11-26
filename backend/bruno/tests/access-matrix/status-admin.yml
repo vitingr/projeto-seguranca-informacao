@@ -1,0 +1,35 @@
+info:
+  name: status-admin
+  type: http
+  seq: 320
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "em_andamento"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-6.2: the admin moves the comum user's ticket on; the
+        // ticket was still aberto (220 was refused).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the new status", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["id", "status", "updated_at"]);
+          expect(body.id).to.equal(bru.getVar("matrixTicketId"));
+          expect(body.status).to.equal("em_andamento");
+        });

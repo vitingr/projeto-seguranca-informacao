@@ -9,6 +9,11 @@ import (
 // BR-5, AC-3.7).
 const msgTicketClosed = "Este ticket foi fechado e não aceita novas mensagens."
 
+// msgStaleStatus is the 409 of a status change whose status the admin saw
+// is not the ticket's any more, or that starts from "fechado" (spec 003
+// BR-5, BR-7, AC-6.3).
+const msgStaleStatus = "O status deste ticket foi alterado por outra pessoa."
+
 type errorResponse struct {
 	Error     string `json:"error"`
 	Message   string `json:"message"`

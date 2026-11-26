@@ -83,6 +83,7 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 		Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{},
 		Tickets: service.NewTickets(newMemTicketRepo(), sec), TicketLimiter: newTicketLimiter(t, sec),
 		MessageLimiter: newMessageLimiter(t, sec),
+		StatusLimiter:  newStatusLimiter(t, sec),
 	}
 	h, err := NewHandler(deps)
 	if err != nil {
@@ -92,6 +93,7 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 		logger: logger, sec: sec, auth: deps.Auth, users: deps.Users,
 		tickets: deps.Tickets, ticketLimiter: deps.TicketLimiter,
 		messageLimiter: deps.MessageLimiter,
+		statusLimiter:  deps.StatusLimiter,
 	}, h
 }
 
@@ -155,6 +157,7 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/administradores/tickets/{id}", false, admin},
 		{"GET /api/administradores/tickets/{id}/mensagens", false, admin},
 		{"POST /api/administradores/tickets/{id}/mensagens", false, admin},
+		{"PATCH /api/administradores/tickets/{id}/status", false, admin},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))
@@ -206,6 +209,7 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 		{"anonymous admin ticket gets 401", http.MethodGet, "/api/administradores/tickets/1", "", http.StatusUnauthorized, "unauthorized"},
 		{"anonymous admin thread gets 401", http.MethodGet, "/api/administradores/tickets/1/mensagens", "", http.StatusUnauthorized, "unauthorized"},
 		{"admin reply blocked by CSRF", http.MethodPost, "/api/administradores/tickets/1/mensagens", `{"texto":"oi"}`, http.StatusForbidden, "forbidden"},
+		{"status change blocked by CSRF", http.MethodPatch, "/api/administradores/tickets/1/status", `{"de":"aberto","para":"fechado"}`, http.StatusForbidden, "forbidden"},
 		{"método não previsto", http.MethodDelete, "/api/usuarios", "", http.StatusForbidden, "forbidden"},
 		{"rota inexistente", http.MethodGet, "/api/nao-existe", "", http.StatusNotFound, "not_found"},
 		{"páginas antigas não existem mais", http.MethodGet, "/login", "", http.StatusNotFound, "not_found"},

@@ -35,6 +35,8 @@ type TicketService interface {
 	Thread(ctx context.Context, id domain.TicketID, before domain.TicketEntryID) (domain.ThreadPage, error)
 	// Reply validates and stores a message of actor on a ticket.
 	Reply(ctx context.Context, actor domain.UserID, ticket domain.TicketID, raw string) (domain.TicketEntry, error)
+	// ChangeStatus moves a ticket from the status the admin saw to another.
+	ChangeStatus(ctx context.Context, actor domain.UserID, ticket domain.TicketID, from, to domain.TicketStatus) (domain.TicketEntry, error)
 }
 
 type Deps struct {
@@ -48,17 +50,20 @@ type Deps struct {
 	// MessageLimiter limits ticket replies per user, on both sides (spec
 	// 003 S-9).
 	MessageLimiter *security.RateLimiter
+	// StatusLimiter limits status changes per admin (spec 003 S-9).
+	StatusLimiter *security.RateLimiter
 }
 
 func NewHandler(d Deps) (http.Handler, error) {
 	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil || d.TicketLimiter == nil ||
-		d.MessageLimiter == nil {
+		d.MessageLimiter == nil || d.StatusLimiter == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
 	h := &handlers{
 		logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users,
 		tickets: d.Tickets, ticketLimiter: d.TicketLimiter, messageLimiter: d.MessageLimiter,
+		statusLimiter: d.StatusLimiter,
 	}
 
 	mux := http.NewServeMux()

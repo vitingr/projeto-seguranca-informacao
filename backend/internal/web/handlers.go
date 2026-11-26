@@ -29,6 +29,9 @@ type handlers struct {
 	// messageLimiter runs inside Authorize and before TicketAccess on the
 	// reply routes (spec 003 S-9, plan P-16).
 	messageLimiter *security.RateLimiter
+	// statusLimiter runs inside Authorize and before TicketAccess on the
+	// status change route (spec 003 S-9).
+	statusLimiter *security.RateLimiter
 }
 
 type loginRequest struct {

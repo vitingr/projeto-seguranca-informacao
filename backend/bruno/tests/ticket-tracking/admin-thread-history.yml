@@ -1,0 +1,22 @@
+info:
+  name: admin-thread-history
+  type: http
+  seq: 258
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // BR-4, BR-10: A's reply and exactly the three accepted changes, in
+        // order; no refused request wrote anything.
+        test("holds the reply and the three changes", function () {
+          const entries = res.getBody().entries;
+          expect(entries.map((e) => e.kind)).to.deep.equal(["message", "status_change", "status_change", "status_change"]);
+          expect(entries.slice(1).map((e) => e.from + ">" + e.to)).to.deep.equal(["aberto>em_andamento", "em_andamento>resolvido", "resolvido>fechado"]);
+          expect(entries.slice(1).every((e) => e.side === "support" && e.mine === true)).to.equal(true);
+        });

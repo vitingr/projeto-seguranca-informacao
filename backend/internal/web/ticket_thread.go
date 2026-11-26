@@ -143,6 +143,74 @@ func (h *handlers) replyAdminTicket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statusChangeResponse is the answer of a status change (spec 003 AC-6.2):
+// the ticket's new status and last update.
+type statusChangeResponse struct {
+	ID        domain.TicketID     `json:"id"`
+	Status    domain.TicketStatus `json:"status"`
+	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+// changeTicketStatus moves a ticket from de, the status the admin saw, to
+// para (spec 003 US-6, BR-2, BR-3, BR-7). A body that is not well-formed is
+// 400; an unknown code or a pair BR-3 never allows (de = para included) is
+// 422; a status changed meanwhile, or a change from "fechado", is 409 and
+// nothing changes. Only admins reach it (route policy, S-4); inside
+// Authorize the route runs the status limiter, then TicketAccess.
+func (h *handlers) changeTicketStatus(w http.ResponseWriter, r *http.Request) {
+	p, ref, ok := h.ticketCaller(w, r)
+	if !ok {
+		return
+	}
+	rawFrom, rawTo, err := h.sec.DecodeStatusChange(w, r)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			h.statusRefused(r, p, ref, err)
+		}
+		h.badRequest(w, r, err)
+		return
+	}
+	from, err := h.sec.ParseStatus(rawFrom)
+	var to domain.TicketStatus
+	if err == nil {
+		to, err = h.sec.ParseStatus(rawTo)
+	}
+	if err == nil {
+		var entry domain.TicketEntry
+		entry, err = h.tickets.ChangeStatus(r.Context(), p.UserID, ref.ID, from, to)
+		if err == nil {
+			h.logger.InfoContext(r.Context(), "ticket status changed",
+				slog.Int64("ticket_id", int64(ref.ID)),
+				slog.Int64("actor_id", int64(p.UserID)),
+				slog.String("from", string(entry.From)),
+				slog.String("to", string(entry.To)),
+			)
+			writeJSON(w, http.StatusOK, statusChangeResponse{ID: ref.ID, Status: entry.To, UpdatedAt: entry.CreatedAt})
+			return
+		}
+	}
+	switch {
+	case errors.Is(err, domain.ErrInvalidInput):
+		h.statusRefused(r, p, ref, err)
+		writeErrorMessage(w, r, http.StatusUnprocessableEntity, msgDadosInvalidos)
+	case errors.Is(err, domain.ErrStaleStatus):
+		h.statusRefused(r, p, ref, err)
+		writeErrorMessage(w, r, http.StatusConflict, msgStaleStatus)
+	default:
+		h.sec.RespondError(w, r, err)
+	}
+}
+
+// statusRefused logs a refused status change with ids and the fixed reason
+// of the error, never the codes the client sent (S-12).
+func (h *handlers) statusRefused(r *http.Request, p security.Principal, ref security.TicketRef, err error) {
+	h.logger.InfoContext(r.Context(), "ticket status refused",
+		slog.Int64("ticket_id", int64(ref.ID)),
+		slog.Int64("actor_id", int64(p.UserID)),
+		slog.String("reason", err.Error()),
+	)
+}
+
 // reply decodes and stores a message of p on the ticket ref. A body that is
 // not well-formed is 400, a text that breaks the message rule 422, a
 // "fechado" ticket 409; nothing is stored then. The log holds ids and a

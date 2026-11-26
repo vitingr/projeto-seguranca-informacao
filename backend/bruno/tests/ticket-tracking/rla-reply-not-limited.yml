@@ -1,0 +1,28 @@
+info:
+  name: rla-reply-not-limited
+  type: http
+  seq: 604
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketB1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Replies have a quota of their own."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // S-9: the status requests did not use the reply quota, and B's
+        // ticket is still aberto (603 was refused).
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });

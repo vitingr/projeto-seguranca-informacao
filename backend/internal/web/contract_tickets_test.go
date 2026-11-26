@@ -237,6 +237,7 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 		{"AdminTicketDetail", reflect.TypeFor[adminTicketDetail]()},
 		{"AdminThreadEntry", reflect.TypeFor[adminThreadEntry]()},
 		{"AdminThreadPage", reflect.TypeFor[adminThreadPage]()},
+		{"StatusChangeResponse", reflect.TypeFor[statusChangeResponse]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {
@@ -382,6 +383,56 @@ func TestContractMessageRequest(t *testing.T) {
 	}
 	if err := json.Unmarshal(s.Properties["texto"], &texto); err != nil || texto.MaxLength != security.MessageMaxLength {
 		t.Errorf("texto maxLength = %d (%v), want %d", texto.MaxLength, err, security.MessageMaxLength)
+	}
+}
+
+// TestContractStatusChange checks ChangeStatusRequest: only de and para,
+// both TicketStatus codes, and x-allowed-transitions equal to
+// security.AllowedNextStatuses for every status (BR-3).
+func TestContractStatusChange(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile(contractPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Components struct {
+			Schemas struct {
+				ChangeStatusRequest struct {
+					AdditionalProperties *bool                `json:"additionalProperties"`
+					Required             []string             `json:"required"`
+					Properties           map[string]schemaRef `json:"properties"`
+					Transitions          map[string][]string  `json:"x-allowed-transitions"`
+				} `json:"ChangeStatusRequest"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	req := doc.Components.Schemas.ChangeStatusRequest
+	if req.AdditionalProperties == nil || *req.AdditionalProperties || !slices.Equal(sorted(req.Required), []string{"de", "para"}) {
+		t.Errorf("ChangeStatusRequest = %+v, want only de and para, required, no other key", req)
+	}
+	for _, key := range []string{"de", "para"} {
+		if req.Properties[key].Ref != "#/components/schemas/TicketStatus" {
+			t.Errorf("%s is %q, want a TicketStatus", key, req.Properties[key].Ref)
+		}
+	}
+	statuses := []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
+	if len(req.Transitions) != len(statuses) {
+		t.Errorf("x-allowed-transitions has %d statuses, want %d", len(req.Transitions), len(statuses))
+	}
+	for _, from := range statuses {
+		var want []string
+		for _, to := range security.AllowedNextStatuses(from) {
+			want = append(want, string(to))
+		}
+		got, ok := req.Transitions[string(from)]
+		if !ok || !slices.Equal(sorted(got), sorted(want)) {
+			t.Errorf("x-allowed-transitions[%s] = %v, want %v", from, got, want)
+		}
 	}
 }
 

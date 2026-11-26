@@ -76,7 +76,7 @@ test.describe('type step', () => {
     }
     await expect(
       page.getByRole('navigation', { name: 'Etapas do ticket' })
-    ).toContainText('01Tipo')
+    ).toContainText('TipoEscolha do pedido')
   })
 
   test('continuing with no type stays and explains (AC-2.2)', async ({
@@ -126,6 +126,6 @@ test.describe('type step', () => {
       page
         .getByRole('navigation', { name: 'Etapas do ticket' })
         .getByRole('button')
-    ).toHaveText(['01Tipo(concluída)'])
+    ).toHaveText(['TipoEscolha do pedido(concluída)'])
   })
 })

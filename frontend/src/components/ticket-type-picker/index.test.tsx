@@ -45,6 +45,17 @@ describe('TicketTypePicker', () => {
     expect(count(html, /aria-checked="true"/g)).toBe(1)
   })
 
+  it('shows the type icon on every card and darkens only the selected one', () => {
+    const html = render({ value: 'deploy' })
+    for (const icon of ['key-round', 'bug', 'rocket', 'message-square']) {
+      expect(html).toContain(`lucide-${icon}`)
+    }
+    expect(count(html, /bg-primary text-primary-foreground/g)).toBe(1)
+    expect(html).toMatch(
+      /bg-primary text-primary-foreground[^"]*"[^>]*><svg[^>]*lucide-rocket/
+    )
+  })
+
   it('shows the error under the group and links it', () => {
     const html = render({ error: 'Escolha um tipo de ticket.' })
     expect(html).toContain('Escolha um tipo de ticket.')

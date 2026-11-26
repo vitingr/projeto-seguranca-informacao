@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -355,6 +356,95 @@ func TestGetOwnTicketServerError(t *testing.T) {
 		t.Fatalf("status = %d, want 500", rr.Code)
 	}
 	checkErrorBody(t, rr, "internal", msgInternal)
+}
+
+var (
+	adminSummaryKeys = []string{"author_login", "created_at", "id", "status", "title", "type", "updated_at"}
+	queueKeys        = []string{"items", "page", "page_size", "pages", "status_counts", "total"}
+)
+
+// TestListQueue covers AC-4.2 to AC-4.5 on R5: every user's tickets with
+// the author's login, the filters alone and combined (usuario included),
+// and the status counts of the whole queue whatever the filters.
+func TestListQueue(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	seedLists(a) // maria: aberto 8, em_andamento 8, resolvido 5, fechado 4; joao: aberto 4
+	cookie, _ := a.loginAs(t, flowLogin)
+	wantCounts := map[string]any{"aberto": 12.0, "em_andamento": 8.0, "resolvido": 5.0, "fechado": 4.0}
+
+	tests := []struct {
+		query  string
+		total  float64
+		author string // every item's author_login, when set
+	}{
+		{"", 29, ""},
+		{"usuario=joao", 4, joaoLogin},
+		{"usuario=maria&tipo=bug&status=aberto", 2, comumLogin},
+		{"status=fechado", 4, comumLogin},
+		{"tipo=acesso", 11, ""}, // 7 of maria and the 4 of joao
+		{"usuario=ana", 0, ""},
+		{"pagina=2", 29, ""},
+	}
+	for _, tt := range tests {
+		rr := a.send(t, http.MethodGet, "/api/administradores/tickets?"+tt.query, "", cookie, nil)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%q: status = %d (%s)", tt.query, rr.Code, rr.Body.String())
+		}
+		if cc := rr.Header().Get("Cache-Control"); cc != "no-store" {
+			t.Errorf("%q: Cache-Control = %q", tt.query, cc)
+		}
+		_, body := a.get(t, "/api/administradores/tickets?"+tt.query, cookie)
+		if got := keysOf(body); !slices.Equal(got, queueKeys) {
+			t.Errorf("%q: keys = %v, want %v", tt.query, got, queueKeys)
+		}
+		if body["total"] != tt.total || body["page_size"] != 20.0 {
+			t.Errorf("%q: total %v, page_size %v; want %v, 20", tt.query, body["total"], body["page_size"], tt.total)
+		}
+		counts, _ := body["status_counts"].(map[string]any)
+		if !maps.Equal(counts, wantCounts) {
+			t.Errorf("%q: status_counts = %v, want %v (whole queue)", tt.query, counts, wantCounts)
+		}
+		items := body["items"].([]any)
+		if len(items) > 20 {
+			t.Errorf("%q: %d items, want at most 20", tt.query, len(items))
+		}
+		for _, it := range items {
+			item := it.(map[string]any)
+			if got := keysOf(item); !slices.Equal(got, adminSummaryKeys) {
+				t.Fatalf("%q: item keys = %v, want %v", tt.query, got, adminSummaryKeys)
+			}
+			if tt.author != "" && item["author_login"] != tt.author {
+				t.Errorf("%q: item of %v, want %s", tt.query, item["author_login"], tt.author)
+			}
+		}
+	}
+}
+
+// TestListQueueRefusals covers S-4 and plan P-9 on R5: comum users get 403
+// before any read, and malformed queries 400.
+func TestListQueueRefusals(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	seedLists(a)
+	cookie, _ := a.loginAs(t, comumLogin)
+	calls := a.store.handlerCalls()
+	rr := a.send(t, http.MethodGet, "/api/administradores/tickets", "", cookie, nil)
+	if rr.Code != http.StatusForbidden || a.store.handlerCalls() != calls {
+		t.Errorf("comum: status = %d, store calls %d; want 403 and no read", rr.Code, a.store.handlerCalls()-calls)
+	}
+
+	admin, _ := a.loginAs(t, flowLogin)
+	for _, query := range []string{"usuario=", "usuario=Maria%20Souza", "usuario=ab", "usuario=maria&usuario=joao", "x=1", "status=closed", "pagina=0", "status=%zz"} {
+		rr := a.send(t, http.MethodGet, "/api/administradores/tickets?"+query, "", admin, nil)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", query, rr.Code)
+			continue
+		}
+		checkErrorBody(t, rr, "bad_request", msgBadRequest)
+	}
 }
 
 // TestListOwnTicketsEmpty is an empty list: items is [], never null, and

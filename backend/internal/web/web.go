@@ -23,6 +23,9 @@ type TicketService interface {
 	Create(ctx context.Context, author domain.UserID, draft domain.TicketDraft) (domain.Ticket, error)
 	// ListOwn returns a page of the tickets of author, the session user.
 	ListOwn(ctx context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error)
+	// ListQueue returns a page of every user's tickets and the status
+	// counts of the whole queue.
+	ListQueue(ctx context.Context, q domain.TicketListQuery) (domain.TicketPage, domain.StatusCounts, error)
 	// Get returns a ticket and its author's login.
 	Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error)
 	// Thread returns a page of a ticket's thread, older than before (0: the

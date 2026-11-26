@@ -36,6 +36,71 @@ type ticketPage struct {
 	PageSize int             `json:"page_size"`
 }
 
+// adminTicketSummary is a row of the admin queue: the summary plus the
+// author's login (spec 003 AC-4.2), never the author's id.
+type adminTicketSummary struct {
+	ID          domain.TicketID     `json:"id"`
+	Type        domain.TicketType   `json:"type"`
+	Status      domain.TicketStatus `json:"status"`
+	Title       string              `json:"title"`
+	AuthorLogin string              `json:"author_login"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+}
+
+// statusCounts is the summary above the queue (AC-4.5), over the whole
+// queue whatever the filters.
+type statusCounts struct {
+	Open       int `json:"aberto"`
+	InProgress int `json:"em_andamento"`
+	Resolved   int `json:"resolvido"`
+	Closed     int `json:"fechado"`
+}
+
+// queuePage is a page of the admin queue.
+type queuePage struct {
+	Items        []adminTicketSummary `json:"items"`
+	Total        int                  `json:"total"`
+	Page         int                  `json:"page"`
+	Pages        int                  `json:"pages"`
+	PageSize     int                  `json:"page_size"`
+	StatusCounts statusCounts         `json:"status_counts"`
+}
+
+// listQueue answers the queue of every user's tickets (spec 003 US-4),
+// filtered by status, type and author login, with the status counts of
+// the whole queue. Only admins reach it (route policy, S-4).
+func (h *handlers) listQueue(w http.ResponseWriter, r *http.Request) {
+	p, ok := security.PrincipalFrom(r.Context())
+	if !ok {
+		WriteError(w, r, http.StatusUnauthorized)
+		return
+	}
+	q, err := h.listQuery(r, security.TicketListQueue)
+	if err != nil {
+		h.queryRefused(r, p.UserID, err)
+		h.badRequest(w, r, err)
+		return
+	}
+	page, counts, err := h.tickets.ListQueue(r.Context(), q)
+	if err != nil {
+		h.sec.RespondError(w, r, err)
+		return
+	}
+	out := queuePage{
+		Items: make([]adminTicketSummary, 0, len(page.Items)),
+		Total: page.Total, Page: page.Page, Pages: page.Pages, PageSize: listPageSize,
+		StatusCounts: statusCounts{Open: counts.Open, InProgress: counts.InProgress, Resolved: counts.Resolved, Closed: counts.Closed},
+	}
+	for _, s := range page.Items {
+		out.Items = append(out.Items, adminTicketSummary{
+			ID: s.ID, Type: s.Type, Status: s.Status, Title: s.Title, AuthorLogin: s.AuthorLogin,
+			CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func newTicketSummary(s domain.TicketSummary) ticketSummary {
 	return ticketSummary{
 		ID: s.ID, Type: s.Type, Status: s.Status, Title: s.Title,

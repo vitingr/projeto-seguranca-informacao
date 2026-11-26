@@ -1,0 +1,10 @@
+info:
+  name: admin-tickets
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: The ticket queue and the ticket pages of the administrators.
+  type: text/markdown

@@ -230,6 +230,9 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 		{"TicketDetail", reflect.TypeFor[ticketDetail]()},
 		{"ThreadEntry", reflect.TypeFor[threadEntry]()},
 		{"ThreadPage", reflect.TypeFor[threadPage]()},
+		{"AdminTicketSummary", reflect.TypeFor[adminTicketSummary]()},
+		{"StatusCounts", reflect.TypeFor[statusCounts]()},
+		{"QueuePage", reflect.TypeFor[queuePage]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {

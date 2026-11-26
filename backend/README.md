@@ -74,7 +74,7 @@ The only exception is the 404 catch-all, which stays out of the contract.
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
-- **Generated folders.** `health/`, `auth/`, `users/`, `areas/` and `tickets/` are
+- **Generated folders.** `health/`, `auth/`, `users/`, `areas/`, `tickets/` and `admin-tickets/` are
   created by `mage bruno`, one per contract tag. Never edit them by hand;
   change the contract and run `mage bruno`. CI fails when they are out of
   date.
@@ -116,11 +116,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `GET /api/tickets/{id}` | 401 | 200 | 403 |
 | `GET /api/tickets/{id}/mensagens` | 401 | 200 | 403 |
 | `POST /api/tickets/{id}/mensagens` | 401 | 201 | 403 |
+| `GET /api/administradores/tickets` | 401 | 403 | 200 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
 They do not create tickets either, nor read "Meus tickets". The Go test
 `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 30 cells (the `{id}` cells use a
+`tests/access-matrix` both cover the 33 cells (the `{id}` cells use a
 ticket of the comum user).
 
 Routes with a ticket id also run `security.TicketAccess`, after the role
@@ -203,6 +204,12 @@ field value.
   characters after trimming or with a forbidden control character, 409 on
   a `fechado` ticket, 429 after 30 replies in 60 seconds. A reply moves
   `updated_at` and never the status.
+
+Administrators work the tickets on their own routes (comum users get 403):
+- `GET /api/administradores/tickets` (the queue) answers every user's
+  tickets with the rules of "Meus tickets", plus the filter `usuario` (a
+  login), `author_login` on each item and `status_counts` over the whole
+  queue.
 
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.

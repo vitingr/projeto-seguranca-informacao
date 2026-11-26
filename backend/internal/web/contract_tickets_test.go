@@ -228,6 +228,8 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 		{"TicketSummary", reflect.TypeFor[ticketSummary]()},
 		{"TicketPage", reflect.TypeFor[ticketPage]()},
 		{"TicketDetail", reflect.TypeFor[ticketDetail]()},
+		{"ThreadEntry", reflect.TypeFor[threadEntry]()},
+		{"ThreadPage", reflect.TypeFor[threadPage]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {
@@ -280,6 +282,69 @@ func TestContractTicketDetailData(t *testing.T) {
 	}
 }
 
+// TestContractThreadEntryKinds checks the thread entry codes: EntryKind is
+// the domain's, EntrySide the web's, and the oneOf of ThreadEntry has one
+// branch per kind with the keys that kind carries.
+func TestContractThreadEntryKinds(t *testing.T) {
+	t.Parallel()
+
+	schemas := loadTicketSchemas(t)
+	kinds := []string{string(domain.EntryKindMessage), string(domain.EntryKindStatusChange)}
+	if got := schemas["EntryKind"].Enum; !slices.Equal(got, kinds) {
+		t.Errorf("EntryKind enum = %v, want %v", got, kinds)
+	}
+	for _, k := range schemas["EntryKind"].Enum {
+		if !domain.EntryKind(k).Valid() {
+			t.Errorf("EntryKind %q is not valid in the domain", k)
+		}
+	}
+	if got := schemas["EntrySide"].Enum; !slices.Equal(got, []string{sideAuthor, sideSupport}) {
+		t.Errorf("EntrySide enum = %v, want [%s %s]", got, sideAuthor, sideSupport)
+	}
+
+	var branches []struct {
+		Properties struct {
+			Kind struct {
+				Const string `json:"const"`
+			} `json:"kind"`
+		} `json:"properties"`
+		Required []string `json:"required"`
+	}
+	data, err := os.ReadFile(contractPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Components struct {
+			Schemas map[string]json.RawMessage `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	var entry struct {
+		OneOf json.RawMessage `json:"oneOf"`
+	}
+	if err := json.Unmarshal(doc.Components.Schemas["ThreadEntry"], &entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(entry.OneOf, &branches); err != nil {
+		t.Fatalf("ThreadEntry oneOf: %v", err)
+	}
+	want := map[string][]string{
+		string(domain.EntryKindMessage):      {"text"},
+		string(domain.EntryKindStatusChange): {"from", "to"},
+	}
+	if len(branches) != len(want) {
+		t.Fatalf("ThreadEntry has %d oneOf branches, want %d", len(branches), len(want))
+	}
+	for _, b := range branches {
+		if keys, ok := want[b.Properties.Kind.Const]; !ok || !slices.Equal(sorted(b.Required), keys) {
+			t.Errorf("branch kind %q requires %v, want %v", b.Properties.Kind.Const, b.Required, keys)
+		}
+	}
+}
+
 // TestContractListParameters checks the list parameters: their names are
 // the ones the security parsers read, their codes come from the domain
 // enums, and the page size is the server's.
@@ -328,6 +393,15 @@ func TestContractListParameters(t *testing.T) {
 		if p.Schema.Ref != tt.ref {
 			t.Errorf("%s schema $ref = %q, want %q", tt.param, p.Schema.Ref, tt.ref)
 		}
+	}
+
+	// The thread page bound is the one of service and repository (100,
+	// plan P-4); TestOwnThreadPages checks it on the answers.
+	if m := doc.Components.Schemas["ThreadPage"].Properties["entries"].MaxItems; m == nil || *m != 100 {
+		t.Errorf("ThreadPage.entries maxItems = %v, want 100", m)
+	}
+	if p := doc.Components.Parameters["AntesQuery"]; p.Name != "antes" || p.In != "query" || p.Required {
+		t.Errorf("AntesQuery = %+v, want the optional query parameter antes", p)
 	}
 
 	page := doc.Components.Schemas["TicketPage"].Properties

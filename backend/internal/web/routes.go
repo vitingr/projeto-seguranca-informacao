@@ -26,7 +26,8 @@ func (rt route) pattern() string {
 // any other parameter with 400, and the contract test compares this table
 // with the parameters of api/openapi.json.
 var routeQuery = map[string][]string{
-	"GET /api/tickets": {"status", "tipo", "pagina"},
+	"GET /api/tickets":                {"status", "tipo", "pagina"},
+	"GET /api/tickets/{id}/mensagens": {"antes"},
 }
 
 func (h *handlers) routes() []route {
@@ -47,6 +48,7 @@ func (h *handlers) routes() []route {
 		{http.MethodPost, "/api/tickets", chain(http.HandlerFunc(h.createTicket), h.sec.RateLimit(h.ticketLimiter)), comum},
 		{http.MethodGet, "/api/tickets", http.HandlerFunc(h.listOwnTickets), comum},
 		{http.MethodGet, "/api/tickets/{id}", chain(http.HandlerFunc(h.getOwnTicket), h.sec.TicketAccess), comum},
+		{http.MethodGet, "/api/tickets/{id}/mensagens", chain(http.HandlerFunc(h.getOwnThread), h.sec.TicketAccess), comum},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

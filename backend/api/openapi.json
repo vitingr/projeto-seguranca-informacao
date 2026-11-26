@@ -392,6 +392,41 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/tickets/{id}/mensagens": {
+      "get": {
+        "operationId": "getOwnThread",
+        "tags": ["tickets"],
+        "summary": "Read the thread of one of my tickets",
+        "description": "The conversation of a ticket of the `comum` user of the session: its messages and status changes, oldest first. Each entry says its `side` (`author`: the ticket's author; `support`: any administrator) and whether it is the caller's own (`mine`); it never carries an administrator's login or id. The opening of the ticket is not an entry (it is the ticket's `created_at`).\n\nPages of at most 100 entries: without `antes`, the latest ones; `has_more` is true when older entries exist, read with `antes` = the `id` of the first entry already shown.\n\n**400** (`bad_request`): a parameter other than `antes`, `antes` given twice, empty, or not a positive integer, or a malformed query string.\n\n**404** (`not_found`): as in `GET /api/tickets/{id}`, checked before the query.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/AntesQuery" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the thread, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ThreadPage" },
+                "example": {
+                  "entries": [
+                    { "id": 7, "kind": "message", "side": "author", "mine": true, "text": "O erro voltou hoje de manhã.", "created_at": "2026-11-26T09:10:00.123456Z" },
+                    { "id": 9, "kind": "status_change", "side": "support", "mine": false, "from": "aberto", "to": "em_andamento", "created_at": "2026-11-26T09:12:00.654321Z" }
+                  ],
+                  "has_more": false
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -411,6 +446,13 @@
         "description": "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404).",
         "schema": { "type": "integer", "format": "int64", "minimum": 1 },
         "example": 1
+      },
+      "AntesQuery": {
+        "name": "antes",
+        "in": "query",
+        "required": false,
+        "description": "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries.",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 }
       },
       "StatusQuery": {
         "name": "status",
@@ -804,6 +846,44 @@
             ]
           }
         }
+      },
+      "ThreadEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "An entry of a ticket's thread as a `comum` user sees it: a message (`text`) or a status change (`from`, `to`). Never an administrator's login or id.",
+        "required": ["id", "kind", "side", "mine", "created_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1, "description": "Entry id, in the order of the thread; the `antes` cursor." },
+          "kind": { "$ref": "#/components/schemas/EntryKind" },
+          "side": { "$ref": "#/components/schemas/EntrySide" },
+          "mine": { "type": "boolean", "description": "The entry was written by the caller." },
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "The message as typed (trimmed). Plain text: never HTML or markdown." },
+          "from": { "$ref": "#/components/schemas/TicketStatus" },
+          "to": { "$ref": "#/components/schemas/TicketStatus" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "oneOf": [
+          { "properties": { "kind": { "const": "message" } }, "required": ["text"] },
+          { "properties": { "kind": { "const": "status_change" } }, "required": ["from", "to"] }
+        ]
+      },
+      "ThreadPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entries", "has_more"],
+        "properties": {
+          "entries": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ThreadEntry" } },
+          "has_more": { "type": "boolean", "description": "Older entries exist: read them with `antes`." }
+        }
+      },
+      "EntryKind": {
+        "type": "string",
+        "enum": ["message", "status_change"]
+      },
+      "EntrySide": {
+        "type": "string",
+        "description": "`author`: the ticket's author; `support`: an administrator.",
+        "enum": ["author", "support"]
       },
       "DeployTicketDetailData": {
         "type": "object",

@@ -25,6 +25,9 @@ type TicketService interface {
 	ListOwn(ctx context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error)
 	// Get returns a ticket and its author's login.
 	Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error)
+	// Thread returns a page of a ticket's thread, older than before (0: the
+	// latest entries).
+	Thread(ctx context.Context, id domain.TicketID, before domain.TicketEntryID) (domain.ThreadPage, error)
 }
 
 type Deps struct {

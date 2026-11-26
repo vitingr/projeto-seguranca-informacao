@@ -25,6 +25,9 @@ type idorRoute struct {
 // idorRoutes are the comum routes that take a ticket id.
 var idorRoutes = []idorRoute{
 	{"R2 detail", http.MethodGet, "/api/tickets/%s", ""},
+	{"R3 thread", http.MethodGet, "/api/tickets/%s/mensagens", ""},
+	{"R3 thread with antes", http.MethodGet, "/api/tickets/%s/mensagens?antes=5", ""},
+	{"R3 thread with a bad antes", http.MethodGet, "/api/tickets/%s/mensagens?antes=abc", ""},
 }
 
 // missingIDs are ids that must answer like a ticket that does not exist:

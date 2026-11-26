@@ -65,9 +65,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodGet, matrixTicket, http.StatusUnauthorized},
 		{comumLogin, http.MethodGet, matrixTicket, http.StatusOK},
 		{flowLogin, http.MethodGet, matrixTicket, http.StatusForbidden},
+		{anonymous, http.MethodGet, matrixTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusOK},
+		{flowLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusForbidden},
 	}
-	if len(tests) != 24 {
-		t.Fatalf("matrix has %d cells, want 24 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 27 {
+		t.Fatalf("matrix has %d cells, want 27 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {

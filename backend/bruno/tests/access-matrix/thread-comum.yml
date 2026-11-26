@@ -1,0 +1,24 @@
+info:
+  name: thread-comum
+  type: http
+  seq: 213
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{matrixTicketId}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-1, AC-3.1: the author reads the thread of their ticket.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("is a thread page", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["entries", "has_more"]);
+          expect(body.entries).to.be.an("array");
+          expect(body.has_more).to.equal(false);
+        });

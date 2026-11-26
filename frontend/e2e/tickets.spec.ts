@@ -998,3 +998,99 @@ test.describe('step history and leaving (T9.9)', () => {
     expect(await dialog).toBe('beforeunload')
   })
 })
+
+// "Sair" ends the session, so it is warned like a link out (T9.12a, P-16).
+test.describe('logging out with an unsent ticket (T9.12a)', () => {
+  const logoutButton = (page: Page) =>
+    page.getByRole('button', { exact: true, name: 'Sair' })
+
+  const logouts = (calls: string[]) =>
+    calls.filter(call => call === 'POST /api/logout')
+
+  /** Every browser dialog the page opens, dismissed so nothing hangs. */
+  const recordDialogs = (page: Page) => {
+    const dialogs: string[] = []
+    page.on('dialog', async prompt => {
+      dialogs.push(prompt.type())
+      await prompt.dismiss()
+    })
+    return dialogs
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, comumUser(), '/usuarios')
+    await page.goto(BUILDER)
+  })
+
+  for (const { name, width } of [
+    { name: 'in the header', width: 1280 },
+    { name: 'next to "Menu" on a small screen', width: 360 }
+  ]) {
+    test(`"Sair" ${name} with typed data asks inline first (AC-3.8)`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ height: 800, width })
+      const calls = recordApiCalls(page)
+      const dialogs = recordDialogs(page)
+      if (width < 768) {
+        await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible()
+      }
+      await goToDetails(page, 'Outro')
+      await page.getByLabel('Título').fill('Liberar porta')
+
+      await logoutButton(page).click()
+      await expect(leaveGuard(page)).toHaveText(
+        /^Sair sem enviar\? O que você preencheu neste ticket será perdido\./
+      )
+      await expect(page).toHaveURL(atStep('detalhes'))
+      const stay = leaveGuard(page).getByRole('button', {
+        name: 'Continuar no ticket'
+      })
+      await expect(stay).toBeFocused()
+
+      // Staying keeps the session, the data, and gives the focus back.
+      await stay.click()
+      await expect(leaveGuard(page)).toHaveCount(0)
+      await expect(logoutButton(page)).toBeFocused()
+      await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
+      expect(logouts(calls)).toHaveLength(0)
+      const session = await page.evaluate(
+        async () => (await fetch('/api/me')).status
+      )
+      expect(session).toBe(200)
+
+      // Leaving logs out as "Sair" always does.
+      await logoutButton(page).click()
+      expect(logouts(calls)).toHaveLength(0)
+      await leaveGuard(page)
+        .getByRole('button', { name: 'Sair sem enviar' })
+        .click()
+      await expect(page).toHaveURL('/login')
+      expect(logouts(calls)).toHaveLength(1)
+      expect(dialogs).toEqual([])
+    })
+  }
+
+  test('with nothing typed, "Sair" logs out at once', async ({ page }) => {
+    const calls = recordApiCalls(page)
+    const dialogs = recordDialogs(page)
+    await goToDetails(page, 'Outro')
+    await logoutButton(page).click()
+    await expect(page).toHaveURL('/login')
+    await expect(leaveGuard(page)).toHaveCount(0)
+    expect(logouts(calls)).toHaveLength(1)
+    expect(dialogs).toEqual([])
+  })
+
+  test('after the ticket was sent, "Sair" logs out at once', async ({
+    page
+  }) => {
+    const calls = recordApiCalls(page)
+    const dialogs = recordDialogs(page)
+    await sendFakeTicket(page)
+    await logoutButton(page).click()
+    await expect(page).toHaveURL('/login')
+    expect(logouts(calls)).toHaveLength(1)
+    expect(dialogs).toEqual([])
+  })
+})

@@ -15,6 +15,7 @@ import type { StepIndicatorProps } from './types'
  */
 export const StepIndicator = ({
   current,
+  locked = false,
   onSelect,
   steps
 }: StepIndicatorProps) => {
@@ -69,7 +70,7 @@ export const StepIndicator = ({
               data-state={isActive ? 'active' : done ? 'done' : 'todo'}
               key={step.id}
             >
-              {done ? (
+              {done && !locked ? (
                 <button
                   className="hover:bg-muted focus-visible:ring-ring/50 flex items-center gap-3 rounded-sm text-left outline-none focus-visible:ring-3 md:pr-2"
                   onClick={() => onSelect(index)}

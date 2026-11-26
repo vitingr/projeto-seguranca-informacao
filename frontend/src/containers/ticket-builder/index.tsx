@@ -6,7 +6,10 @@ import {
   ClockIcon,
   EyeIcon,
   LightbulbIcon,
+  LoaderCircleIcon,
   PencilIcon,
+  PlusIcon,
+  SendIcon,
   XIcon
 } from 'lucide-react'
 import Link from 'next/link'
@@ -15,9 +18,11 @@ import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form'
 
 import { ChoiceSelect } from '@/components/choice-select'
 import { FormField, FormInput, fieldIds } from '@/components/form-field'
+import { InlineAlert } from '@/components/inline-alert'
 import { SideCard } from '@/components/side-card'
 import { StepIndicator } from '@/components/step-indicator'
 import { TextAreaField } from '@/components/text-area-field'
+import { TicketConfirmation } from '@/components/ticket-confirmation'
 import { TicketPreview } from '@/components/ticket-preview'
 import { TicketReview } from '@/components/ticket-review'
 import { TicketTypePicker } from '@/components/ticket-type-picker'
@@ -30,6 +35,8 @@ import {
   ticketTypeLabel
 } from '@/domain/tickets'
 import type { TicketType } from '@/domain/tickets/types'
+import { api } from '@/repositories/api'
+import { singleFlight } from '@/utils/single-flight'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 import {
@@ -48,16 +55,20 @@ import {
 } from './form-helpers'
 import { builderReducer, initialState } from './reducer'
 import { emptyValues, parseTicket, ticketSchemas } from './schemas'
+import { sendTicket } from './send'
 import type { BuilderState, FieldSlot, TicketFormValues } from './types'
 
-const tipsFor = ({ step, type }: BuilderState): readonly string[] => [
-  ...(step === 'detalhes' && type
-    ? TIPS[type]
-    : step === 'revisao'
-      ? TIPS.revisao
-      : TIPS.tipo),
-  SECURITY_TIP
-]
+const tipsFor = ({ step, type }: BuilderState): readonly string[] =>
+  step === 'confirmacao'
+    ? TIPS.confirmacao
+    : [
+        ...(step === 'detalhes' && type
+          ? TIPS[type]
+          : step === 'revisao'
+            ? TIPS.revisao
+            : TIPS.tipo),
+        SECURITY_TIP
+      ]
 
 /**
  * The ticket builder (spec 001-ticket-builder): one page with the steps
@@ -108,8 +119,33 @@ export const TicketBuilder = () => {
       ? parseTicket(state.type, values)
       : null
 
-  const stepIndex = STEPS.findIndex(step => step.id === state.step)
+  const done = state.step === 'confirmacao'
+  // On the confirmation, every step of the indicator is done.
+  const stepIndex = done
+    ? STEPS.length
+    : STEPS.findIndex(step => step.id === state.step)
   const stepLabel = STEPS[stepIndex]?.label ?? ''
+
+  // AC-5.1: a second click while the request is pending sends nothing.
+  const sendOnce = useRef(singleFlight(sendTicket)).current
+
+  const send = async () => {
+    if (!reviewInput || state.sending) return
+    dispatch({ type: 'sendStarted' })
+    const outcome = await sendOnce(api.createTicket, reviewInput)
+    if (outcome) dispatch(outcome)
+  }
+
+  const restart = () => {
+    form.reset({})
+    dispatch({ type: 'restart' })
+  }
+
+  const announcement = state.sending
+    ? BUILDER_MESSAGES.sending
+    : done && state.ticket
+      ? BUILDER_MESSAGES.created(state.ticket.id)
+      : `Etapa ${stepIndex + 1} de ${STEPS.length}: ${stepLabel}`
 
   useEffect(() => {
     if (previousStep.current !== state.step) {
@@ -231,14 +267,16 @@ export const TicketBuilder = () => {
             {BUILDER_TEXTS.subtitle}
           </p>
         </div>
-        <Link
-          // `cn` lets the outline border win over the base `border-transparent`.
-          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
-          href="/usuarios"
-        >
-          <XIcon aria-hidden />
-          {BUILDER_TEXTS.cancel}
-        </Link>
+        {done ? null : (
+          <Link
+            // `cn` lets the outline border win over the base `border-transparent`.
+            className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+            href="/usuarios"
+          >
+            <XIcon aria-hidden />
+            {BUILDER_TEXTS.cancel}
+          </Link>
+        )}
       </div>
 
       <StepIndicator
@@ -246,6 +284,7 @@ export const TicketBuilder = () => {
           dispatch({ step: STEPS[index].id, type: 'goToStep' })
         }
         current={stepIndex}
+        locked={done || state.sending}
         steps={STEPS}
       />
 
@@ -343,7 +382,16 @@ export const TicketBuilder = () => {
                 type={state.type}
                 typeLabel={ticketTypeLabel(state.type)}
               />
+              {state.sendError ? (
+                <InlineAlert>{state.sendError}</InlineAlert>
+              ) : null}
             </>
+          ) : done && state.ticket ? (
+            <TicketConfirmation
+              headingId={headingId}
+              headingRef={headingRef}
+              ticket={state.ticket}
+            />
           ) : (
             heading(stepLabel)
           )}
@@ -380,17 +428,64 @@ export const TicketBuilder = () => {
                 <ArrowRightIcon data-icon="inline-end" aria-hidden />
               </Button>
             </>
+          ) : state.step === 'revisao' ? (
+            <>
+              {/* AC-4.2: back to the form, every value kept. */}
+              <Button
+                className="w-full sm:w-auto"
+                disabled={state.sending}
+                onClick={() => dispatch({ step: 'detalhes', type: 'goToStep' })}
+                type="button"
+                variant="outline"
+              >
+                <PencilIcon data-icon="inline-start" aria-hidden />
+                Editar
+              </Button>
+              {/* AC-5.1: shows that it is sending; a second click does
+                  nothing. `aria-disabled` keeps the focus on it. */}
+              <Button
+                aria-disabled={state.sending || undefined}
+                className="w-full aria-disabled:opacity-70 sm:w-auto"
+                onClick={send}
+                type="button"
+              >
+                {state.sending ? (
+                  <>
+                    <LoaderCircleIcon
+                      className="motion-safe:animate-spin"
+                      data-icon="inline-start"
+                      aria-hidden
+                    />
+                    {BUILDER_TEXTS.sending}
+                  </>
+                ) : (
+                  <>
+                    {BUILDER_TEXTS.send}
+                    <SendIcon data-icon="inline-end" aria-hidden />
+                  </>
+                )}
+              </Button>
+            </>
           ) : (
-            // AC-4.2: back to the form, every value kept.
-            <Button
-              className="w-full sm:w-auto"
-              onClick={() => dispatch({ step: 'detalhes', type: 'goToStep' })}
-              type="button"
-              variant="outline"
-            >
-              <PencilIcon data-icon="inline-start" aria-hidden />
-              Editar
-            </Button>
+            <>
+              <Link
+                className={cn(
+                  buttonVariants({ variant: 'outline' }),
+                  'w-full sm:w-auto'
+                )}
+                href="/usuarios"
+              >
+                {BUILDER_TEXTS.backToUsers}
+              </Link>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={restart}
+                type="button"
+              >
+                <PlusIcon data-icon="inline-start" aria-hidden />
+                {BUILDER_TEXTS.createAnother}
+              </Button>
+            </>
           )}
         </div>
 
@@ -405,19 +500,21 @@ export const TicketBuilder = () => {
               ))}
             </ul>
           </SideCard>
-          <SideCard icon={EyeIcon} title="Prévia">
-            <TicketPreview
-              badges={state.type ? previewBadges(state.type, values) : []}
-              title={state.type ? previewTitle(state.type, values) : null}
-              type={state.type}
-              typeLabel={state.type ? ticketTypeLabel(state.type) : null}
-            />
-          </SideCard>
+          {done ? null : (
+            <SideCard icon={EyeIcon} title="Prévia">
+              <TicketPreview
+                badges={state.type ? previewBadges(state.type, values) : []}
+                title={state.type ? previewTitle(state.type, values) : null}
+                type={state.type}
+                typeLabel={state.type ? ticketTypeLabel(state.type) : null}
+              />
+            </SideCard>
+          )}
         </aside>
       </div>
 
       <p aria-live="polite" className="sr-only" role="status">
-        {`Etapa ${stepIndex + 1} de ${STEPS.length}: ${stepLabel}`}
+        {announcement}
       </p>
     </main>
   )

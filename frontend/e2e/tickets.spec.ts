@@ -1,7 +1,10 @@
-import { type Page, expect, test } from '@playwright/test'
+import { randomBytes } from 'node:crypto'
 
-import { comumUser, seedAdmin } from './support/env'
+import { type Browser, type Page, expect, test } from '@playwright/test'
+
+import { comumUser, generateComumCredentials, seedAdmin } from './support/env'
 import { loginAs, recordApiCalls, submitLogin } from './support/login'
+import { expectNothingInBrowserStorage } from './support/storage'
 
 // The ticket builder (spec 001-ticket-builder) at /usuarios/tickets/novo.
 
@@ -445,4 +448,259 @@ test.describe('review step', () => {
       '1. Abra o portal\n2. Clique em Salvar'
     )
   })
+})
+
+// Sending and the confirmation (task T9.8). Real tickets are created by a
+// user of their own, registered here, so the shared comum user never gets
+// near the limit of 10 per minute (S-12, plan risk table). The error
+// answers are simulated in the browser and create nothing.
+
+const registerComum = async (browser: Browser) => {
+  const user = generateComumCredentials(randomBytes)
+  const context = await browser.newContext()
+  const admin = await context.newPage()
+  await loginAs(admin, seedAdmin(), '/administradores')
+  const status = await admin.evaluate(
+    async ([login, senha]) => {
+      const token = (await (await fetch('/api/csrf')).json()).csrf_token
+      const res = await fetch('/api/cadastro', {
+        body: JSON.stringify({ login, papel: 'comum', senha }),
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+        method: 'POST'
+      })
+      return res.status
+    },
+    [user.login, user.password]
+  )
+  expect(status).toBe(201)
+  await context.close()
+  return user
+}
+
+const TITLES: Record<string, string> = {
+  'Deploy de projeto': 'Deploy de api-pagamentos em Homologação',
+  Outro: 'Liberar porta no firewall',
+  'Solicitar acesso': 'Acesso a Grafana',
+  'Suporte em bug': 'Bug em Portal do aluno'
+}
+
+const toReview = async (page: Page, typeLabel: string) => {
+  await page.goto(BUILDER)
+  await goToDetails(page, typeLabel)
+  await VALID[typeLabel](page)
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await expect(stepHeading(page, 'Revisão')).toBeFocused()
+}
+
+const posts = (calls: string[]) =>
+  calls.filter(call => call === 'POST /api/tickets')
+
+test.describe('sending a ticket', () => {
+  let sender: { login: string; password: string }
+
+  test.beforeAll(async ({ browser }) => {
+    sender = await registerComum(browser)
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, sender, '/usuarios')
+  })
+
+  for (const typeLabel of Object.keys(VALID)) {
+    test(`a "${typeLabel}" ticket reaches the confirmation (AC-5.2)`, async ({
+      page
+    }) => {
+      await toReview(page, typeLabel)
+      await page.getByRole('button', { name: 'Enviar ticket' }).click()
+
+      await expect(stepHeading(page, 'Ticket criado')).toBeFocused()
+      const card = page.getByRole('region', { name: 'Ticket criado' })
+      const value = (label: string) =>
+        card
+          .locator('dt', { hasText: new RegExp(`^${label}$`) })
+          .locator('xpath=following-sibling::dd[1]')
+      await expect(value('Número')).toHaveText(/^#\d+$/)
+      await expect(value('Tipo')).toHaveText(typeLabel)
+      await expect(value('Título')).toHaveText(TITLES[typeLabel])
+      await expect(value('Status')).toHaveText('Aberto')
+      await expect(value('Criado em')).toHaveText(
+        /^\d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}$/
+      )
+      await expect(page.getByRole('status').last()).toHaveText(
+        /^Ticket #\d+ criado\.$/
+      )
+      // No step can be revisited after sending.
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Etapas do ticket' })
+          .getByRole('button')
+      ).toHaveCount(0)
+    })
+  }
+
+  test('a double click sends one request (AC-5.1)', async ({ page }) => {
+    const calls = recordApiCalls(page)
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).dblclick()
+    await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
+    expect(posts(calls)).toHaveLength(1)
+  })
+
+  test('nothing typed stays in storage or in the URL (S-10), and "Criar outro ticket" starts over (AC-5.4)', async ({
+    page
+  }) => {
+    await toReview(page, 'Suporte em bug')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
+    await expectNothingInBrowserStorage(page)
+    expect(new URL(page.url()).pathname).toBe(BUILDER)
+    expect(page.url()).not.toContain('Portal')
+
+    await page.getByRole('button', { name: 'Criar outro ticket' }).click()
+    await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeFocused()
+    await expect(typeGroup(page).locator('[aria-checked="true"]')).toHaveCount(
+      0
+    )
+    await goToDetails(page, 'Suporte em bug')
+    await expect(page.getByLabel('Sistema afetado')).toHaveValue('')
+  })
+
+  test('"Voltar para usuários" goes to /usuarios', async ({ page }) => {
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await page.getByRole('link', { name: 'Voltar para usuários' }).click()
+    await expect(page).toHaveURL('/usuarios')
+  })
+})
+
+test.describe('errors when sending (US-6)', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, comumUser(), '/usuarios')
+  })
+
+  const answer = (status: number, error: string) => ({
+    body: JSON.stringify({ error, message: 'x', request_id: 'req-e2e-1' }),
+    contentType: 'application/json',
+    status
+  })
+
+  for (const [name, reply, message] of [
+    [
+      'invalid data (422, AC-6.1)',
+      answer(422, 'unprocessable_entity'),
+      'Dados inválidos. Revise os campos e tente novamente.'
+    ],
+    [
+      'too many requests (429, AC-6.7)',
+      answer(429, 'too_many_requests'),
+      'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
+    ],
+    [
+      'lost permission (403, AC-6.5)',
+      answer(403, 'forbidden'),
+      'Você não tem permissão para realizar esta ação.'
+    ],
+    [
+      'server error (500, AC-6.4)',
+      answer(500, 'internal'),
+      'Ocorreu um erro inesperado. Tente novamente mais tarde. (código: req-e2e-1)'
+    ]
+  ] as const) {
+    test(`${name} keeps the review and the data`, async ({ page }) => {
+      await page.route('**/api/tickets', route => route.fulfill(reply))
+      await toReview(page, 'Outro')
+      await page.getByRole('button', { name: 'Enviar ticket' }).click()
+
+      await expect(page.getByTestId('send-error')).toHaveText(message)
+      await expect(page.getByTestId('send-error')).toHaveAttribute(
+        'role',
+        'status'
+      )
+      await expect(stepHeading(page, 'Revisão')).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: 'Enviar ticket' })
+      ).toBeEnabled()
+      // The data is kept: back on the form, every value is there.
+      await page.getByRole('button', { name: 'Editar' }).click()
+      await expect(page.getByLabel('Título')).toHaveValue(
+        'Liberar porta no firewall'
+      )
+    })
+  }
+
+  test('a network failure keeps the data and allows sending again (AC-6.3)', async ({
+    page
+  }) => {
+    let fail = true
+    await page.route('**/api/tickets', route =>
+      fail
+        ? route.abort('failed')
+        : route.fulfill({
+            body: JSON.stringify({
+              created_at: '2026-11-25T14:30:00Z',
+              id: 9001,
+              status: 'aberto',
+              title: 'Liberar porta no firewall',
+              type: 'outro',
+              updated_at: '2026-11-25T14:30:00Z'
+            }),
+            contentType: 'application/json',
+            status: 201
+          })
+    )
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await expect(page.getByTestId('send-error')).toHaveText(
+      'Não foi possível conectar ao servidor. Tente novamente.'
+    )
+    fail = false
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
+    await expect(page.getByTestId('send-error')).toHaveCount(0)
+  })
+
+  test('the 429 is not retried by the page (AC-6.7)', async ({ page }) => {
+    const calls = recordApiCalls(page)
+    await page.route('**/api/tickets', route =>
+      route.fulfill(answer(429, 'too_many_requests'))
+    )
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await expect(page.getByTestId('send-error')).toBeVisible()
+    expect(posts(calls)).toHaveLength(1)
+  })
+
+  test('an expired session goes to the login page (AC-6.2)', async ({
+    page
+  }) => {
+    // A real expiry: the session cookie is gone when the user sends.
+    await toReview(page, 'Outro')
+    await page.context().clearCookies()
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    await expect(page).toHaveURL(
+      `/login?next=${encodeURIComponent(BUILDER)}&sessao=expirada`
+    )
+    await expect(
+      page.getByText('Sua sessão expirou. Entre novamente.')
+    ).toBeVisible()
+  })
+})
+
+test('an admin cannot create a ticket, even calling the API (S-6)', async ({
+  page
+}) => {
+  await loginAs(page, seedAdmin(), '/administradores')
+  const status = await page.evaluate(async () => {
+    const token = (await (await fetch('/api/csrf')).json()).csrf_token
+    const res = await fetch('/api/tickets', {
+      body: JSON.stringify({
+        dados: { descricao: 'Teste de permissão.', titulo: 'Teste' },
+        tipo: 'outro'
+      }),
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+      method: 'POST'
+    })
+    return res.status
+  })
+  expect(status).toBe(403)
 })

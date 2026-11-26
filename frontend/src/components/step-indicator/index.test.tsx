@@ -74,6 +74,15 @@ describe('StepIndicator', () => {
     expect(buttons.some(button => button.includes('Revisão'))).toBe(false)
   })
 
+  it('marks every step done and none revisitable when locked (AC-5.3)', () => {
+    const html = renderToStaticMarkup(
+      <StepIndicator current={3} onSelect={() => {}} steps={STEPS} locked />
+    )
+    expect(html).not.toContain('<button')
+    expect(html).not.toContain('aria-current')
+    expect([...html.matchAll(/\(concluída\)/g)]).toHaveLength(3)
+  })
+
   it('has no step to go back to on the first step', () => {
     expect(render(0)).not.toContain('<button')
   })

@@ -10,7 +10,10 @@ describe('type step', () => {
   it('starts on "tipo" with no type selected (AC-2.1)', () => {
     expect(initialState).toEqual({
       pendingType: null,
+      sendError: null,
+      sending: false,
       step: 'tipo',
+      ticket: null,
       type: null,
       typeError: false
     })
@@ -28,10 +31,8 @@ describe('type step', () => {
       { ticketType: 'bug', type: 'selectType' }
     ])
     expect(state).toEqual({
-      pendingType: null,
-      step: 'tipo',
-      type: 'bug',
-      typeError: false
+      ...initialState,
+      type: 'bug'
     })
   })
 
@@ -150,6 +151,82 @@ describe('details step', () => {
       { step: 'detalhes', type: 'goToStep' }
     ])
     expect(state.step).toBe('detalhes')
+  })
+})
+
+describe('sending (US-5, US-6)', () => {
+  const onReview = run([
+    { ticketType: 'outro', type: 'selectType' },
+    { type: 'continueFromType' },
+    { type: 'continueFromDetails' }
+  ])
+  const ticket = {
+    createdAt: '2026-11-25T14:30:00Z',
+    id: 42,
+    status: 'aberto' as const,
+    title: 'Liberar porta',
+    type: 'outro' as const
+  }
+
+  it('starts only once, from the review (AC-5.1)', () => {
+    const sending = run([{ type: 'sendStarted' }], onReview)
+    expect(sending.sending).toBe(true)
+    expect(run([{ type: 'sendStarted' }], sending)).toBe(sending)
+    expect(run([{ type: 'sendStarted' }])).toBe(initialState)
+  })
+
+  it('shows the confirmation only for a created ticket (AC-5.2)', () => {
+    const state = run(
+      [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
+      onReview
+    )
+    expect(state).toMatchObject({
+      sendError: null,
+      sending: false,
+      step: 'confirmacao',
+      ticket
+    })
+    // An answer with no request pending changes nothing.
+    expect(run([{ ticket, type: 'sendSucceeded' }], onReview)).toBe(onReview)
+  })
+
+  it('stays on the review with the message after an error (US-6)', () => {
+    const state = run(
+      [
+        { type: 'sendStarted' },
+        { message: 'Dados inválidos.', type: 'sendFailed' }
+      ],
+      onReview
+    )
+    expect(state).toMatchObject({
+      sendError: 'Dados inválidos.',
+      sending: false,
+      step: 'revisao',
+      type: 'outro'
+    })
+    // Sending again clears the message.
+    expect(run([{ type: 'sendStarted' }], state).sendError).toBeNull()
+  })
+
+  it('does not leave the review while sending', () => {
+    const sending = run([{ type: 'sendStarted' }], onReview)
+    expect(run([{ step: 'detalhes', type: 'goToStep' }], sending)).toBe(sending)
+  })
+
+  it('cannot go back from the confirmation (AC-5.3)', () => {
+    const done = run(
+      [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
+      onReview
+    )
+    expect(run([{ step: 'revisao', type: 'goToStep' }], done)).toBe(done)
+  })
+
+  it('"Criar outro ticket" starts over with nothing (AC-5.4)', () => {
+    const done = run(
+      [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
+      onReview
+    )
+    expect(run([{ type: 'restart' }], done)).toEqual(initialState)
   })
 })
 

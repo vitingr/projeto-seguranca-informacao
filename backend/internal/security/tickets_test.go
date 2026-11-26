@@ -509,3 +509,68 @@ func TestDecodeTicketLargestValid(t *testing.T) {
 		t.Errorf("steps has %d characters, want 2000", got)
 	}
 }
+
+// TestDecodeTicketKeySpelling covers plan P-10: encoding/json alone matches
+// keys in any case and keeps the last duplicate, so a server-owned key could
+// get in as "AUTHOR", and {"tipo":…,"TIPO":…} would silently switch types.
+// Keys must be spelled exactly, and none may repeat, even in another case.
+func TestDecodeTicketKeySpelling(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	const (
+		fields = `"sistema":"` + marker + `","nivel_acesso":"leitura","justificativa":"` + marker + `"`
+		data   = `"dados":{` + fields + `}`
+	)
+	tests := []struct {
+		name   string
+		body   string
+		reason string
+	}{
+		// Server-owned keys in another case, outside and inside dados.
+		{"AUTHOR outside", `{"tipo":"acesso",` + data + `,"AUTHOR":"` + marker + `"}`, reasonMalformed},
+		{"Status outside", `{"tipo":"acesso",` + data + `,"Status":"resolvido"}`, reasonMalformed},
+		{"User_Id outside", `{"tipo":"acesso",` + data + `,"User_Id":1}`, reasonMalformed},
+		{"ID outside", `{"tipo":"acesso",` + data + `,"ID":1}`, reasonMalformed},
+		{"Created_At outside", `{"tipo":"acesso",` + data + `,"Created_At":"2020-01-01T00:00:00Z"}`, reasonMalformed},
+		{"AUTHOR inside", `{"tipo":"acesso","dados":{` + fields + `,"AUTHOR":"` + marker + `"}}`, reasonMalformed},
+		{"Status inside", `{"tipo":"acesso","dados":{` + fields + `,"Status":"resolvido"}}`, reasonMalformed},
+		{"User_Id inside", `{"tipo":"acesso","dados":{` + fields + `,"User_Id":1}}`, reasonMalformed},
+		{"ID inside", `{"tipo":"acesso","dados":{` + fields + `,"ID":1}}`, reasonMalformed},
+
+		// Documented keys in another case.
+		{"Tipo", `{"Tipo":"acesso",` + data + `}`, reasonMalformed},
+		{"DADOS", `{"tipo":"acesso","DADOS":{` + fields + `}}`, reasonMalformed},
+		{"Sistema", `{"tipo":"acesso","dados":{"Sistema":"` + marker + `","nivel_acesso":"leitura","justificativa":"` + marker + `"}}`, reasonMalformed},
+		{"NIVEL_ACESSO", `{"tipo":"acesso","dados":{"sistema":"` + marker + `","NIVEL_ACESSO":"leitura","justificativa":"` + marker + `"}}`, reasonMalformed},
+		{"Observacoes", `{"tipo":"deploy","dados":{"projeto":"api","repositorio":"https://git.example.com/a","ambiente":"dev","Observacoes":"` + marker + `"}}`, reasonMalformed},
+
+		// Duplicate keys, exact or in another case.
+		{"tipo and TIPO", `{"tipo":"acesso",` + data + `,"TIPO":"outro"}`, reasonDuplicateKey},
+		// Refused at its first key already, for the spelling.
+		{"TIPO before tipo", `{"TIPO":"outro","tipo":"acesso",` + data + `}`, reasonMalformed},
+		{"tipo twice", `{"tipo":"outro","tipo":"acesso",` + data + `}`, reasonDuplicateKey},
+		{"dados twice", `{"tipo":"acesso",` + data + `,"dados":{"sistema":"x"}}`, reasonDuplicateKey},
+		{"sistema twice", `{"tipo":"acesso","dados":{` + fields + `,"sistema":"` + marker + `"}}`, reasonDuplicateKey},
+		{"sistema and SISTEMA", `{"tipo":"acesso","dados":{` + fields + `,"SISTEMA":"` + marker + `"}}`, reasonDuplicateKey},
+		{"duplicate in dados of an unknown tipo", `{"tipo":"incidente","dados":{"a":"` + marker + `","A":"x"}}`, reasonDuplicateKey},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := decodeTicket(t, s, "application/json", tt.body)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("error = %v, want ErrInvalidInput (400)", err)
+			}
+			if !strings.Contains(err.Error(), tt.reason) {
+				t.Errorf("error = %q, want reason %q", err, tt.reason)
+			}
+			if strings.Contains(err.Error(), marker) {
+				t.Errorf("error %q quotes the body", err)
+			}
+			if !reflect.DeepEqual(got, domain.TicketDraft{}) {
+				t.Errorf("draft = %+v on error, want zero", got)
+			}
+		})
+	}
+}

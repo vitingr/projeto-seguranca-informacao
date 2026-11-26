@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -1425,6 +1426,185 @@ func TestTicketListPlansIntegration(t *testing.T) {
 		}
 		if plan := explain(t, statusCountsQuery, nil, false); strings.Contains(plan, "Sort") {
 			t.Errorf("the counts sort the table:\n%s", plan)
+		}
+	})
+}
+
+// insertEntries adds n entries to ticket, oldest first: messages by author
+// with the text "m<i>", and every third entry a status change by admin
+// (aberto → em_andamento, only the table is tested here). It returns their
+// ids in order.
+func insertEntries(t *testing.T, db *sql.DB, ticket domain.TicketID, author, admin domain.UserID, n int) []domain.TicketEntryID {
+	t.Helper()
+	ids := make([]domain.TicketEntryID, 0, n)
+	for i := range n {
+		row := entryRow{ticketID: ticket, actorID: author, kind: "message", body: ptr(fmt.Sprintf("m%d", i))}
+		if i%3 == 2 {
+			row = entryRow{ticketID: ticket, actorID: admin, kind: "status_change", from: ptr("aberto"), to: ptr("em_andamento")}
+		}
+		id, err := insertEntry(t.Context(), db, row)
+		if err != nil {
+			t.Fatalf("insert entry %d: %v", i, err)
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func entryIDs(entries []domain.TicketEntry) []domain.TicketEntryID {
+	ids := make([]domain.TicketEntryID, 0, len(entries))
+	for i := range entries {
+		ids = append(ids, entries[i].ID)
+	}
+	return ids
+}
+
+// TestThreadIntegration covers TicketEntries.Thread (spec 003 AC-3.1,
+// AC-3.2, AC-3.4a; BR-4; S-14; plan P-4): the latest 100 entries oldest
+// first, older pages with before, has_more, and only the ticket's own
+// entries.
+func TestThreadIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	entries := NewTicketEntries(db)
+	author, authorLogin := newTrackingUser(t, db, domain.RoleComum)
+	admin, adminLogin := newTrackingUser(t, db, domain.RoleAdmin)
+
+	newTicket := func() domain.TicketID {
+		created, err := NewTickets(db).Create(ctx, sampleTickets(author)[3])
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		return created.ID
+	}
+	long, exact, empty, other := newTicket(), newTicket(), newTicket(), newTicket()
+	// 5 000 older entries on another ticket, so the thread read is one
+	// ticket among many, before and after the cursor, as in use.
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO ticket_entries (ticket_id, actor_id, kind, body)
+		SELECT $1, $2, 'message', 'bulk ' || g FROM generate_series(1, 5000) AS g`, other, author); err != nil {
+		t.Fatalf("insert bulk entries: %v", err)
+	}
+	ids := insertEntries(t, db, long, author, admin, 250)
+	insertEntries(t, db, other, author, admin, 5)
+	// Interleaved with long's last entries, so a missing ticket filter shows.
+	insertEntries(t, db, other, author, admin, 3)
+	exactIDs := insertEntries(t, db, exact, author, admin, ThreadPageSize)
+
+	t.Run("pages from the latest", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			before  domain.TicketEntryID
+			want    []domain.TicketEntryID
+			hasMore bool
+		}{
+			{"latest", 0, ids[150:], true},
+			{"before the latest page", ids[150], ids[50:150], true},
+			{"the oldest", ids[50], ids[:50], false},
+			{"before the first entry", ids[0], nil, false},
+			{"before an entry in the middle", ids[10], ids[:10], false},
+			{"before an id past the end", ids[249] + 1_000_000, ids[150:], true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := entries.Thread(ctx, long, tt.before, ThreadPageSize)
+				if err != nil {
+					t.Fatalf("Thread: %v", err)
+				}
+				if !slices.Equal(entryIDs(got.Entries), tt.want) && len(got.Entries)+len(tt.want) > 0 {
+					t.Errorf("Thread(before %d) = %v, want %v", tt.before, entryIDs(got.Entries), tt.want)
+				}
+				if got.HasMore != tt.hasMore {
+					t.Errorf("HasMore = %v, want %v", got.HasMore, tt.hasMore)
+				}
+				if got.Entries == nil {
+					t.Error("Entries is nil, want an empty slice")
+				}
+				for _, e := range got.Entries {
+					if e.TicketID != long {
+						t.Errorf("entry %d of ticket %d in the thread of %d", e.ID, e.TicketID, long)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("exactly one page", func(t *testing.T) {
+		got, err := entries.Thread(ctx, exact, 0, ThreadPageSize)
+		if err != nil || !slices.Equal(entryIDs(got.Entries), exactIDs) || got.HasMore {
+			t.Errorf("Thread = %v (has more %v), %v; want all %d entries and no more", entryIDs(got.Entries), got.HasMore, err, len(exactIDs))
+		}
+	})
+
+	t.Run("no entries", func(t *testing.T) {
+		got, err := entries.Thread(ctx, empty, 0, ThreadPageSize)
+		if err != nil || len(got.Entries) != 0 || got.Entries == nil || got.HasMore {
+			t.Errorf("Thread = %+v, %v; want an empty page", got, err)
+		}
+	})
+
+	t.Run("limit is bounded", func(t *testing.T) {
+		for _, limit := range []int{0, -1, ThreadPageSize + 1, 1 << 30} {
+			got, err := entries.Thread(ctx, long, 0, limit)
+			if err != nil || len(got.Entries) != ThreadPageSize {
+				t.Errorf("Thread(limit %d) = %d entries, %v; want %d", limit, len(got.Entries), err, ThreadPageSize)
+			}
+		}
+		got, err := entries.Thread(ctx, long, 0, 7)
+		if err != nil || !slices.Equal(entryIDs(got.Entries), ids[243:]) || !got.HasMore {
+			t.Errorf("Thread(limit 7) = %v, %v; want the 7 latest", entryIDs(got.Entries), err)
+		}
+	})
+
+	t.Run("entry fields", func(t *testing.T) {
+		got, err := entries.Thread(ctx, long, ids[3], ThreadPageSize) // ids[0..2]
+		if err != nil || len(got.Entries) != 3 {
+			t.Fatalf("Thread = %d entries, %v", len(got.Entries), err)
+		}
+		message, change := got.Entries[0], got.Entries[2]
+		wantMessage := domain.TicketEntry{
+			ID: ids[0], TicketID: long, ActorID: author, ActorLogin: authorLogin, ActorRole: domain.RoleComum,
+			Kind: domain.EntryKindMessage, Body: "m0", CreatedAt: message.CreatedAt,
+		}
+		wantChange := domain.TicketEntry{
+			ID: ids[2], TicketID: long, ActorID: admin, ActorLogin: adminLogin, ActorRole: domain.RoleAdmin,
+			Kind: domain.EntryKindStatusChange, From: domain.TicketStatusOpen, To: domain.TicketStatusInProgress, CreatedAt: change.CreatedAt,
+		}
+		if message != wantMessage || message.CreatedAt.IsZero() {
+			t.Errorf("message = %+v, want %+v", message, wantMessage)
+		}
+		if change != wantChange || change.CreatedAt.IsZero() {
+			t.Errorf("status change = %+v, want %+v", change, wantChange)
+		}
+	})
+
+	t.Run("plan uses the thread index", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `ANALYZE ticket_entries`); err != nil {
+			t.Fatalf("analyze: %v", err)
+		}
+		explain := func(before domain.TicketEntryID) string {
+			rows, err := db.QueryContext(ctx, "EXPLAIN "+threadQuery, int64(long), int64(before), ThreadPageSize+1)
+			if err != nil {
+				t.Fatalf("explain: %v", err)
+			}
+			defer rows.Close()
+			var plan strings.Builder
+			for rows.Next() {
+				var line string
+				if err := rows.Scan(&line); err != nil {
+					t.Fatalf("scan: %v", err)
+				}
+				plan.WriteString(line + "\n")
+			}
+			if err := rows.Err(); err != nil {
+				t.Fatalf("rows: %v", err)
+			}
+			return plan.String()
+		}
+		for _, before := range []domain.TicketEntryID{0, ids[150]} {
+			if plan := explain(before); !strings.Contains(plan, "ticket_entries_ticket_idx") || strings.Contains(plan, "Seq Scan on ticket_entries") {
+				t.Errorf("before %d: plan does not use ticket_entries_ticket_idx:\n%s", before, plan)
+			}
 		}
 	})
 }

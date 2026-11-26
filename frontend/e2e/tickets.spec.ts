@@ -299,8 +299,8 @@ test.describe('details step', () => {
       await VALID[typeLabel](page)
       await page.getByRole('button', { name: 'Continuar' }).click()
       await expect(stepHeading(page, 'Revisão')).toBeFocused()
-      // Back to the form, every value is kept.
-      await page.getByRole('button', { name: 'Voltar' }).click()
+      // Back to the form, every value is kept (AC-4.2).
+      await page.getByRole('button', { name: 'Editar' }).click()
       await expect(stepHeading(page, 'Detalhes')).toBeFocused()
       await expect(
         page.locator('form input[type="text"]').first()
@@ -357,5 +357,92 @@ test.describe('details step', () => {
     await expect(
       typeGroup(page).getByRole('radio', { name: 'Suporte em bug' })
     ).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+// The review step (task T9.7).
+
+const reviewCard = (page: Page) => page.getByRole('region', { name: 'Revisão' })
+
+// The value next to a label; "Título" is both the ticket title and, for
+// "Outro", a field, so `.first()` picks the "Pedido" group.
+const reviewValue = (page: Page, label: string) =>
+  reviewCard(page)
+    .locator('dt', { hasText: new RegExp(`^${label}$`) })
+    .locator('xpath=following-sibling::dd[1]')
+
+test.describe('review step', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, comumUser(), '/usuarios')
+    await page.goto(BUILDER)
+  })
+
+  test('shows the type, the title and every field as it will be sent (AC-4.1)', async ({
+    page
+  }) => {
+    await goToDetails(page, 'Deploy de projeto')
+    await page.getByLabel('Nome do projeto').fill('  api-pagamentos  ')
+    await page.getByLabel('Repositório').fill('https://github.com/org/api')
+    await choose(page, 'Ambiente', 'Produção')
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(stepHeading(page, 'Revisão')).toBeFocused()
+
+    await expect(reviewValue(page, 'Tipo')).toHaveText('Deploy de projeto')
+    await expect(reviewValue(page, 'Título')).toHaveText(
+      'Deploy de api-pagamentos em Produção'
+    )
+    // Trimmed, as the server stores it (BR-4).
+    await expect(reviewValue(page, 'Nome do projeto')).toHaveText(
+      'api-pagamentos'
+    )
+    await expect(reviewValue(page, 'Ambiente')).toHaveText('Produção')
+    await expect(reviewValue(page, 'Observações')).toHaveText('Não informado')
+  })
+
+  test('shows HTML and markdown literally and runs nothing (AC-4.3, S-8)', async ({
+    page
+  }) => {
+    let dialogs = 0
+    page.on('dialog', async dialog => {
+      dialogs += 1
+      await dialog.dismiss()
+    })
+    const title = '<img src=x onerror=alert(1)>'
+    const description = '<script>alert(1)</script>\n**negrito**'
+    await goToDetails(page, 'Outro')
+    await page.getByLabel('Título').fill(title)
+    await page.getByLabel('Descrição').fill(description)
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(stepHeading(page, 'Revisão')).toBeFocused()
+
+    await expect(reviewValue(page, 'Título').first()).toHaveText(title)
+    await expect(reviewValue(page, 'Descrição')).toHaveText(description)
+    await expect(reviewCard(page).locator('img, script, strong')).toHaveCount(0)
+    // The preview shows the same title as text too.
+    await expect(
+      page.getByRole('region', { name: 'Prévia' }).getByText(title)
+    ).toBeVisible()
+    await expect(page.locator('img[src="x"]')).toHaveCount(0)
+    expect(dialogs).toBe(0)
+  })
+
+  test('"Editar" goes back to the form with every value kept (AC-4.2)', async ({
+    page
+  }) => {
+    await goToDetails(page, 'Suporte em bug')
+    await VALID['Suporte em bug'](page)
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(reviewValue(page, 'Severidade')).toHaveText('Alta')
+    await page.getByRole('button', { name: 'Editar' }).click()
+    await expect(stepHeading(page, 'Detalhes')).toBeFocused()
+    await expect(page.getByLabel('Sistema afetado')).toHaveValue(
+      'Portal do aluno'
+    )
+    await expect(page.getByRole('combobox', { name: 'Severidade' })).toHaveText(
+      'Alta'
+    )
+    await expect(page.getByLabel('Passos para reproduzir')).toHaveValue(
+      '1. Abra o portal\n2. Clique em Salvar'
+    )
   })
 })

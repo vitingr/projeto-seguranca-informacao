@@ -1,0 +1,32 @@
+info:
+  name: cadastro-user-a
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.a",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "comum"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // User A of the IDOR checks. An e2e.* login, so the README cleanup
+        // removes it with the others.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          expect(res.getBody().role).to.equal("comum");
+          bru.setVar("userAId", res.getBody().user_id);
+        });

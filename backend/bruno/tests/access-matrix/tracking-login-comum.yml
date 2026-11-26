@@ -1,0 +1,30 @@
+info:
+  name: tracking-login-comum
+  type: http
+  seq: 200
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The comum user of the matrix again, for the cells 200-289.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().user_id).to.equal(bru.getVar("comumUserId"));
+          expect(res.getBody().role).to.equal("comum");
+        });

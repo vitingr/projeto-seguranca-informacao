@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"backend_si/internal/domain"
 	"backend_si/internal/security"
 )
 
@@ -51,16 +52,24 @@ func TestAccessMatrix(t *testing.T) {
 		{flowLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{flowLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
 		{flowLogin, http.MethodPost, "/api/tickets", http.StatusForbidden}, // admins do not create tickets
+
+		// Spec 003 (plan section 7): each ticket tracking route x the three
+		// callers. The {id} routes use matrixTicket, a ticket of comumLogin.
+		{anonymous, http.MethodGet, "/api/tickets", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, "/api/tickets", http.StatusOK},
+		{flowLogin, http.MethodGet, "/api/tickets", http.StatusForbidden},
 	}
-	if len(tests) != 18 {
-		t.Fatalf("matrix has %d cells, want 18 (D-2 plus the 3 ticket cells)", len(tests))
+	if len(tests) != 21 {
+		t.Fatalf("matrix has %d cells, want 21 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
 			t.Parallel()
 
 			var logBuf bytes.Buffer
-			f := newFlowAppWithLog(t, &logBuf)
+			tracking := newTrackingApp(t, &logBuf)
+			tracking.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida sobre a VPN") // matrixTicket
+			f := tracking.flowApp
 			var (
 				cookie *http.Cookie
 				token  string

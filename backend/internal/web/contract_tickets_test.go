@@ -215,6 +215,92 @@ func TestContractTicketResponseMatchesStruct(t *testing.T) {
 	}
 }
 
+// TestContractTrackingSchemasMatchStructs compares the answer schemas of
+// spec 003 with the structs the handlers write (S-13: the keys per role).
+func TestContractTrackingSchemasMatchStructs(t *testing.T) {
+	t.Parallel()
+
+	doc := loadContract(t)
+	tests := []struct {
+		schema string
+		typ    reflect.Type
+	}{
+		{"TicketSummary", reflect.TypeFor[ticketSummary]()},
+		{"TicketPage", reflect.TypeFor[ticketPage]()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.schema, func(t *testing.T) {
+			t.Parallel()
+			s, ok := doc.Components.Schemas[tt.schema]
+			if !ok {
+				t.Fatalf("schema %s is missing from api/openapi.json", tt.schema)
+			}
+			for _, problem := range diffSchema(s, tt.typ) {
+				t.Errorf("%s vs %s: %s", tt.schema, tt.typ.Name(), problem)
+			}
+		})
+	}
+}
+
+// TestContractListParameters checks the list parameters: their names are
+// the ones the security parsers read, their codes come from the domain
+// enums, and the page size is the server's.
+func TestContractListParameters(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile(contractPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Components struct {
+			Parameters map[string]struct {
+				Name     string       `json:"name"`
+				In       string       `json:"in"`
+				Required bool         `json:"required"`
+				Schema   ticketSchema `json:"schema"`
+			} `json:"parameters"`
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					Const    any  `json:"const"`
+					MaxItems *int `json:"maxItems"`
+				} `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		param, name, ref string
+	}{
+		{"StatusQuery", "status", "#/components/schemas/TicketStatus"},
+		{"TipoQuery", "tipo", "#/components/schemas/TicketType"},
+		{"PaginaQuery", "pagina", ""},
+	}
+	for _, tt := range tests {
+		p, ok := doc.Components.Parameters[tt.param]
+		if !ok {
+			t.Errorf("parameter %s is missing", tt.param)
+			continue
+		}
+		if p.Name != tt.name || p.In != "query" || p.Required {
+			t.Errorf("%s = %q in %s (required %v), want the optional query parameter %q", tt.param, p.Name, p.In, p.Required, tt.name)
+		}
+		if p.Schema.Ref != tt.ref {
+			t.Errorf("%s schema $ref = %q, want %q", tt.param, p.Schema.Ref, tt.ref)
+		}
+	}
+
+	page := doc.Components.Schemas["TicketPage"].Properties
+	if c := page["page_size"].Const; c != float64(listPageSize) {
+		t.Errorf("TicketPage.page_size const = %v, want %d", c, listPageSize)
+	}
+	if m := page["items"].MaxItems; m == nil || *m != listPageSize {
+		t.Errorf("TicketPage.items maxItems = %v, want %d", m, listPageSize)
+	}
+}
+
 // TestDiffParameters checks the parameter comparison on a small inline
 // contract (plan 003 section 8: the contract test reads path and query
 // parameters for the first time).

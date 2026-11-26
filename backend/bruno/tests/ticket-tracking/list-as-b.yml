@@ -1,0 +1,25 @@
+info:
+  name: list-as-b
+  type: http
+  seq: 111
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // S-3: B's list holds only B's ticket, none of A's.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("holds only B's ticket", function () {
+          const ids = res.getBody().items.map((t) => t.id);
+          expect(ids).to.deep.equal([bru.getVar("ticketB1")]);
+          expect(ids).to.not.include(bru.getVar("ticketA1"));
+          expect(ids).to.not.include(bru.getVar("ticketA2"));
+          expect(res.getBody().total).to.equal(1);
+        });

@@ -1,0 +1,34 @@
+info:
+  name: a-create-bug
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "bug",
+        "dados": {
+          "sistema": "Portal",
+          "descricao": "A página de relatórios responde com erro 500.",
+          "passos": "1. Entrar no portal\n2. Abrir Relatórios",
+          "severidade": "alta"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A's first ticket (ticketA1), used by the IDOR requests of B.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          bru.setVar("ticketA1", res.getBody().id);
+        });

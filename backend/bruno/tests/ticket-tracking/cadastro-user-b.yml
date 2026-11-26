@@ -1,0 +1,32 @@
+info:
+  name: cadastro-user-b
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.b",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "comum"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // User B, who tries to reach A's tickets.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          expect(res.getBody().role).to.equal("comum");
+          expect(res.getBody().user_id).to.not.equal(bru.getVar("userAId"));
+          bru.setVar("userBId", res.getBody().user_id);
+        });

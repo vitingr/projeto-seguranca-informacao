@@ -11,6 +11,11 @@
 # which "mage brunoRun" generates with crypto/rand for every run (003 D-13),
 # so each run leaves one e2e.* user: see the README to delete them. Every POST
 # sends the current CSRF token, so a 401 or 403 comes from Authorize.
+#
+# Spec 003 adds 3 cells per ticket tracking route, after request 26, in the
+# same caller order: anonymous (100-199), the comum user again (200-289), who
+# creates matrixTicketId, the ticket of the {id} cells, then the seed admin
+# (300-389). The gaps leave room for every route of the spec.
 info:
   name: access-matrix
   type: folder

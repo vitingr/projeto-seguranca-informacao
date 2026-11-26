@@ -58,7 +58,7 @@ Run `go tool mage -l` for the full list.
 | `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers two `e2e.*` comum users (see [Test users](#test-users-left-by-mage-brunorun)). |
+| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, then `bruno/tests/ticket-tracking`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers `e2e.*` test users (see [Test users](#test-users-left-by-mage-brunorun)). |
 
 ## API contract and Bruno collection
 
@@ -84,12 +84,16 @@ The only exception is the 404 catch-all, which stays out of the contract.
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
   `tests/access-matrix/` runs next (`bru run tests tests/access-matrix
-  tests/tickets`; `-r` would run subfolders first): the 18 cells of the
-  [access matrix](#access-control), anonymous, then as the seed
-  administrator, who registers a comum user, then as that user.
-  `tests/tickets/` runs last, as that comum user: the CSRF refusals, a 400,
+  tests/tickets tests/ticket-tracking`; `-r` would run subfolders first):
+  the cells of the [access matrix](#access-control), anonymous, then as the
+  seed administrator, who registers a comum user, then as that user; the
+  ticket tracking cells follow in the same caller order.
+  `tests/tickets/` runs next, as that comum user: the CSRF refusals, a 400,
   a 422, one ticket of each type, and the rate limit: a second comum user
   sends 10 creations and gets 429 on the 11th.
+  `tests/ticket-tracking/` runs last, with users A and B of its own:
+  "Meus tickets" with its filters and 400 cases, and B never seeing A's
+  tickets.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -108,11 +112,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `GET /api/me` | 401 | 200 | 200 |
 | `POST /api/logout` | 401 | 204 | 204 |
 | `POST /api/tickets` | 401 | 201 | 403 |
+| `GET /api/tickets` | 401 | 200 | 403 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
-They do not create tickets either. The Go test `TestAccessMatrix`
-(`internal/web`) and the Bruno folder `tests/access-matrix` both cover the
-18 cells.
+They do not create tickets either, nor read "Meus tickets". The Go test
+`TestAccessMatrix` (`internal/web`) and the Bruno folder
+`tests/access-matrix` both cover the 21 cells.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -165,6 +170,19 @@ table repeats them as CHECK constraints. Every creation is logged at Info as
 `ticket refused` with `author_id` and a fixed reason. The log never has a
 field value.
 
+**Ticket tracking** (spec 003) lets a comum user follow their tickets:
+- `GET /api/tickets` ("Meus tickets", comum only) answers 200 with a page
+  of the session user's tickets and nobody else's, newest update first, 20
+  per page: `{items, total, page, pages, page_size}`. Items are summaries
+  (`id, type, status, title, created_at, updated_at`): never the fields of
+  the type nor any author data. The filters `status` and `tipo` and the
+  page `pagina` are the only parameters; anything else (`usuario`
+  included), a repeated or empty parameter, or a malformed query is 400. A
+  page past the end is 200 with no items and the real totals.
+
+Refused queries are logged at Info as `ticket query refused` with
+`user_id` and a fixed reason, never the query.
+
 ### Test users left by `mage brunoRun`
 
 The access matrix registers a comum user through the seed administrator.
@@ -172,8 +190,9 @@ The access matrix registers a comum user through the seed administrator.
 password with `crypto/rand` for every run and passes them to Bruno as the
 `BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
 as arguments. `tests/tickets` registers a second one, the same login plus
-`.rl`, for the rate limit test. So every run leaves two `e2e.*` users in
-the database, with the tickets they created.
+`.rl`, for the rate limit test, and `tests/ticket-tracking` registers users
+A and B, the same login plus `.a` and `.b`. So every run leaves four
+`e2e.*` users in the database, with the tickets they created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 

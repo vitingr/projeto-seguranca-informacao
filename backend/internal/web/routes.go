@@ -25,7 +25,9 @@ func (rt route) pattern() string {
 // 003 section 4). A route that is not here reads none. The handlers refuse
 // any other parameter with 400, and the contract test compares this table
 // with the parameters of api/openapi.json.
-var routeQuery = map[string][]string{}
+var routeQuery = map[string][]string{
+	"GET /api/tickets": {"status", "tipo", "pagina"},
+}
 
 func (h *handlers) routes() []route {
 	admin := security.RequireRole(domain.RoleAdmin)
@@ -43,6 +45,7 @@ func (h *handlers) routes() []route {
 		{http.MethodGet, "/api/administradores", http.HandlerFunc(h.administradores), admin},
 		{http.MethodGet, "/api/usuarios", http.HandlerFunc(h.usuarios), comum},
 		{http.MethodPost, "/api/tickets", chain(http.HandlerFunc(h.createTicket), h.sec.RateLimit(h.ticketLimiter)), comum},
+		{http.MethodGet, "/api/tickets", http.HandlerFunc(h.listOwnTickets), comum},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

@@ -1,0 +1,19 @@
+info:
+  name: list-unknown-400
+  type: http
+  seq: 34
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets?ordem=antigos"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Plan P-9: an unknown parameter is refused, not ignored.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+          expect(res.getBody().error).to.equal("bad_request");
+        });

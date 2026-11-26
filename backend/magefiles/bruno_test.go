@@ -345,6 +345,11 @@ func TestBrunoComumEnv(t *testing.T) {
 		if i := slices.Index(args, "run"); i < 0 || len(args) < i+4 || args[i+3] != brunoTickets {
 			t.Errorf("args = %v, want %s after %s", args, brunoTickets, brunoMatrix)
 		}
+		// Spec 003: the ticket tracking requests run last, after the ticket
+		// requests, with users of their own.
+		if i := slices.Index(args, "run"); i < 0 || len(args) < i+5 || args[i+4] != brunoTracking {
+			t.Errorf("args = %v, want %s after %s", args, brunoTracking, brunoTickets)
+		}
 		if got := fmt.Sprint(args); override != "" && !strings.Contains(got, "baseUrl="+override) {
 			t.Errorf("args = %v, want the baseUrl override", args)
 		}

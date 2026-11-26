@@ -447,6 +447,48 @@ func TestListQueueRefusals(t *testing.T) {
 	}
 }
 
+// TestListQueueAuthors covers AC-4.4 (Q-7) and P-18 on R6: the logins of
+// the users with tickets, alphabetical, nobody without tickets; any
+// parameter is a 400; the literal path never goes through TicketAccess.
+func TestListQueueAuthors(t *testing.T) {
+	t.Parallel()
+
+	var logBuf bytes.Buffer
+	a := newTrackingApp(t, &logBuf)
+	cookie, _ := a.loginAs(t, flowLogin)
+	rr := a.send(t, http.MethodGet, "/api/administradores/tickets/autores", "", cookie, nil)
+	if got := rr.Body.String(); rr.Code != http.StatusOK || got != `{"logins":[]}` {
+		t.Errorf("no tickets: %d %s, want 200 with an empty list", rr.Code, got)
+	}
+
+	seedLists(a)
+	logBuf.Reset()
+	rr = a.send(t, http.MethodGet, "/api/administradores/tickets/autores", "", cookie, nil)
+	if got := rr.Body.String(); rr.Code != http.StatusOK || got != `{"logins":["joao","maria"]}` {
+		t.Errorf("authors = %d %s, want joao and maria only (ana and admin have no ticket)", rr.Code, got)
+	}
+	if cc := rr.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("Cache-Control = %q", cc)
+	}
+	if strings.Contains(logBuf.String(), "ticket access") {
+		t.Errorf("autores went through TicketAccess:\n%s", logBuf.String())
+	}
+
+	for _, query := range []string{"x=1", "pagina=2", "usuario=maria", "%zz"} {
+		rr := a.send(t, http.MethodGet, "/api/administradores/tickets/autores?"+query, "", cookie, nil)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", query, rr.Code)
+			continue
+		}
+		checkErrorBody(t, rr, "bad_request", msgBadRequest)
+	}
+
+	comum, _ := a.loginAs(t, comumLogin)
+	if rr := a.send(t, http.MethodGet, "/api/administradores/tickets/autores", "", comum, nil); rr.Code != http.StatusForbidden {
+		t.Errorf("comum: status = %d, want 403", rr.Code)
+	}
+}
+
 // TestListOwnTicketsEmpty is an empty list: items is [], never null, and
 // "Página 1 de 1".
 func TestListOwnTicketsEmpty(t *testing.T) {

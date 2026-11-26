@@ -26,6 +26,8 @@ type TicketService interface {
 	// ListQueue returns a page of every user's tickets and the status
 	// counts of the whole queue.
 	ListQueue(ctx context.Context, q domain.TicketListQuery) (domain.TicketPage, domain.StatusCounts, error)
+	// Authors returns the logins of the users with at least one ticket.
+	Authors(ctx context.Context) ([]string, error)
 	// Get returns a ticket and its author's login.
 	Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error)
 	// Thread returns a page of a ticket's thread, older than before (0: the

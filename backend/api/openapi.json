@@ -517,6 +517,30 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/administradores/tickets/autores": {
+      "get": {
+        "operationId": "listQueueAuthors",
+        "tags": ["admin-tickets"],
+        "summary": "List the authors of the queue",
+        "description": "The logins of the users who have at least one ticket, in byte order, at most 500: the options of the `usuario` filter of the queue. Administrators only.\n\n**400** (`bad_request`): any query parameter (the operation reads none) or a malformed query string.",
+        "x-policy": ["admin"],
+        "responses": {
+          "200": {
+            "description": "The logins.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthorList" },
+                "example": { "logins": ["ana.lima", "maria.souza"] }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -985,6 +1009,14 @@
           "pages": { "type": "integer", "minimum": 1 },
           "page_size": { "type": "integer", "const": 20 },
           "status_counts": { "$ref": "#/components/schemas/StatusCounts" }
+        }
+      },
+      "AuthorList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["logins"],
+        "properties": {
+          "logins": { "type": "array", "maxItems": 500, "uniqueItems": true, "items": { "type": "string" } }
         }
       },
       "TicketDetail": {

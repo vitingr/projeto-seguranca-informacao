@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -98,6 +99,43 @@ func (h *handlers) listQueue(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 		})
 	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// authorList is the author filter of the queue (spec 003 AC-4.4, Q-7): the
+// logins of the users with at least one ticket, alphabetical, at most 500
+// (plan P-18).
+type authorList struct {
+	Logins []string `json:"logins"`
+}
+
+// errAuthorsQuery refuses any parameter on the author list: it reads none.
+var errAuthorsQuery = fmt.Errorf("web: queue authors: unknown parameter: %w", domain.ErrInvalidInput)
+
+// listQueueAuthors answers the author filter of the queue. Only admins
+// reach it (route policy); the literal path wins over the {id} routes of
+// the queue, so it never goes through TicketAccess.
+func (h *handlers) listQueueAuthors(w http.ResponseWriter, r *http.Request) {
+	p, ok := security.PrincipalFrom(r.Context())
+	if !ok {
+		WriteError(w, r, http.StatusUnauthorized)
+		return
+	}
+	values, err := h.sec.ReadQuery(r)
+	if err == nil && len(values) > 0 {
+		err = errAuthorsQuery
+	}
+	if err != nil {
+		h.queryRefused(r, p.UserID, err)
+		h.badRequest(w, r, err)
+		return
+	}
+	logins, err := h.tickets.Authors(r.Context())
+	if err != nil {
+		h.sec.RespondError(w, r, err)
+		return
+	}
+	out := authorList{Logins: append([]string{}, logins...)}
 	writeJSON(w, http.StatusOK, out)
 }
 

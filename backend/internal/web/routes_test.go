@@ -151,6 +151,7 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/tickets/{id}/mensagens", false, comum},
 		{"POST /api/tickets/{id}/mensagens", false, comum},
 		{"GET /api/administradores/tickets", false, admin},
+		{"GET /api/administradores/tickets/autores", false, admin},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))
@@ -198,6 +199,7 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 		{"anonymous thread gets 401", http.MethodGet, "/api/tickets/1/mensagens", "", http.StatusUnauthorized, "unauthorized"},
 		{"reply blocked by CSRF", http.MethodPost, "/api/tickets/1/mensagens", `{"texto":"oi"}`, http.StatusForbidden, "forbidden"},
 		{"anonymous queue gets 401", http.MethodGet, "/api/administradores/tickets", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous queue authors get 401", http.MethodGet, "/api/administradores/tickets/autores", "", http.StatusUnauthorized, "unauthorized"},
 		{"método não previsto", http.MethodDelete, "/api/usuarios", "", http.StatusForbidden, "forbidden"},
 		{"rota inexistente", http.MethodGet, "/api/nao-existe", "", http.StatusNotFound, "not_found"},
 		{"páginas antigas não existem mais", http.MethodGet, "/login", "", http.StatusNotFound, "not_found"},

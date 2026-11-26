@@ -110,6 +110,53 @@ func (s *Tickets) Thread(ctx context.Context, id domain.TicketID, before domain.
 	return page, nil
 }
 
+// Reply stores a message of actor, the session user, on a ticket TicketAccess
+// let through (BR-6). The text is validated first and stored trimmed; an
+// invalid text wraps domain.ErrInvalidInput and nothing is stored. The
+// actor is a parameter, never part of the request (S-8). A "fechado" ticket
+// is domain.ErrTicketClosed (BR-5).
+func (s *Tickets) Reply(ctx context.Context, actor domain.UserID, ticket domain.TicketID, raw string) (domain.TicketEntry, error) {
+	if s.entries == nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: reply: %w", errNoThread)
+	}
+	if actor <= 0 {
+		return domain.TicketEntry{}, fmt.Errorf("service: reply: %w", errNoAuthor)
+	}
+	text, err := s.validator.ValidateMessage(raw)
+	if err != nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: reply: %w", err)
+	}
+	e, err := s.entries.AddMessage(ctx, ticket, actor, text)
+	if err != nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: reply: %w", err)
+	}
+	return e, nil
+}
+
+// ChangeStatus moves a ticket from from, the status the admin saw, to to
+// (BR-2, BR-3, BR-7). Only admins reach it (route policy). The pair is
+// checked first, and a refused pair reaches no repository:
+// domain.ErrInvalidInput (422) for a pair BR-3 never allows,
+// domain.ErrStaleStatus (409) for a change from "fechado". The repository
+// then applies it only if from is still the status (domain.ErrStaleStatus
+// otherwise).
+func (s *Tickets) ChangeStatus(ctx context.Context, actor domain.UserID, ticket domain.TicketID, from, to domain.TicketStatus) (domain.TicketEntry, error) {
+	if s.entries == nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: change status: %w", errNoThread)
+	}
+	if actor <= 0 {
+		return domain.TicketEntry{}, fmt.Errorf("service: change status: %w", errNoAuthor)
+	}
+	if err := s.validator.CheckStatusChange(from, to); err != nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: change status: %w", err)
+	}
+	e, err := s.entries.ChangeStatus(ctx, ticket, actor, from, to)
+	if err != nil {
+		return domain.TicketEntry{}, fmt.Errorf("service: change status: %w", err)
+	}
+	return e, nil
+}
+
 // Create validates a decoded ticket request, gives it its title (BR-3), the
 // author of the session and the status "aberto" (BR-1, S-4, S-5), and
 // stores it. The author is a parameter, never part of the request. Invalid

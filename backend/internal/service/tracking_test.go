@@ -41,6 +41,10 @@ type trackingCall struct {
 	before domain.TicketEntryID
 	limit  int
 	query  domain.TicketListQuery
+	actor  domain.UserID
+	text   string
+	from   domain.TicketStatus
+	to     domain.TicketStatus
 }
 
 // trackingRepo is a TicketRepository and a TicketEntryRepository that
@@ -218,5 +222,250 @@ func TestThreadWithoutEntryRepositoryFailsClosed(t *testing.T) {
 	_, err := s.Thread(t.Context(), 9, 0)
 	if !errors.Is(err, errNoThread) || errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("Thread = %v, want errNoThread (500)", err)
+	}
+}
+
+func (s *stubValidator) ValidateMessage(string) (string, error) { return "", errNotInFake }
+
+func (s *stubValidator) CheckStatusChange(domain.TicketStatus, domain.TicketStatus) error {
+	return errNotInFake
+}
+
+func (r *trackingRepo) AddMessage(_ context.Context, ticket domain.TicketID, actor domain.UserID, text string) (domain.TicketEntry, error) {
+	if err := r.record(trackingCall{method: "AddMessage", ticket: ticket, actor: actor, text: text}); err != nil {
+		return domain.TicketEntry{}, err
+	}
+	return domain.TicketEntry{ID: 77, TicketID: ticket, ActorID: actor, Kind: domain.EntryKindMessage, Body: text, CreatedAt: trackingTime}, nil
+}
+
+func (r *trackingRepo) ChangeStatus(_ context.Context, ticket domain.TicketID, actor domain.UserID, from, to domain.TicketStatus) (domain.TicketEntry, error) {
+	if err := r.record(trackingCall{method: "ChangeStatus", ticket: ticket, actor: actor, from: from, to: to}); err != nil {
+		return domain.TicketEntry{}, err
+	}
+	return domain.TicketEntry{ID: 78, TicketID: ticket, ActorID: actor, Kind: domain.EntryKindStatusChange, From: from, To: to, CreatedAt: trackingTime}, nil
+}
+
+// orderValidator is a TicketValidator that records the order of the calls
+// in log, shared with the repository fake through record.
+type orderValidator struct {
+	repo      *trackingRepo
+	text      string
+	textErr   error
+	statusErr error
+}
+
+func (v *orderValidator) ValidateTicket(domain.TicketDraft) (domain.Ticket, error) {
+	return domain.Ticket{}, errNotInFake
+}
+
+func (v *orderValidator) ValidateMessage(raw string) (string, error) {
+	v.repo.calls = append(v.repo.calls, trackingCall{method: "ValidateMessage", text: raw})
+	return v.text, v.textErr
+}
+
+func (v *orderValidator) CheckStatusChange(from, to domain.TicketStatus) error {
+	v.repo.calls = append(v.repo.calls, trackingCall{method: "CheckStatusChange", from: from, to: to})
+	return v.statusErr
+}
+
+func methods(calls []trackingCall) string {
+	names := make([]string, 0, len(calls))
+	for i := range calls {
+		names = append(names, calls[i].method)
+	}
+	return strings.Join(names, ",")
+}
+
+const adminActor domain.UserID = 5
+
+func TestReplyValidatesThenStores(t *testing.T) {
+	t.Parallel()
+
+	repo := &trackingRepo{}
+	v := &orderValidator{repo: repo, text: "Oi, tudo bem?"}
+	s := NewTicketsWithThread(repo, repo, v)
+	got, err := s.Reply(t.Context(), author, 9, "  Oi, tudo bem?\n")
+	if err != nil {
+		t.Fatalf("Reply: %v", err)
+	}
+	if methods(repo.calls) != "ValidateMessage,AddMessage" {
+		t.Fatalf("calls = %s, want the rule first, then the store", methods(repo.calls))
+	}
+	// The trimmed text, the session actor and the ticket of TicketAccess.
+	want := trackingCall{method: "AddMessage", ticket: 9, actor: author, text: "Oi, tudo bem?"}
+	if repo.calls[1] != want {
+		t.Errorf("AddMessage call = %+v, want %+v", repo.calls[1], want)
+	}
+	if got.ID != 77 || got.Body != "Oi, tudo bem?" || got.ActorID != author {
+		t.Errorf("Reply = %+v, want the stored entry", got)
+	}
+}
+
+func TestReplyRefusals(t *testing.T) {
+	t.Parallel()
+
+	invalid := fmt.Errorf("security: validate message: too long: %w", domain.ErrInvalidInput)
+	closed := fmt.Errorf("repository: add message: %w", domain.ErrTicketClosed)
+	tests := []struct {
+		name    string
+		actor   domain.UserID
+		textErr error
+		repoErr error
+		want    error
+		calls   string
+	}{
+		{"invalid text stores nothing", author, invalid, nil, domain.ErrInvalidInput, "ValidateMessage"},
+		{"closed ticket", author, nil, closed, domain.ErrTicketClosed, "ValidateMessage,AddMessage"},
+		{"no actor is a server error", 0, nil, nil, errNoAuthor, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &trackingRepo{}
+			v := &orderValidator{repo: repo, text: "Oi", textErr: tt.textErr}
+			s := NewTicketsWithThread(repo, repo, v)
+			if tt.repoErr != nil {
+				s = NewTicketsWithThread(repo, &failingEntries{trackingRepo: repo, err: tt.repoErr}, v)
+			}
+			got, err := s.Reply(t.Context(), tt.actor, 9, "Oi")
+			if !errors.Is(err, tt.want) || !strings.HasPrefix(err.Error(), "service: reply: ") {
+				t.Errorf("Reply = %v, want %v wrapped by the service", err, tt.want)
+			}
+			if got != (domain.TicketEntry{}) {
+				t.Errorf("Reply = %+v with an error, want the zero entry", got)
+			}
+			if methods(repo.calls) != tt.calls {
+				t.Errorf("calls = %q, want %q", methods(repo.calls), tt.calls)
+			}
+		})
+	}
+}
+
+// failingEntries answers every write of the embedded fake with err, after
+// recording it.
+type failingEntries struct {
+	*trackingRepo
+	err error
+}
+
+func (f *failingEntries) AddMessage(ctx context.Context, ticket domain.TicketID, actor domain.UserID, text string) (domain.TicketEntry, error) {
+	_, _ = f.trackingRepo.AddMessage(ctx, ticket, actor, text)
+	return domain.TicketEntry{}, f.err
+}
+
+func (f *failingEntries) ChangeStatus(ctx context.Context, ticket domain.TicketID, actor domain.UserID, from, to domain.TicketStatus) (domain.TicketEntry, error) {
+	_, _ = f.trackingRepo.ChangeStatus(ctx, ticket, actor, from, to)
+	return domain.TicketEntry{}, f.err
+}
+
+func TestChangeStatusChecksThePairThenStores(t *testing.T) {
+	t.Parallel()
+
+	repo := &trackingRepo{}
+	s := NewTicketsWithThread(repo, repo, &orderValidator{repo: repo})
+	got, err := s.ChangeStatus(t.Context(), adminActor, 9, domain.TicketStatusOpen, domain.TicketStatusInProgress)
+	if err != nil {
+		t.Fatalf("ChangeStatus: %v", err)
+	}
+	if methods(repo.calls) != "CheckStatusChange,ChangeStatus" {
+		t.Fatalf("calls = %s, want the rule first, then the store", methods(repo.calls))
+	}
+	want := trackingCall{method: "ChangeStatus", ticket: 9, actor: adminActor, from: domain.TicketStatusOpen, to: domain.TicketStatusInProgress}
+	if repo.calls[1] != want {
+		t.Errorf("ChangeStatus call = %+v, want %+v", repo.calls[1], want)
+	}
+	if got.ID != 78 || got.To != domain.TicketStatusInProgress || got.ActorID != adminActor {
+		t.Errorf("ChangeStatus = %+v, want the stored entry", got)
+	}
+}
+
+func TestChangeStatusRefusals(t *testing.T) {
+	t.Parallel()
+
+	forbidden := fmt.Errorf("security: status change: transition not allowed: %w", domain.ErrInvalidInput)
+	fromClosed := fmt.Errorf("security: status change: %w", domain.ErrStaleStatus)
+	stale := fmt.Errorf("repository: change status: %w", domain.ErrStaleStatus)
+	tests := []struct {
+		name      string
+		actor     domain.UserID
+		statusErr error
+		repoErr   error
+		want      error
+		calls     string
+	}{
+		{"pair BR-3 never allows", adminActor, forbidden, nil, domain.ErrInvalidInput, "CheckStatusChange"},
+		{"change from fechado", adminActor, fromClosed, nil, domain.ErrStaleStatus, "CheckStatusChange"},
+		{"stale status in the database", adminActor, nil, stale, domain.ErrStaleStatus, "CheckStatusChange,ChangeStatus"},
+		{"no actor is a server error", 0, nil, nil, errNoAuthor, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &trackingRepo{}
+			v := &orderValidator{repo: repo, statusErr: tt.statusErr}
+			s := NewTicketsWithThread(repo, repo, v)
+			if tt.repoErr != nil {
+				s = NewTicketsWithThread(repo, &failingEntries{trackingRepo: repo, err: tt.repoErr}, v)
+			}
+			got, err := s.ChangeStatus(t.Context(), tt.actor, 9, domain.TicketStatusOpen, domain.TicketStatusResolved)
+			if !errors.Is(err, tt.want) || !strings.HasPrefix(err.Error(), "service: change status: ") {
+				t.Errorf("ChangeStatus = %v, want %v wrapped by the service", err, tt.want)
+			}
+			if got != (domain.TicketEntry{}) {
+				t.Errorf("ChangeStatus = %+v with an error, want the zero entry", got)
+			}
+			if methods(repo.calls) != tt.calls {
+				t.Errorf("calls = %q, want %q", methods(repo.calls), tt.calls)
+			}
+		})
+	}
+}
+
+func TestWritesWithoutEntryRepositoryFailClosed(t *testing.T) {
+	t.Parallel()
+
+	s := NewTickets(&memTickets{}, &stubValidator{})
+	_, err1 := s.Reply(t.Context(), author, 9, "Oi")
+	_, err2 := s.ChangeStatus(t.Context(), adminActor, 9, domain.TicketStatusOpen, domain.TicketStatusClosed)
+	for _, err := range []error{err1, err2} {
+		if !errors.Is(err, errNoThread) || errors.Is(err, domain.ErrInvalidInput) {
+			t.Errorf("write = %v, want errNoThread (500)", err)
+		}
+	}
+}
+
+// TestWritesWithTheSecurityRules wires the real security rules, so the
+// service and security.Security agree on the message rule and the BR-3
+// codes (422 for a forbidden pair, 409 from "fechado").
+func TestWritesWithTheSecurityRules(t *testing.T) {
+	t.Parallel()
+
+	repo := &trackingRepo{}
+	s := NewTicketsWithThread(repo, repo, newSecurity(t))
+	ctx := t.Context()
+
+	if got, err := s.Reply(ctx, author, 9, "\n  Oi, ainda está acontecendo.  \n"); err != nil || got.Body != "Oi, ainda está acontecendo." {
+		t.Errorf("Reply = %+v, %v; want the trimmed text stored", got, err)
+	}
+	for _, raw := range []string{"", "   \n", strings.Repeat("a", 2001), "Oi\x00"} {
+		if _, err := s.Reply(ctx, author, 9, raw); !errors.Is(err, domain.ErrInvalidInput) {
+			t.Errorf("Reply(%q) = %v, want ErrInvalidInput", raw, err)
+		}
+	}
+	if _, err := s.ChangeStatus(ctx, adminActor, 9, domain.TicketStatusOpen, domain.TicketStatusResolved); !errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrConflict) {
+		t.Errorf("aberto → resolvido = %v, want ErrInvalidInput (422)", err)
+	}
+	if _, err := s.ChangeStatus(ctx, adminActor, 9, domain.TicketStatusOpen, domain.TicketStatusOpen); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("aberto → aberto = %v, want ErrInvalidInput (422)", err)
+	}
+	if _, err := s.ChangeStatus(ctx, adminActor, 9, domain.TicketStatusClosed, domain.TicketStatusOpen); !errors.Is(err, domain.ErrStaleStatus) {
+		t.Errorf("fechado → aberto = %v, want ErrStaleStatus (409)", err)
+	}
+	if _, err := s.ChangeStatus(ctx, adminActor, 9, domain.TicketStatusResolved, domain.TicketStatusInProgress); err != nil {
+		t.Errorf("resolvido → em_andamento = %v, want allowed", err)
+	}
+	// Only the accepted reply and the allowed change reached the store.
+	if got := methods(repo.calls); got != "AddMessage,ChangeStatus" {
+		t.Errorf("store calls = %s, want AddMessage,ChangeStatus", got)
 	}
 }

@@ -37,12 +37,25 @@ type TicketEntryRepository interface {
 	// Thread returns the latest limit entries older than before (0: the
 	// latest), oldest first, and whether older ones remain.
 	Thread(ctx context.Context, ticket domain.TicketID, before domain.TicketEntryID, limit int) (domain.ThreadPage, error)
+	// AddMessage stores a message and moves the ticket's last update;
+	// domain.ErrTicketClosed on a "fechado" ticket.
+	AddMessage(ctx context.Context, ticket domain.TicketID, actor domain.UserID, text string) (domain.TicketEntry, error)
+	// ChangeStatus moves the ticket from status from to to and records it;
+	// domain.ErrStaleStatus when from is not its status any more.
+	ChangeStatus(ctx context.Context, ticket domain.TicketID, actor domain.UserID, from, to domain.TicketStatus) (domain.TicketEntry, error)
 }
 
 type TicketValidator interface {
 	// ValidateTicket applies the field rules of a ticket type and returns
 	// the trimmed values; errors wrap domain.ErrInvalidInput.
 	ValidateTicket(d domain.TicketDraft) (domain.Ticket, error)
+	// ValidateMessage applies the message rule (spec 003 BR-6) and returns
+	// the trimmed text; errors wrap domain.ErrInvalidInput.
+	ValidateMessage(raw string) (string, error)
+	// CheckStatusChange allows only the transitions of spec 003 BR-3:
+	// domain.ErrInvalidInput for a pair BR-3 never allows,
+	// domain.ErrStaleStatus for a change from "fechado".
+	CheckStatusChange(from, to domain.TicketStatus) error
 }
 
 type InputValidator interface {

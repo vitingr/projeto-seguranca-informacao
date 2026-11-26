@@ -481,6 +481,54 @@ func TestDecodeTicketRefuses(t *testing.T) {
 	}
 }
 
+// TestDecodeTicketRefusesInvalidUTF8 covers spec section 4 ("text that is
+// not valid UTF-8 is rejected") at the body level: encoding/json alone
+// would replace each invalid byte with U+FFFD and accept the ticket.
+func TestDecodeTicketRefusesInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	// Built from bytes, so no tool can rewrite them as valid characters.
+	var (
+		invalidByte = string([]byte{0xff})
+		truncated   = string([]byte{0xc3})
+		overlong    = string([]byte{0xc0, 0xaf})
+		surrogate   = string([]byte{0xed, 0xa0, 0x80})
+	)
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"invalid byte in a value", `{"tipo":"outro","dados":{"titulo":"Gra` + invalidByte + `fana","descricao":"Como peço uma VPN?"}}`},
+		{"truncated character at the end of a value", `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço uma VPN` + truncated + `"}}`},
+		{"overlong encoding", `{"tipo":"outro","dados":{"titulo":"Dúvida ` + overlong + `","descricao":"Como peço uma VPN?"}}`},
+		{"utf-16 surrogate encoded as utf-8", `{"tipo":"outro","dados":{"titulo":"Dúvida ` + surrogate + `","descricao":"Como peço uma VPN?"}}`},
+		{"invalid byte in tipo", `{"tipo":"outr` + invalidByte + `","dados":{"titulo":"Dúvida","descricao":"Como peço uma VPN?"}}`},
+		{"invalid byte in a key", `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço uma VPN?","` + invalidByte + `":"x"}}`},
+		{"invalid byte with an unknown tipo", `{"tipo":"incidente","dados":{"x":"` + invalidByte + `"}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := decodeTicket(t, s, "application/json", tt.body)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("error = %v, want ErrInvalidInput", err)
+			}
+			if !strings.Contains(err.Error(), reasonInvalidUTF8) {
+				t.Errorf("error = %q, want reason %q", err, reasonInvalidUTF8)
+			}
+			if !reflect.DeepEqual(got, domain.TicketDraft{}) {
+				t.Errorf("draft = %+v on error, want zero", got)
+			}
+		})
+	}
+
+	// The same characters, written correctly, decode.
+	if _, err := decodeTicket(t, s, "application/json", `{"tipo":"outro","dados":{"titulo":"Dúvida 😀","descricao":"Como peço uma VPN?"}}`); err != nil {
+		t.Errorf("valid UTF-8 body: %v", err)
+	}
+}
+
 // TestDecodeTicketLargestValid sends the largest valid ticket (a bug: two
 // 2000-character fields and a 120-character one) with every character an
 // emoji written as a JSON escape pair, 12 bytes each, the most a client can

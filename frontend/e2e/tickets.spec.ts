@@ -367,8 +367,8 @@ test.describe('details step', () => {
 
 const reviewCard = (page: Page) => page.getByRole('region', { name: 'Revisão' })
 
-// The value next to a label; "Título" is both the ticket title and, for
-// "Outro", a field, so `.first()` picks the "Pedido" group.
+// The value next to a label. For "Outro", "Título" is only the ticket title
+// of the "Pedido" group: the field is not repeated in "Detalhes" (T9.8b).
 const reviewValue = (page: Page, label: string) =>
   reviewCard(page)
     .locator('dt', { hasText: new RegExp(`^${label}$`) })
@@ -418,7 +418,9 @@ test.describe('review step', () => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Revisão')).toBeFocused()
 
-    await expect(reviewValue(page, 'Título').first()).toHaveText(title)
+    // One "Título" row: the title is not repeated in "Detalhes" (T9.8b).
+    await expect(reviewValue(page, 'Título')).toHaveCount(1)
+    await expect(reviewValue(page, 'Título')).toHaveText(title)
     await expect(reviewValue(page, 'Descrição')).toHaveText(description)
     await expect(reviewCard(page).locator('img, script, strong')).toHaveCount(0)
     // The preview shows the same title as text too.
@@ -573,6 +575,8 @@ test.describe('sending a ticket', () => {
           .locator('xpath=following-sibling::dd[1]')
       await expect(value('Número')).toHaveText(/^#\d+$/)
       await expect(value('Tipo')).toHaveText(typeLabel)
+      // The title is shown once, also for "Outro" (T9.8b).
+      await expect(value('Título')).toHaveCount(1)
       await expect(value('Título')).toHaveText(TITLES[typeLabel])
       await expect(value('Status')).toHaveText('Aberto')
       await expect(value('Criado em')).toHaveText(

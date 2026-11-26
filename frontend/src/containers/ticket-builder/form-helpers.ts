@@ -57,11 +57,11 @@ export const previewTitle = (
 }
 
 /**
- * The rows of the review (AC-4.1): every field of the type in screen order,
- * with the value that will be sent (trimmed by the schema), the label of a
- * fixed choice, and `null` for an optional field left empty.
+ * Every field of the type in screen order, with the value that will be sent
+ * (trimmed by the schema), the label of a fixed choice, and `null` for an
+ * optional field left empty.
  */
-export const reviewRows = (input: TicketInput): TicketReviewRow[] => {
+const fieldRows = (input: TicketInput): TicketReviewRow[] => {
   const dados: Partial<Record<string, string>> = { ...input.dados }
   return fieldLayout(input.tipo).map(({ field }) => {
     const raw = dados[field.key]
@@ -75,13 +75,25 @@ export const reviewRows = (input: TicketInput): TicketReviewRow[] => {
   })
 }
 
+/** The field whose value is the ticket title itself ("Outro", BR-3). */
+const TITLE_FIELDS: Partial<Record<TicketType, string>> = { outro: 'titulo' }
+
 /**
- * The chips of the send progress: the type, then the labels of the fields
- * that carry a value. Names only, never what was typed (AC-5.5).
+ * The rows of the "Detalhes" group of the review (AC-4.1). The field that is
+ * the ticket title ("Título" of "Outro") is left out: the "Pedido" group
+ * already shows it as the title, so it is shown once.
+ */
+export const reviewRows = (input: TicketInput): TicketReviewRow[] =>
+  fieldRows(input).filter(row => row.key !== TITLE_FIELDS[input.tipo])
+
+/**
+ * The chips of the send progress: the type, then the labels of every field
+ * sent with a value, the title field included. Names only, never what was
+ * typed (AC-5.5).
  */
 export const progressChips = (input: TicketInput): string[] => [
   ticketTypeLabel(input.tipo),
-  ...reviewRows(input)
+  ...fieldRows(input)
     .filter(row => row.value !== null)
     .map(row => row.label)
 ]

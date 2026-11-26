@@ -1,0 +1,42 @@
+info:
+  name: tickets-comum
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "  Dúvida sobre a VPN  ",
+          "descricao": "Como peço acesso à VPN?"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The comum user creates a ticket (spec 001-ticket-builder, S-6,
+        // AC-5.2): status aberto, the typed title trimmed, server dates.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns only what the confirmation shows", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["created_at", "id", "status", "title", "type", "updated_at"]);
+          expect(body.id).to.be.a("number").and.above(0);
+          expect(body.type).to.equal("outro");
+          expect(body.title).to.equal("Dúvida sobre a VPN");
+          expect(body.status).to.equal("aberto");
+          expect(body.created_at).to.equal(body.updated_at);
+          expect(Date.parse(body.created_at)).to.be.a("number").and.not.NaN;
+        });

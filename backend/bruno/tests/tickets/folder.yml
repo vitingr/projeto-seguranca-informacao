@@ -1,0 +1,14 @@
+# Hand-written. Run by "mage brunoRun" after tests/access-matrix
+# (bru run tests tests/access-matrix tests/tickets).
+#
+# POST /api/tickets as the comum user that the access matrix registered
+# (BRUNO_COMUM_LOGIN): login (2-3), the CSRF refusals (4-6), the 400 and 422
+# answers (7-8), one ticket of each remaining type (9-11), logout (12). The
+# Go tests in internal/web cover every refusal class and check that nothing
+# is stored; these requests check the running stack.
+info:
+  name: tickets
+  type: folder
+
+request:
+  auth: inherit

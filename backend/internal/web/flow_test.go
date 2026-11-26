@@ -14,6 +14,7 @@ import (
 
 	"backend_si/internal/domain"
 	"backend_si/internal/security"
+	"backend_si/internal/service"
 )
 
 const (
@@ -44,6 +45,7 @@ func (credAuth) Authenticate(_ context.Context, login, password string) (domain.
 type flowApp struct {
 	app      http.Handler
 	sessions *memSessions
+	tickets  *memTicketRepo // the tickets stored through the real service.Tickets
 }
 
 func newFlowApp(t *testing.T) flowApp {
@@ -89,11 +91,15 @@ func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
 	if cfg.users != nil {
 		users = cfg.users(sec)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: credAuth{}, Users: users})
+	tickets := newMemTicketRepo()
+	app, err := NewHandler(Deps{
+		Logger: logger, Security: sec, Auth: credAuth{}, Users: users,
+		Tickets: service.NewTickets(tickets, sec),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return flowApp{app: app, sessions: store}
+	return flowApp{app: app, sessions: store, tickets: tickets}
 }
 
 // send runs one request; cookie may be nil.

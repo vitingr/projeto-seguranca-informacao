@@ -1,0 +1,39 @@
+info:
+  name: tickets-deploy
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "deploy",
+        "dados": {
+          "projeto": "api-notas",
+          "repositorio": "https://github.com/org/api-notas",
+          "ambiente": "prod",
+          "observacoes": "Depois das 18h."
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the ticket with the server title", function () {
+          const body = res.getBody();
+          expect(body.type).to.equal("deploy");
+          expect(body.title).to.equal("Deploy de api-notas em Produção");
+          expect(body.status).to.equal("aberto");
+          expect(body.created_at).to.equal(body.updated_at);
+        });

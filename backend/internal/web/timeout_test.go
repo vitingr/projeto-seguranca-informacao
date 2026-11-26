@@ -15,6 +15,7 @@ import (
 
 	"backend_si/internal/domain"
 	"backend_si/internal/security"
+	"backend_si/internal/service"
 )
 
 // waitingAuth stands for an Authenticate call stuck waiting for a hash slot:
@@ -51,7 +52,7 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}})
+	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}, Tickets: service.NewTickets(newMemTicketRepo(), sec)})
 	if err != nil {
 		t.Fatal(err)
 	}

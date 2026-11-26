@@ -13,7 +13,11 @@ import (
 // than 201 comes from the middleware chain, not from validation.
 const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough password","papel":"comum"}`
 
-// TestAccessMatrix covers the 15-cell access matrix (003 D-1, D-2) through
+// matrixTicketBody is a valid ticket request, for the same reason.
+const matrixTicketBody = `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço acesso à VPN?"}}`
+
+// TestAccessMatrix covers the access matrix (003 D-1, D-2: 15 cells; spec
+// 001-ticket-builder S-6 adds POST /api/tickets: 18 cells) through
 // the full NewHandler chain. Every caller holds a session and sends a valid
 // CSRF token on POSTs, so a 401 or 403 can only come from Authorize; the log
 // reason proves it.
@@ -32,21 +36,24 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodPost, "/api/cadastro", http.StatusUnauthorized},
 		{anonymous, http.MethodGet, "/api/me", http.StatusUnauthorized},
 		{anonymous, http.MethodPost, "/api/logout", http.StatusUnauthorized},
+		{anonymous, http.MethodPost, "/api/tickets", http.StatusUnauthorized},
 
 		{comumLogin, http.MethodGet, "/api/administradores", http.StatusForbidden},
 		{comumLogin, http.MethodGet, "/api/usuarios", http.StatusOK},
 		{comumLogin, http.MethodPost, "/api/cadastro", http.StatusForbidden},
 		{comumLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{comumLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
+		{comumLogin, http.MethodPost, "/api/tickets", http.StatusCreated},
 
 		{flowLogin, http.MethodGet, "/api/administradores", http.StatusOK},
 		{flowLogin, http.MethodGet, "/api/usuarios", http.StatusForbidden}, // admins do not reach /usuarios
 		{flowLogin, http.MethodPost, "/api/cadastro", http.StatusCreated},
 		{flowLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{flowLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
+		{flowLogin, http.MethodPost, "/api/tickets", http.StatusForbidden}, // admins do not create tickets
 	}
-	if len(tests) != 15 {
-		t.Fatalf("matrix has %d cells, want 15 (D-2)", len(tests))
+	if len(tests) != 18 {
+		t.Fatalf("matrix has %d cells, want 18 (D-2 plus the 3 ticket cells)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
@@ -68,8 +75,11 @@ func TestAccessMatrix(t *testing.T) {
 			headers := map[string]string{}
 			if tt.method == http.MethodPost {
 				headers[security.CSRFHeaderName] = token
-				if tt.path == "/api/cadastro" {
+				switch tt.path {
+				case "/api/cadastro":
 					body = matrixCadastroBody
+				case "/api/tickets":
+					body = matrixTicketBody
 				}
 			}
 

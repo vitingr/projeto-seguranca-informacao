@@ -1,0 +1,10 @@
+info:
+  name: tickets
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Support tickets.
+  type: text/markdown

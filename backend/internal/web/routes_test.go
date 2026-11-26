@@ -79,12 +79,12 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	if err != nil {
 		t.Fatalf("security.New: %v", err)
 	}
-	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}}
+	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}, Tickets: service.NewTickets(newMemTicketRepo(), sec)}
 	h, err := NewHandler(deps)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users}, h
+	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users, tickets: deps.Tickets}, h
 }
 
 func TestEveryRouteDeclaresPolicy(t *testing.T) {
@@ -137,6 +137,7 @@ func TestRoutePolicies(t *testing.T) {
 		{"POST /api/cadastro", false, admin},
 		{"GET /api/administradores", false, admin},
 		{"GET /api/usuarios", false, comum},
+		{"POST /api/tickets", false, comum},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))
@@ -178,6 +179,7 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 		{"login barrado pelo CSRF", http.MethodPost, "/api/login", `{"login":"a","senha":"b"}`, http.StatusForbidden, "forbidden"},
 		{"cadastro barrado", http.MethodPost, "/api/cadastro", `{"login":"a","senha":"b","papel":"admin"}`, http.StatusForbidden, "forbidden"},
 		{"logout barrado", http.MethodPost, "/api/logout", "", http.StatusForbidden, "forbidden"},
+		{"tickets blocked by CSRF", http.MethodPost, "/api/tickets", `{"tipo":"outro","dados":{}}`, http.StatusForbidden, "forbidden"},
 		{"método não previsto", http.MethodDelete, "/api/usuarios", "", http.StatusForbidden, "forbidden"},
 		{"rota inexistente", http.MethodGet, "/api/nao-existe", "", http.StatusNotFound, "not_found"},
 		{"páginas antigas não existem mais", http.MethodGet, "/login", "", http.StatusNotFound, "not_found"},

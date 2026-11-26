@@ -36,6 +36,7 @@ func (h *handlers) routes() []route {
 		{http.MethodPost, "/api/cadastro", http.HandlerFunc(h.cadastro), admin},
 		{http.MethodGet, "/api/administradores", http.HandlerFunc(h.administradores), admin},
 		{http.MethodGet, "/api/usuarios", http.HandlerFunc(h.usuarios), comum},
+		{http.MethodPost, "/api/tickets", http.HandlerFunc(h.createTicket), comum},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

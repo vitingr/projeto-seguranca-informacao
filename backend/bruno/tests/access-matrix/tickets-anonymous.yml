@@ -1,0 +1,35 @@
+info:
+  name: tickets-anonymous
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "Dúvida",
+          "descricao": "Como peço acesso à VPN?"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Anonymous with a valid CSRF token: the CSRF check passes and
+        // Authorize answers 401 (spec 001-ticket-builder, S-6).
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
+        });
+        test("error is unauthorized", function () {
+          expect(res.getBody().error).to.equal("unauthorized");
+        });

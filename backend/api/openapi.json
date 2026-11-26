@@ -27,6 +27,10 @@
     {
       "name": "areas",
       "description": "Role-restricted areas."
+    },
+    {
+      "name": "tickets",
+      "description": "Support tickets."
     }
   ],
   "paths": {
@@ -256,6 +260,55 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/tickets": {
+      "post": {
+        "operationId": "createTicket",
+        "tags": ["tickets"],
+        "summary": "Create ticket",
+        "description": "Creates a support ticket for the `comum` user of the session. Administrators get 403.\n\n`tipo` picks the type and `dados` carries only the fields of that type (see `CreateTicketRequest`). Text fields are trimmed and their lengths are counted in Unicode characters (code points). Single-line fields accept no control character, line break or tab; multi-line fields accept line feed, carriage return and tab only. `repositorio` must be an absolute `https://` URL with a host and no user name or password.\n\nThe author is the user of the session, the status is always `aberto`, and the id and the dates are set by the server: the body cannot carry them. Titles of `acesso`, `bug` and `deploy` tickets are built by the server: `Acesso a <sistema>`, `Bug em <sistema>`, `Deploy de <projeto> em <ambiente>` (with the environment label), cut to 120 characters; `outro` keeps `titulo`.\n\n**400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a body that is not valid UTF-8, a `Content-Type` other than `application/json`, a key that is not one of the documented names spelled exactly (case-sensitive), a key of another type, a duplicate key (also when only the case differs), a field of the wrong JSON type, or `dados` missing or `null`. Keys the server owns (`author`, `user_id`, `status`, `id`, `created_at`, ...) are unknown keys.\n\n**422** (`unprocessable_entity`): the body is well-formed but a value is invalid: an unknown `tipo`, a missing or empty required field, a length out of its limits, a forbidden character, a code outside its list, or a repository that is not an https URL. The answer never names the field.\n\nNothing is stored when the answer is not 201. The response does not echo the field contents.",
+        "x-policy": ["comum"],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTicketRequest" },
+              "example": {
+                "tipo": "acesso",
+                "dados": {
+                  "sistema": "Grafana",
+                  "nivel_acesso": "leitura",
+                  "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket created with status `aberto`.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TicketResponse" },
+                "example": {
+                  "id": 1,
+                  "type": "acesso",
+                  "title": "Acesso a Grafana",
+                  "status": "aberto",
+                  "created_at": "2026-11-25T14:30:00.123456Z",
+                  "updated_at": "2026-11-25T14:30:00.123456Z"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": { "$ref": "#/components/responses/InvalidTicketData" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -324,6 +377,19 @@
       },
       "UnprocessableEntity": {
         "description": "Invalid login, password or role.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "unprocessable_entity",
+              "message": "Dados inválidos. Revise os campos e tente novamente.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "InvalidTicketData": {
+        "description": "A ticket value is invalid. The answer never says which field.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/ErrorResponse" },
@@ -415,6 +481,146 @@
       "Role": {
         "type": "string",
         "enum": ["admin", "comum"]
+      },
+      "CreateTicketRequest": {
+        "description": "A ticket request: `tipo` and the `dados` of that type, with no other key.",
+        "oneOf": [
+          { "$ref": "#/components/schemas/AccessTicketRequest" },
+          { "$ref": "#/components/schemas/BugTicketRequest" },
+          { "$ref": "#/components/schemas/DeployTicketRequest" },
+          { "$ref": "#/components/schemas/OtherTicketRequest" }
+        ],
+        "discriminator": {
+          "propertyName": "tipo",
+          "mapping": {
+            "acesso": "#/components/schemas/AccessTicketRequest",
+            "bug": "#/components/schemas/BugTicketRequest",
+            "deploy": "#/components/schemas/DeployTicketRequest",
+            "outro": "#/components/schemas/OtherTicketRequest"
+          }
+        }
+      },
+      "AccessTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tipo", "dados"],
+        "properties": {
+          "tipo": { "type": "string", "const": "acesso" },
+          "dados": { "$ref": "#/components/schemas/AccessTicketData" }
+        }
+      },
+      "BugTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tipo", "dados"],
+        "properties": {
+          "tipo": { "type": "string", "const": "bug" },
+          "dados": { "$ref": "#/components/schemas/BugTicketData" }
+        }
+      },
+      "DeployTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tipo", "dados"],
+        "properties": {
+          "tipo": { "type": "string", "const": "deploy" },
+          "dados": { "$ref": "#/components/schemas/DeployTicketData" }
+        }
+      },
+      "OtherTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tipo", "dados"],
+        "properties": {
+          "tipo": { "type": "string", "const": "outro" },
+          "dados": { "$ref": "#/components/schemas/OtherTicketData" }
+        }
+      },
+      "AccessTicketData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sistema", "nivel_acesso", "justificativa"],
+        "properties": {
+          "sistema": { "type": "string", "minLength": 2, "maxLength": 120, "description": "System or resource. Single-line." },
+          "nivel_acesso": { "$ref": "#/components/schemas/AccessLevel" },
+          "justificativa": { "type": "string", "minLength": 10, "maxLength": 2000, "description": "Multi-line." }
+        }
+      },
+      "BugTicketData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sistema", "descricao", "passos", "severidade"],
+        "properties": {
+          "sistema": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Affected system. Single-line." },
+          "descricao": { "type": "string", "minLength": 10, "maxLength": 2000, "description": "Multi-line." },
+          "passos": { "type": "string", "minLength": 10, "maxLength": 2000, "description": "Steps to reproduce. Multi-line." },
+          "severidade": { "$ref": "#/components/schemas/Severity" }
+        }
+      },
+      "DeployTicketData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["projeto", "repositorio", "ambiente"],
+        "properties": {
+          "projeto": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Project name. Single-line." },
+          "repositorio": {
+            "type": "string",
+            "maxLength": 300,
+            "format": "uri",
+            "description": "Absolute `https://` URL with a host and no user name or password. SSH addresses are refused."
+          },
+          "ambiente": { "$ref": "#/components/schemas/Environment" },
+          "observacoes": {
+            "type": ["string", "null"],
+            "maxLength": 2000,
+            "description": "Optional. Multi-line. Absent, `null` and empty (after trimming) all mean no notes."
+          }
+        }
+      },
+      "OtherTicketData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["titulo", "descricao"],
+        "properties": {
+          "titulo": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Title of the ticket. Single-line." },
+          "descricao": { "type": "string", "minLength": 10, "maxLength": 2000, "description": "Multi-line." }
+        }
+      },
+      "TicketResponse": {
+        "type": "object",
+        "required": ["id", "type", "title", "status", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "Ticket number, shown as `#<id>`." },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "title": { "type": "string", "maxLength": 120 },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time", "description": "Equal to `created_at` for a new ticket." }
+        }
+      },
+      "TicketType": {
+        "type": "string",
+        "enum": ["acesso", "bug", "deploy", "outro"]
+      },
+      "TicketStatus": {
+        "type": "string",
+        "description": "A new ticket is always `aberto`; the other statuses belong to later features.",
+        "enum": ["aberto", "em_andamento", "resolvido", "fechado"]
+      },
+      "AccessLevel": {
+        "type": "string",
+        "description": "`leitura` (Leitura), `escrita` (Escrita), `administrador` (Administrador).",
+        "enum": ["leitura", "escrita", "administrador"]
+      },
+      "Severity": {
+        "type": "string",
+        "description": "`baixa` (Baixa), `media` (Média), `alta` (Alta), `critica` (Crítica).",
+        "enum": ["baixa", "media", "alta", "critica"]
+      },
+      "Environment": {
+        "type": "string",
+        "description": "`dev` (Desenvolvimento), `homolog` (Homologação), `prod` (Produção).",
+        "enum": ["dev", "homolog", "prod"]
       }
     }
   }

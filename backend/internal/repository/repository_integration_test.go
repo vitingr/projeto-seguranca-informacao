@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -998,6 +1000,431 @@ func TestTicketReadsIntegration(t *testing.T) {
 			if !errors.Is(err, domain.ErrNotFound) || got != (domain.Ticket{}) || gotLogin != "" {
 				t.Errorf("Get(%d) = %+v, %q, %v; want ErrNotFound", id, got, gotLogin, err)
 			}
+		}
+	})
+}
+
+// listedTicket is a ticket of the list fixtures, with what the lists show.
+type listedTicket struct {
+	summary domain.TicketSummary
+	author  domain.UserID
+}
+
+// insertListedTicket stores a ticket of typ for author, then sets its
+// status and its last update, so the list order is known.
+func insertListedTicket(t *testing.T, db *sql.DB, author domain.UserID, login string, typ domain.TicketType, status domain.TicketStatus, updatedAt time.Time) listedTicket {
+	t.Helper()
+	ctx := t.Context()
+	var in domain.Ticket
+	samples := sampleTickets(author)
+	for i := range samples {
+		if samples[i].Type == typ {
+			in = samples[i]
+		}
+	}
+	created, err := NewTickets(db).Create(ctx, in)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE tickets SET status = $2, updated_at = $3 WHERE id = $1`,
+		created.ID, string(status), updatedAt); err != nil {
+		t.Fatalf("set status and updated_at: %v", err)
+	}
+	return listedTicket{
+		author: author,
+		summary: domain.TicketSummary{
+			ID: created.ID, Type: typ, Status: status, Title: in.Title, AuthorLogin: login,
+			CreatedAt: created.CreatedAt, UpdatedAt: updatedAt,
+		},
+	}
+}
+
+// expectedPage filters, orders (last update first, ties by id) and pages
+// the fixture tickets the way the lists must.
+func expectedPage(all []listedTicket, keep func(listedTicket) bool, page int, withLogin bool) (items []domain.TicketSummary, total int) {
+	var kept []listedTicket
+	for i := range all {
+		if keep(all[i]) {
+			kept = append(kept, all[i])
+		}
+	}
+	slices.SortFunc(kept, func(a, b listedTicket) int {
+		if c := b.summary.UpdatedAt.Compare(a.summary.UpdatedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(b.summary.ID, a.summary.ID)
+	})
+	items = make([]domain.TicketSummary, 0)
+	for i := (page - 1) * TicketPageSize; i < len(kept) && i < page*TicketPageSize; i++ {
+		s := kept[i].summary
+		if !withLogin {
+			s.AuthorLogin = ""
+		}
+		items = append(items, s)
+	}
+	return items, len(kept)
+}
+
+func summariesEqual(a, b []domain.TicketSummary) bool {
+	return slices.EqualFunc(a, b, func(x, y domain.TicketSummary) bool {
+		if !x.CreatedAt.Equal(y.CreatedAt) || !x.UpdatedAt.Equal(y.UpdatedAt) {
+			return false
+		}
+		x.CreatedAt, x.UpdatedAt, y.CreatedAt, y.UpdatedAt = time.Time{}, time.Time{}, time.Time{}, time.Time{}
+		return x == y
+	})
+}
+
+func summaryIDs(items []domain.TicketSummary) []domain.TicketID {
+	ids := make([]domain.TicketID, 0, len(items))
+	for _, s := range items {
+		ids = append(ids, s.ID)
+	}
+	return ids
+}
+
+// TestTicketListsIntegration covers the lists of spec 003 (AC-1.3 to
+// AC-1.7, AC-4.3 to AC-4.5; BR-8; S-3, S-14; plan P-9, P-18). The fixture
+// tickets get last updates in the year 2100, so they are the newest of the
+// queue whatever else the database holds, and pairs of them share a last
+// update, so ties are ordered by id.
+func TestTicketListsIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	repo := NewTickets(db)
+
+	authorA, loginA := newTrackingUser(t, db, domain.RoleComum)
+	authorB, loginB := newTrackingUser(t, db, domain.RoleComum)
+	_, loginNone := newTrackingUser(t, db, domain.RoleAdmin) // admins write no ticket
+	types := []domain.TicketType{domain.TicketTypeAccess, domain.TicketTypeBug, domain.TicketTypeDeploy, domain.TicketTypeOther}
+	statuses := []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
+	base := time.Date(2100, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	var all []listedTicket
+	for i := range 25 { // A: two pages
+		all = append(all, insertListedTicket(t, db, authorA, loginA, types[i%4], statuses[(i/4)%4], base.Add(time.Duration(i/2)*time.Minute)))
+	}
+	for i := range 3 { // B: newer than every ticket of A
+		all = append(all, insertListedTicket(t, db, authorB, loginB, types[i], statuses[i], base.Add(time.Hour+time.Duration(i)*time.Minute)))
+	}
+	byAuthor := func(author domain.UserID) func(listedTicket) bool {
+		return func(lt listedTicket) bool { return lt.author == author }
+	}
+
+	t.Run("own list pages", func(t *testing.T) {
+		for _, tc := range []struct {
+			page, items, pages int
+		}{{1, 20, 2}, {2, 5, 2}, {3, 0, 2}, {10000, 0, 2}} {
+			got, err := repo.ListOwn(ctx, authorA, domain.TicketListQuery{Page: tc.page})
+			if err != nil {
+				t.Fatalf("ListOwn page %d: %v", tc.page, err)
+			}
+			want, total := expectedPage(all, byAuthor(authorA), tc.page, false)
+			if got.Total != 25 || total != 25 || got.Pages != tc.pages || got.Page != tc.page || len(got.Items) != tc.items {
+				t.Errorf("page %d: total %d, pages %d, page %d, %d items; want 25, %d, %d, %d",
+					tc.page, got.Total, got.Pages, got.Page, len(got.Items), tc.pages, tc.page, tc.items)
+			}
+			if !summariesEqual(got.Items, want) {
+				t.Errorf("page %d: ids %v, want %v", tc.page, summaryIDs(got.Items), summaryIDs(want))
+			}
+		}
+	})
+
+	t.Run("own list holds only the author's tickets", func(t *testing.T) {
+		// S-3: an author login in the query is ignored by the own list.
+		got, err := repo.ListOwn(ctx, authorB, domain.TicketListQuery{AuthorLogin: loginA, Page: 1})
+		if err != nil {
+			t.Fatalf("ListOwn: %v", err)
+		}
+		want, total := expectedPage(all, byAuthor(authorB), 1, false)
+		if got.Total != total || !summariesEqual(got.Items, want) {
+			t.Errorf("B's list = %v (total %d), want %v (total %d)", summaryIDs(got.Items), got.Total, summaryIDs(want), total)
+		}
+		for _, s := range got.Items {
+			if s.AuthorLogin != "" {
+				t.Errorf("own list item %d carries the author login %q", s.ID, s.AuthorLogin)
+			}
+		}
+	})
+
+	t.Run("own list filters", func(t *testing.T) {
+		var queries []domain.TicketListQuery
+		for _, s := range statuses {
+			queries = append(queries, domain.TicketListQuery{Status: s, Page: 1})
+			for _, ty := range types {
+				queries = append(queries, domain.TicketListQuery{Status: s, Type: ty, Page: 1})
+			}
+		}
+		for _, ty := range types {
+			queries = append(queries, domain.TicketListQuery{Type: ty, Page: 1})
+		}
+		for _, q := range queries {
+			got, err := repo.ListOwn(ctx, authorA, q)
+			if err != nil {
+				t.Fatalf("ListOwn(%+v): %v", q, err)
+			}
+			want, total := expectedPage(all, func(lt listedTicket) bool {
+				return lt.author == authorA &&
+					(q.Status == "" || lt.summary.Status == q.Status) &&
+					(q.Type == "" || lt.summary.Type == q.Type)
+			}, 1, false)
+			if got.Total != total || got.Pages != max(1, (total+19)/20) || !summariesEqual(got.Items, want) {
+				t.Errorf("ListOwn(%+v) = %v (total %d, pages %d), want %v (total %d)",
+					q, summaryIDs(got.Items), got.Total, got.Pages, summaryIDs(want), total)
+			}
+		}
+	})
+
+	t.Run("queue holds every author, newest first", func(t *testing.T) {
+		got, _, err := repo.ListQueue(ctx, domain.TicketListQuery{Page: 1})
+		if err != nil {
+			t.Fatalf("ListQueue: %v", err)
+		}
+		var total int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM tickets`).Scan(&total); err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		// The fixture is the newest of the database, so page 1 is its 20
+		// newest tickets, B's three first.
+		want, _ := expectedPage(all, func(listedTicket) bool { return true }, 1, true)
+		if got.Total != total || got.Pages != (total+19)/20 || !summariesEqual(got.Items, want) {
+			t.Errorf("queue page 1 = %v (total %d, pages %d), want %v (total %d)",
+				summaryIDs(got.Items), got.Total, got.Pages, summaryIDs(want), total)
+		}
+	})
+
+	t.Run("queue filters", func(t *testing.T) {
+		queries := []domain.TicketListQuery{
+			{AuthorLogin: loginA, Page: 1},
+			{AuthorLogin: loginA, Page: 2},
+			{AuthorLogin: loginB, Page: 1},
+		}
+		for _, login := range []string{loginA, loginB} {
+			for _, s := range statuses {
+				queries = append(queries, domain.TicketListQuery{AuthorLogin: login, Status: s, Page: 1})
+				for _, ty := range types {
+					queries = append(queries, domain.TicketListQuery{AuthorLogin: login, Status: s, Type: ty, Page: 1})
+				}
+			}
+			for _, ty := range types {
+				queries = append(queries, domain.TicketListQuery{AuthorLogin: login, Type: ty, Page: 1})
+			}
+		}
+		logins := map[domain.UserID]string{authorA: loginA, authorB: loginB}
+		for _, q := range queries {
+			got, _, err := repo.ListQueue(ctx, q)
+			if err != nil {
+				t.Fatalf("ListQueue(%+v): %v", q, err)
+			}
+			want, total := expectedPage(all, func(lt listedTicket) bool {
+				return logins[lt.author] == q.AuthorLogin &&
+					(q.Status == "" || lt.summary.Status == q.Status) &&
+					(q.Type == "" || lt.summary.Type == q.Type)
+			}, q.Page, true)
+			if got.Total != total || !summariesEqual(got.Items, want) {
+				t.Errorf("ListQueue(%+v) = %v (total %d), want %v (total %d)",
+					q, summaryIDs(got.Items), got.Total, summaryIDs(want), total)
+			}
+		}
+
+		// Status or type alone, over the whole queue: every item matches,
+		// and the fixture's matching tickets come first.
+		for _, q := range []domain.TicketListQuery{
+			{Status: domain.TicketStatusResolved, Page: 1},
+			{Type: domain.TicketTypeDeploy, Page: 1},
+			{Status: domain.TicketStatusClosed, Type: domain.TicketTypeBug, Page: 1},
+		} {
+			got, _, err := repo.ListQueue(ctx, q)
+			if err != nil {
+				t.Fatalf("ListQueue(%+v): %v", q, err)
+			}
+			var total int
+			if err := db.QueryRowContext(ctx, `SELECT count(*) FROM tickets WHERE ($1 = '' OR status = $1) AND ($2 = '' OR type = $2)`,
+				string(q.Status), string(q.Type)).Scan(&total); err != nil {
+				t.Fatalf("count: %v", err)
+			}
+			want, fixture := expectedPage(all, func(lt listedTicket) bool {
+				return (q.Status == "" || lt.summary.Status == q.Status) && (q.Type == "" || lt.summary.Type == q.Type)
+			}, 1, true)
+			if got.Total != total || len(got.Items) < min(fixture, TicketPageSize) ||
+				!summariesEqual(got.Items[:len(want)], want) {
+				t.Errorf("ListQueue(%+v) = %v (total %d), want it to start with %v (total %d)",
+					q, summaryIDs(got.Items), got.Total, summaryIDs(want), total)
+			}
+			for _, s := range got.Items {
+				if (q.Status != "" && s.Status != q.Status) || (q.Type != "" && s.Type != q.Type) {
+					t.Errorf("ListQueue(%+v) holds %+v", q, s)
+				}
+			}
+		}
+
+		// An author with no ticket, or no such login: an empty page.
+		for _, login := range []string{loginNone, "it_nobody_" + strings.ToLower(rand.Text()[:8])} {
+			got, _, err := repo.ListQueue(ctx, domain.TicketListQuery{AuthorLogin: login, Page: 1})
+			if err != nil || got.Total != 0 || got.Pages != 1 || len(got.Items) != 0 || got.Items == nil {
+				t.Errorf("ListQueue(%q) = %+v, %v; want an empty page", login, got, err)
+			}
+		}
+	})
+
+	t.Run("status counts cover the whole queue", func(t *testing.T) {
+		var want domain.StatusCounts
+		err := db.QueryRowContext(ctx, `SELECT
+				count(*) FILTER (WHERE status = 'aberto'), count(*) FILTER (WHERE status = 'em_andamento'),
+				count(*) FILTER (WHERE status = 'resolvido'), count(*) FILTER (WHERE status = 'fechado')
+			FROM tickets`).Scan(&want.Open, &want.InProgress, &want.Resolved, &want.Closed)
+		if err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		for _, q := range []domain.TicketListQuery{
+			{Page: 1},
+			{Status: domain.TicketStatusClosed, Page: 1},
+			{AuthorLogin: loginB, Type: domain.TicketTypeBug, Page: 3},
+		} {
+			_, got, err := repo.ListQueue(ctx, q)
+			if err != nil || got != want {
+				t.Errorf("ListQueue(%+v) counts = %+v, %v; want %+v", q, got, err, want)
+			}
+		}
+	})
+
+	t.Run("queue authors", func(t *testing.T) {
+		got, err := repo.QueueAuthors(ctx, MaxQueueAuthors)
+		if err != nil {
+			t.Fatalf("QueueAuthors: %v", err)
+		}
+		if !slices.Contains(got, loginA) || !slices.Contains(got, loginB) {
+			t.Errorf("QueueAuthors lacks %q or %q", loginA, loginB)
+		}
+		if slices.Contains(got, loginNone) {
+			t.Errorf("QueueAuthors holds %q, who has no ticket", loginNone)
+		}
+		if !slices.IsSorted(got) || len(slices.Compact(slices.Clone(got))) != len(got) {
+			t.Errorf("QueueAuthors is not sorted without repeats: %v", got)
+		}
+		var withTickets int
+		if err := db.QueryRowContext(ctx, `SELECT count(DISTINCT author_id) FROM tickets`).Scan(&withTickets); err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		if len(got) != min(withTickets, MaxQueueAuthors) {
+			t.Errorf("QueueAuthors returned %d logins, want %d", len(got), min(withTickets, MaxQueueAuthors))
+		}
+		for _, limit := range []int{1, 2} {
+			got, err := repo.QueueAuthors(ctx, limit)
+			if err != nil || len(got) != limit {
+				t.Errorf("QueueAuthors(%d) = %d logins, %v", limit, len(got), err)
+			}
+		}
+	})
+
+	t.Run("summaries never select the type fields", func(t *testing.T) {
+		for _, q := range []string{ownListQuery, queueQuery} {
+			selected, _, _ := strings.Cut(q, "FROM")
+			for _, column := range []string{"system", "access_level", "justification", "description", "steps", "severity", "project", "repository", "environment", "notes", "author_id,", "password_hash"} {
+				if strings.Contains(selected, column) {
+					t.Errorf("list query selects %s: %s", column, q)
+				}
+			}
+		}
+	})
+}
+
+// TestTicketListPlansIntegration checks, on 2 000 extra tickets, that the
+// list queries use the indexes of migration 00003 (plan section 1, S-14)
+// instead of reading the whole table.
+func TestTicketListPlansIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	// 2 000 tickets of one bulk author, and 30 of the author whose plans are
+	// read, like a user among many.
+	bulk, _ := newTrackingUser(t, db, domain.RoleComum)
+	author, login := newTrackingUser(t, db, domain.RoleComum)
+	for _, fill := range []struct {
+		author domain.UserID
+		n      int
+	}{{bulk, 2000}, {author, 30}} {
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO tickets (author_id, type, status, title, description)
+			SELECT $1, 'outro', (ARRAY['aberto', 'em_andamento', 'resolvido', 'fechado'])[1 + g % 4],
+			       'Dúvida ' || g, 'Como peço uma VPN?'
+			FROM generate_series(1, $2::int) AS g`, fill.author, fill.n); err != nil {
+			t.Fatalf("insert %d tickets: %v", fill.n, err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `ANALYZE tickets`); err != nil {
+		t.Fatalf("analyze: %v", err)
+	}
+
+	// explain returns the plan of query; noSeqScan makes it the plan with
+	// sequential scans disabled, which shows an index can serve the query.
+	explain := func(t *testing.T, query string, args []any, noSeqScan bool) string {
+		t.Helper()
+		tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if err != nil {
+			t.Fatalf("begin: %v", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		if noSeqScan {
+			if _, err = tx.ExecContext(ctx, `SET LOCAL enable_seqscan = off`); err != nil {
+				t.Fatalf("set: %v", err)
+			}
+		}
+		rows, err := tx.QueryContext(ctx, "EXPLAIN "+query, args...)
+		if err != nil {
+			t.Fatalf("explain: %v", err)
+		}
+		defer rows.Close()
+		var plan strings.Builder
+		for rows.Next() {
+			var line string
+			if err := rows.Scan(&line); err != nil {
+				t.Fatalf("scan: %v", err)
+			}
+			plan.WriteString(line + "\n")
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatalf("rows: %v", err)
+		}
+		return plan.String()
+	}
+
+	page := []any{TicketPageSize, 0}
+	byAuthor := []string{"tickets_author_updated_idx"}
+	tests := []struct {
+		name    string
+		query   string
+		args    []any
+		indexes []string // the plan uses one of them, with no sequential scan of tickets
+	}{
+		{"own list", ownListQuery, append([]any{author, "", ""}, page...), byAuthor},
+		{"own list by status", ownListQuery, append([]any{author, "resolvido", ""}, page...), byAuthor},
+		{"queue without filter", queueQuery, append([]any{"", "", ""}, page...), []string{"tickets_updated_idx"}},
+		{"queue by type", queueQuery, append([]any{"", "outro", ""}, page...), []string{"tickets_updated_idx"}},
+		{"queue by status", queueQuery, append([]any{"em_andamento", "", ""}, page...), []string{"tickets_status_updated_idx"}},
+		{"queue by author", queueQuery, append([]any{"", "", login}, page...), byAuthor},
+		{"queue authors", queueAuthorsQuery, []any{MaxQueueAuthors}, byAuthor},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan := explain(t, tt.query, tt.args, false)
+			uses := slices.ContainsFunc(tt.indexes, func(index string) bool { return strings.Contains(plan, index) })
+			if !uses || strings.Contains(plan, "Seq Scan on tickets") {
+				t.Errorf("plan does not use %v without a sequential scan:\n%s", tt.indexes, plan)
+			}
+		})
+	}
+
+	// The status counts read every ticket, so at this size a sequential
+	// scan is the cheapest plan and PostgreSQL takes it; the status index
+	// can serve the count (an index-only scan), which the plan shows with
+	// sequential scans disabled. Either way the counts need no sort.
+	t.Run("status counts", func(t *testing.T) {
+		if plan := explain(t, statusCountsQuery, nil, true); !strings.Contains(plan, "Index Only Scan using tickets_status_updated_idx") &&
+			!strings.Contains(plan, "Index Scan using tickets_status_updated_idx") {
+			t.Errorf("the status index cannot serve the counts:\n%s", plan)
+		}
+		if plan := explain(t, statusCountsQuery, nil, false); strings.Contains(plan, "Sort") {
+			t.Errorf("the counts sort the table:\n%s", plan)
 		}
 	})
 }

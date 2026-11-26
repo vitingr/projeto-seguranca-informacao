@@ -71,6 +71,55 @@ export interface FieldSlot {
   wide: boolean
 }
 
+/** A link out of the builder held by the leave warning (AC-3.8). */
+export interface LeaveRequest {
+  /** Gets the focus back when the user stays. */
+  from: HTMLAnchorElement
+  href: string
+}
+
+/** What the builder writes in `history.state` for each of its entries. */
+export interface HistoryEntry {
+  /** The entry's position among the entries of this builder visit. */
+  index: number
+  /** Unique per visit (and per "Criar outro ticket"), so old entries are foreign. */
+  visit: string
+}
+
+/** The part of `window` the step history needs (a fake one in tests). */
+export interface HistoryWindow {
+  history: Pick<History, 'go' | 'pushState' | 'replaceState'>
+  location: Pick<Location, 'pathname' | 'search'>
+}
+
+/**
+ * What to do with a `popstate` (history.ts): nothing, show the entry's
+ * step, move the browser back to where it was, or take a foreign entry
+ * over with the current step.
+ */
+export type PopDecision =
+  | { delta: number; kind: 'undo' }
+  | { kind: 'adopt' }
+  | { kind: 'apply' }
+  | { kind: 'none' }
+
+export interface StepHistory {
+  /** In-page "Voltar"/"Editar": moves the browser back to that step's entry. */
+  back: (step: Step) => boolean
+  /** The step of the entry the browser is on. */
+  current: () => Step
+  /** Handles a `popstate`; returns the step to show, if it changes. */
+  pop: (state: unknown, locked: boolean) => null | Step
+  /** A step reached by continuing: a new entry, so Back returns. */
+  push: (step: Step) => void
+  /** "Criar outro ticket": the current entry becomes the first step. */
+  restart: () => void
+  /** The ticket was created: back to the visit's first entry, as the confirmation. */
+  sent: () => void
+  /** Takes the entry the builder opened on as its first step. */
+  start: () => void
+}
+
 /** Validated, trimmed values of each type. */
 export type TicketValuesByType = {
   [Type in TicketType]: z.output<(typeof ticketSchemas)[Type]>

@@ -13,6 +13,7 @@ import {
   XIcon
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form'
 
@@ -56,15 +57,26 @@ import {
   progressChips,
   reviewRows
 } from './form-helpers'
+import {
+  createStepHistory,
+  guardActive,
+  isPlainClick,
+  leavesBuilder
+} from './history'
 import { builderReducer, initialState } from './reducer'
 import { emptyValues, parseTicket, ticketSchemas } from './schemas'
 import { clock, sendTicket } from './send'
 import type {
   BuilderState,
   FieldSlot,
+  LeaveRequest,
   SendTiming,
+  Step,
+  StepHistory,
   TicketFormValues
 } from './types'
+
+const stepOrder = (step: Step) => STEPS.findIndex(item => item.id === step)
 
 const tipsFor = ({ step, type }: BuilderState): readonly string[] =>
   step === 'confirmacao'
@@ -195,6 +207,112 @@ export const TicketBuilder = () => {
     }
   }, [state.step])
 
+  // The steps in the browser history (history.ts): Back moves one step and
+  // never sends (spec section 7, AC-5.3); the URL holds only `?etapa=`.
+  const router = useRouter()
+  const stepHistory = useRef<null | StepHistory>(null)
+  const historyStep = useRef(state.step)
+  const locked = state.sending || done
+  const lockedRef = useRef(locked)
+
+  useEffect(() => {
+    lockedRef.current = locked
+  }, [locked])
+
+  useEffect(() => {
+    const steps = createStepHistory(window, () => crypto.randomUUID())
+    // Started once the router has wrapped `history`, so every entry keeps
+    // the router's own state (the wrap runs after this component's effects
+    // when the page is loaded directly).
+    const timer = window.setTimeout(() => {
+      steps.start()
+      stepHistory.current = steps
+    }, 0)
+    const onPopState = (event: PopStateEvent) => {
+      const step = steps.pop(event.state, lockedRef.current)
+      if (step) dispatch({ step, type: 'goToStep' })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('popstate', onPopState)
+      stepHistory.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const previous = historyStep.current
+    historyStep.current = state.step
+    const steps = stepHistory.current
+    // A step shown from the history is already the current entry.
+    if (!steps || previous === state.step || steps.current() === state.step) {
+      return
+    }
+    if (state.step === 'confirmacao') steps.sent()
+    else if (previous === 'confirmacao') steps.restart()
+    else if (stepOrder(state.step) > stepOrder(previous)) {
+      steps.push(state.step)
+    }
+  }, [state.step])
+
+  // "Voltar", "Editar" and the step indicator go back through the history,
+  // so the browser's Back and Forward stay in step with the page.
+  const goBackTo = (step: Step) => {
+    if (!stepHistory.current?.back(step)) dispatch({ step, type: 'goToStep' })
+  }
+
+  // AC-3.8: with typed data not sent, leaving warns first. Closing or
+  // reloading the tab gets the browser's own prompt; a link out of the
+  // builder gets the inline "Sair sem enviar?" bar instead.
+  const [leaving, setLeaving] = useState<LeaveRequest | null>(null)
+  const stayRef = useRef<HTMLButtonElement>(null)
+  const guardOn = guardActive({ dirty: hasData(values), sent: done })
+
+  useEffect(() => {
+    if (!guardOn) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    // Capture phase on `window`: runs before the router's link handler.
+    const onClick = (event: MouseEvent) => {
+      if (!isPlainClick(event) || !(event.target instanceof Element)) return
+      const link = event.target.closest('a[href]')
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        (link.target !== '' && link.target !== '_self') ||
+        link.hasAttribute('download') ||
+        !leavesBuilder(link.href, window.location.href)
+      ) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      setLeaving({ from: link, href: link.href })
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('click', onClick, true)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('click', onClick, true)
+    }
+  }, [guardOn])
+
+  useEffect(() => {
+    if (leaving) stayRef.current?.focus()
+  }, [leaving])
+
+  const stay = () => {
+    leaving?.from.focus()
+    setLeaving(null)
+  }
+
+  const leave = () => {
+    if (!leaving) return
+    const url = new URL(leaving.href)
+    setLeaving(null)
+    router.push(`${url.pathname}${url.search}${url.hash}`)
+  }
+
   const selectType = (ticketType: TicketType) => {
     const data = hasData(form.getValues())
     // A new type starts with its own empty fields, unless the change waits
@@ -320,12 +438,43 @@ export const TicketBuilder = () => {
         )}
       </div>
 
+      {leaving ? (
+        <div
+          className="border-border bg-muted flex flex-col gap-3 rounded-sm border p-4 sm:flex-row sm:items-center sm:justify-between"
+          data-testid="leave-guard"
+          role="alert"
+        >
+          <p className="text-sm">
+            <span className="font-medium">{BUILDER_TEXTS.leaveTitle}</span>{' '}
+            {BUILDER_TEXTS.leaveBody}
+          </p>
+          <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              className="w-full sm:w-auto"
+              onClick={stay}
+              ref={stayRef}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {BUILDER_TEXTS.stay}
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={leave}
+              size="sm"
+              type="button"
+            >
+              {BUILDER_TEXTS.leave}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <StepIndicator
-        onSelect={index =>
-          dispatch({ step: STEPS[index].id, type: 'goToStep' })
-        }
         current={stepIndex}
-        locked={done || state.sending}
+        locked={locked}
+        onSelect={index => goBackTo(STEPS[index].id)}
         steps={STEPS}
       />
 
@@ -470,7 +619,7 @@ export const TicketBuilder = () => {
             <>
               <Button
                 className="w-full sm:w-auto"
-                onClick={() => dispatch({ step: 'tipo', type: 'goToStep' })}
+                onClick={() => goBackTo('tipo')}
                 type="button"
                 variant="outline"
               >
@@ -492,7 +641,7 @@ export const TicketBuilder = () => {
               <Button
                 className="w-full sm:w-auto"
                 disabled={state.sending}
-                onClick={() => dispatch({ step: 'detalhes', type: 'goToStep' })}
+                onClick={() => goBackTo('detalhes')}
                 type="button"
                 variant="outline"
               >

@@ -113,6 +113,46 @@ describe('reviewRows', () => {
       value: 'Homologação'
     })
   })
+
+  it('leaves out the "Título" of "Outro", already shown as the ticket title', () => {
+    expect(
+      reviewRows({
+        dados: { descricao: 'Abrir a porta 8443', titulo: 'Liberar porta' },
+        tipo: 'outro'
+      })
+    ).toEqual([
+      {
+        key: 'descricao',
+        label: 'Descrição',
+        risky: false,
+        value: 'Abrir a porta 8443'
+      }
+    ])
+  })
+
+  it('keeps every field of the other types, "Sistema" included', () => {
+    const keys = (tipo: 'acesso' | 'bug' | 'deploy', dados: object) =>
+      reviewRows({ dados, tipo } as Parameters<typeof reviewRows>[0]).map(
+        row => row.key
+      )
+    expect(keys('acesso', { sistema: 'Grafana' })).toEqual([
+      'sistema',
+      'nivel_acesso',
+      'justificativa'
+    ])
+    expect(keys('bug', { sistema: 'Portal' })).toEqual([
+      'sistema',
+      'severidade',
+      'descricao',
+      'passos'
+    ])
+    expect(keys('deploy', { projeto: 'api' })).toEqual([
+      'projeto',
+      'repositorio',
+      'ambiente',
+      'observacoes'
+    ])
+  })
 })
 
 describe('progressChips', () => {
@@ -132,6 +172,15 @@ describe('progressChips', () => {
       'Ambiente'
     ])
     expect(chips.join(' ')).not.toMatch(/api-secreta|github|Produção/)
+  })
+
+  it('still names the "Título" of "Outro", which is sent', () => {
+    expect(
+      progressChips({
+        dados: { descricao: 'Abrir a porta 8443', titulo: 'Liberar porta' },
+        tipo: 'outro'
+      })
+    ).toEqual(['Outro', 'Título', 'Descrição'])
   })
 })
 

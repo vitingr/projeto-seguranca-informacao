@@ -43,6 +43,12 @@ describe('TicketConfirmation', () => {
     expect(html).toMatch(pair('Criado em', '25/11/2026 às 11:30'))
   })
 
+  it('shows the title of an "Outro" ticket once, as the ticket title', () => {
+    const html = render()
+    expect(html.split('Liberar porta no firewall')).toHaveLength(2)
+    expect(html.match(/<dt[^>]*>Título<\/dt>/g)).toHaveLength(1)
+  })
+
   it('shows an HTML title as text (S-8)', () => {
     const html = render('<img src=x onerror=alert(1)>')
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')

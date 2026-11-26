@@ -1,0 +1,20 @@
+info:
+  name: idor-detail-malformed
+  type: http
+  seq: 122
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/abc"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-6: a malformed id is answered like a missing ticket.
+        test("same answer as A's ticket", function () {
+          const body = Object.assign({}, res.getBody());
+          delete body.request_id;
+          expect(JSON.stringify({ status: res.getStatus(), body: body })).to.equal(bru.getVar("idorAnswer"));
+        });

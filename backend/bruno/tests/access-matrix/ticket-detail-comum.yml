@@ -1,0 +1,26 @@
+info:
+  name: ticket-detail-comum
+  type: http
+  seq: 212
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{matrixTicketId}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-1, AC-2.1: the author reads their ticket, with every
+        // field of the type and no author data (S-13).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("is the ticket with its fields", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["created_at", "data", "id", "status", "title", "type", "updated_at"]);
+          expect(body.id).to.equal(bru.getVar("matrixTicketId"));
+          expect(body.type).to.equal("outro");
+          expect(body.data).to.deep.equal({ titulo: "Dúvida sobre a VPN", descricao: "Como peço acesso à VPN?" });
+        });

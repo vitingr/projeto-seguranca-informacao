@@ -352,6 +352,46 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/tickets/{id}": {
+      "get": {
+        "operationId": "getOwnTicket",
+        "tags": ["tickets"],
+        "summary": "Get one of my tickets",
+        "description": "The ticket page of the `comum` user who wrote it: the summary plus every field of its type in `data`, under the same keys as `dados` of the creation request, stored as sent (trimmed). An empty optional field is `null`. The answer carries no author data. Administrators get 403 (they use `GET /api/administradores/tickets/{id}`).\n\n**404** (`not_found`): the ticket does not exist, the id is not a positive integer written with digits only, or the ticket belongs to another user. The three cases get the same answer (status, headers and body); the attempt is logged with the user id and the ticket id.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ticket with every field of its type.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TicketDetail" },
+                "example": {
+                  "id": 42,
+                  "type": "deploy",
+                  "status": "em_andamento",
+                  "title": "Deploy de api em Produção",
+                  "created_at": "2026-11-25T14:30:00.123456Z",
+                  "updated_at": "2026-11-26T09:12:00.654321Z",
+                  "data": {
+                    "projeto": "api",
+                    "repositorio": "https://git.example.com/equipe/api",
+                    "ambiente": "prod",
+                    "observacoes": null
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -363,6 +403,14 @@
         "description": "CSRF token returned by `GET /api/csrf`.",
         "schema": { "type": "string" },
         "example": "{{csrfToken}}"
+      },
+      "TicketId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404).",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 },
+        "example": 1
       },
       "StatusQuery": {
         "name": "status",
@@ -387,6 +435,19 @@
       }
     },
     "responses": {
+      "TicketNotFound": {
+        "description": "The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "not_found",
+              "message": "Recurso não encontrado.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
       "BadQuery": {
         "description": "A query parameter that the operation does not read, a parameter given twice, an empty value, a value outside its rule, or a malformed query string.",
         "content": {
@@ -719,6 +780,41 @@
           "page": { "type": "integer", "minimum": 1 },
           "pages": { "type": "integer", "minimum": 1, "description": "At least 1, also for an empty list." },
           "page_size": { "type": "integer", "const": 20 }
+        }
+      },
+      "TicketDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A ticket with every field of its type. Never any author data.",
+        "required": ["id", "type", "status", "title", "created_at", "updated_at", "data"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "data": {
+            "description": "The fields of `type`, under the keys of `dados` in the creation request; `null` for an empty optional field.",
+            "oneOf": [
+              { "$ref": "#/components/schemas/AccessTicketData" },
+              { "$ref": "#/components/schemas/BugTicketData" },
+              { "$ref": "#/components/schemas/DeployTicketDetailData" },
+              { "$ref": "#/components/schemas/OtherTicketData" }
+            ]
+          }
+        }
+      },
+      "DeployTicketDetailData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The fields of a `deploy` ticket as stored: `observacoes` is always present, `null` when it was left empty.",
+        "required": ["projeto", "repositorio", "ambiente", "observacoes"],
+        "properties": {
+          "projeto": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "repositorio": { "type": "string", "format": "uri", "maxLength": 300 },
+          "ambiente": { "$ref": "#/components/schemas/Environment" },
+          "observacoes": { "type": ["string", "null"], "maxLength": 2000 }
         }
       },
       "TicketType": {

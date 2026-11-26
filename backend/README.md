@@ -113,11 +113,19 @@ restricted route get 401, callers with the wrong role get 403.
 | `POST /api/logout` | 401 | 204 | 204 |
 | `POST /api/tickets` | 401 | 201 | 403 |
 | `GET /api/tickets` | 401 | 200 | 403 |
+| `GET /api/tickets/{id}` | 401 | 200 | 403 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
 They do not create tickets either, nor read "Meus tickets". The Go test
 `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 21 cells.
+`tests/access-matrix` both cover the 24 cells (the `{id}` cells use a
+ticket of the comum user).
+
+Routes with a ticket id also run `security.TicketAccess`, after the role
+check: a comum user only reaches their own tickets. Someone else's
+ticket, a ticket that does not exist and a malformed id all get the same
+404 (status, headers and body), and the attempt is logged at Warn with the
+user id and the ticket id.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -179,6 +187,9 @@ field value.
   page `pagina` are the only parameters; anything else (`usuario`
   included), a repeated or empty parameter, or a malformed query is 400. A
   page past the end is 200 with no items and the real totals.
+- `GET /api/tickets/{id}` (comum only, own tickets) answers 200 with the
+  summary plus `data`: every field of the type under the keys of the
+  creation request, `null` for empty notes. No author data.
 
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.

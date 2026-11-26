@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"backend_si/internal/domain"
+	"backend_si/internal/security"
 )
 
 // Generic messages of the error bodies (json.go).
@@ -262,6 +263,94 @@ func TestListOwnTicketsServerError(t *testing.T) {
 	a.store.fail(errors.New("database is down"))
 
 	rr := a.send(t, http.MethodGet, "/api/tickets", "", cookie, nil)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rr.Code)
+	}
+	checkErrorBody(t, rr, "internal", msgInternal)
+}
+
+var detailKeys = []string{"created_at", "data", "id", "status", "title", "type", "updated_at"}
+
+// TestGetOwnTicket covers AC-2.1, AC-2.2 (data) and P-10 on R2: every
+// field of the type under its request key, exactly the keys of
+// security.TicketDataKeys, null for empty notes, no author data (S-13).
+func TestGetOwnTicket(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	tests := []struct {
+		typ  domain.TicketType
+		want map[string]any
+	}{
+		{domain.TicketTypeAccess, map[string]any{"sistema": "Grafana", "nivel_acesso": "leitura", "justificativa": "Ver os painéis."}},
+		{domain.TicketTypeBug, map[string]any{"sistema": "Portal", "descricao": "Erro 500.", "passos": "1. Abrir\n2. Salvar", "severidade": "alta"}}, //nolint:gosec // "passos" is the steps field, not a credential
+		{domain.TicketTypeDeploy, map[string]any{"projeto": "api", "repositorio": "https://git.example.com/api", "ambiente": "prod", "observacoes": nil}},
+		{domain.TicketTypeOther, map[string]any{"titulo": "Dúvida <b>x</b>", "descricao": "Como peço acesso à VPN?"}},
+	}
+	cookie, _ := a.loginAs(t, comumLogin)
+	for _, tt := range tests {
+		ticket := a.store.seed(trackMariaID, tt.typ, "Dúvida <b>x</b>")
+		rr := a.send(t, http.MethodGet, fmt.Sprintf("/api/tickets/%d", ticket.ID), "", cookie, nil)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d, want 200 (%s)", tt.typ, rr.Code, rr.Body.String())
+		}
+		if cc := rr.Header().Get("Cache-Control"); cc != "no-store" {
+			t.Errorf("%s: Cache-Control = %q, want no-store", tt.typ, cc)
+		}
+		_, body := a.get(t, fmt.Sprintf("/api/tickets/%d", ticket.ID), cookie)
+		if got := keysOf(body); !slices.Equal(got, detailKeys) {
+			t.Errorf("%s: keys = %v, want %v (no author data)", tt.typ, got, detailKeys)
+		}
+		if body["id"] != float64(ticket.ID) || body["type"] != string(tt.typ) || body["status"] != "aberto" || body["title"] != "Dúvida <b>x</b>" {
+			t.Errorf("%s: header fields = %v", tt.typ, body)
+		}
+		data, _ := body["data"].(map[string]any)
+		if got, want := sortedKeys(data), sorted(security.TicketDataKeys()[tt.typ]); !slices.Equal(got, want) {
+			t.Errorf("%s: data keys = %v, want the request keys %v", tt.typ, got, want)
+		}
+		for key, value := range tt.want {
+			if data[key] != value {
+				t.Errorf("%s: data[%s] = %#v, want %#v", tt.typ, key, data[key], value)
+			}
+		}
+	}
+}
+
+// TestTicketDataCoversEveryKey checks that ticketData knows every request
+// key of every type: a fully filled ticket has no null value but the notes.
+func TestTicketDataCoversEveryKey(t *testing.T) {
+	t.Parallel()
+
+	full := domain.Ticket{
+		Title: "t", System: "s", AccessLevel: domain.AccessLevelRead, Justification: "j",
+		Description: "d", Steps: "p", Severity: domain.SeverityLow, Project: "p",
+		Repository: "https://r", Environment: domain.EnvironmentDevelopment, Notes: "n",
+	}
+	for typ, keys := range security.TicketDataKeys() {
+		full.Type = typ
+		data := ticketData(full)
+		for _, key := range keys {
+			if data[key] == nil {
+				t.Errorf("%s: ticketData has no value for %q", typ, key)
+			}
+		}
+		if len(data) != len(keys) {
+			t.Errorf("%s: ticketData has %d keys, want %d", typ, len(data), len(keys))
+		}
+	}
+}
+
+// TestGetOwnTicketServerError is the generic 500 when the read fails after
+// TicketAccess let the request through.
+func TestGetOwnTicketServerError(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida")
+	cookie, _ := a.loginAs(t, comumLogin)
+	a.store.fail(errors.New("database is down"))
+
+	rr := a.send(t, http.MethodGet, fmt.Sprintf("/api/tickets/%d", ticket.ID), "", cookie, nil)
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rr.Code)
 	}

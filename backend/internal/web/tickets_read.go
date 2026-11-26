@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -73,6 +74,76 @@ func (h *handlers) listOwnTickets(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+// ticketDetail is the ticket page (spec 003 US-2): the summary plus every
+// field of the type in data, with the keys of the creation request
+// (security.TicketDataKeys) and null for an empty optional field (plan
+// P-10). It carries no author data (S-13).
+type ticketDetail struct {
+	ID        domain.TicketID     `json:"id"`
+	Type      domain.TicketType   `json:"type"`
+	Status    domain.TicketStatus `json:"status"`
+	Title     string              `json:"title"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
+	Data      map[string]*string  `json:"data"`
+}
+
+func newTicketDetail(t domain.Ticket) ticketDetail {
+	return ticketDetail{
+		ID: t.ID, Type: t.Type, Status: t.Status, Title: t.Title,
+		CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt, Data: ticketData(t),
+	}
+}
+
+// ticketData returns the fields of the ticket's type by their request key.
+// A key the type has but the ticket left empty (only the deploy notes may
+// be) is null.
+func ticketData(t domain.Ticket) map[string]*string {
+	values := map[string]string{
+		"titulo":        t.Title,
+		"sistema":       t.System,
+		"nivel_acesso":  string(t.AccessLevel),
+		"justificativa": t.Justification,
+		"descricao":     t.Description,
+		"passos":        t.Steps,
+		"severidade":    string(t.Severity),
+		"projeto":       t.Project,
+		"repositorio":   t.Repository,
+		"ambiente":      string(t.Environment),
+		"observacoes":   t.Notes,
+	}
+	keys := security.TicketDataKeys()[t.Type]
+	data := make(map[string]*string, len(keys))
+	for _, key := range keys {
+		data[key] = nil
+		if v := values[key]; v != "" {
+			data[key] = &v
+		}
+	}
+	return data
+}
+
+// getOwnTicket answers the ticket page of a comum user (spec 003 US-2).
+// TicketAccess already decided that the ticket exists and is the session
+// user's (S-2); the id comes only from the TicketRef it stored.
+func (h *handlers) getOwnTicket(w http.ResponseWriter, r *http.Request) {
+	ref, ok := security.TicketRefFrom(r.Context())
+	if !ok {
+		h.sec.RespondError(w, r, errNoTicketRef)
+		return
+	}
+	t, _, err := h.tickets.Get(r.Context(), ref.ID)
+	if err != nil {
+		h.sec.RespondError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, newTicketDetail(t))
+}
+
+// errNoTicketRef is a wiring error: a ticket route without TicketAccess.
+// It is not a client error, so the answer is a 500 (fail closed).
+var errNoTicketRef = errors.New("web: ticket route without TicketAccess")
 
 // listQuery reads the query string strictly and validates it as a list
 // query of scope; errors wrap domain.ErrInvalidInput (400).

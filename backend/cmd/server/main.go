@@ -85,6 +85,21 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout 
 	return err
 }
 
+// serveSecurityOptions are the security options of the server. tickets is
+// the owner store of TicketAccess (spec 003 S-2): without it every route
+// with a ticket id answers 500.
+func serveSecurityOptions(cfg config.Config, logger *slog.Logger, sessions security.SessionStore, tickets security.TicketOwnerStore) security.Options {
+	return security.Options{
+		Logger:                 logger,
+		Sessions:               sessions,
+		Tickets:                tickets,
+		RenderError:            web.WriteError,
+		SessionIdleTimeout:     cfg.SessionIdleTimeout,
+		SessionAbsoluteTimeout: cfg.SessionAbsoluteTimeout,
+		RequestTimeout:         requestTimeout,
+	}
+}
+
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	logger.Info("iniciando", slog.Any("config", cfg))
 
@@ -106,14 +121,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		}
 	}()
 
-	sec, err := security.New(security.Options{
-		Logger:                 logger,
-		Sessions:               repository.NewSessions(db),
-		RenderError:            web.WriteError,
-		SessionIdleTimeout:     cfg.SessionIdleTimeout,
-		SessionAbsoluteTimeout: cfg.SessionAbsoluteTimeout,
-		RequestTimeout:         requestTimeout,
-	})
+	tickets := repository.NewTickets(db)
+	sec, err := security.New(serveSecurityOptions(cfg, logger, repository.NewSessions(db), tickets))
 	if err != nil {
 		return err
 	}
@@ -132,7 +141,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Security:      sec,
 		Auth:          auth,
 		Users:         service.NewUsers(users, sec, sec),
-		Tickets:       service.NewTickets(repository.NewTickets(db), sec),
+		Tickets:       service.NewTicketsWithThread(tickets, repository.NewTicketEntries(db), sec),
 		TicketLimiter: ticketLimiter,
 	})
 	if err != nil {

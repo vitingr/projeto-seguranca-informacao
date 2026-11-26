@@ -23,6 +23,8 @@ type TicketService interface {
 	Create(ctx context.Context, author domain.UserID, draft domain.TicketDraft) (domain.Ticket, error)
 	// ListOwn returns a page of the tickets of author, the session user.
 	ListOwn(ctx context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error)
+	// Get returns a ticket and its author's login.
+	Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error)
 }
 
 type Deps struct {

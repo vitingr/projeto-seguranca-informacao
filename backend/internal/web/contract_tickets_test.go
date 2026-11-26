@@ -227,6 +227,7 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 	}{
 		{"TicketSummary", reflect.TypeFor[ticketSummary]()},
 		{"TicketPage", reflect.TypeFor[ticketPage]()},
+		{"TicketDetail", reflect.TypeFor[ticketDetail]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {
@@ -239,6 +240,43 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 				t.Errorf("%s vs %s: %s", tt.schema, tt.typ.Name(), problem)
 			}
 		})
+	}
+}
+
+// TestContractTicketDetailData checks that data of TicketDetail is one
+// schema per type, whose properties are the keys of the type
+// (security.TicketDataKeys, plan P-10), all required: an empty optional
+// field is null, never left out.
+func TestContractTicketDetailData(t *testing.T) {
+	t.Parallel()
+
+	schemas := loadTicketSchemas(t)
+	detail, ok := schemas["TicketDetail"]
+	if !ok {
+		t.Fatal("schema TicketDetail is missing")
+	}
+	data := propertySchema(t, detail.Properties["data"])
+	byKeys := map[string]ticketSchema{}
+	for _, r := range data.OneOf {
+		s := schemas[schemaName(t, r.Ref)]
+		byKeys[strings.Join(sortedKeys(s.Properties), ",")] = s
+	}
+	keys := security.TicketDataKeys()
+	if len(data.OneOf) != len(keys) {
+		t.Errorf("data has %d oneOf schemas, want one per type (%d)", len(data.OneOf), len(keys))
+	}
+	for typ, want := range keys {
+		s, ok := byKeys[strings.Join(sorted(want), ",")]
+		if !ok {
+			t.Errorf("%s: no data schema with the keys %v", typ, sorted(want))
+			continue
+		}
+		if !slices.Equal(sorted(s.Required), sorted(want)) {
+			t.Errorf("%s: data required = %v, want every key %v", typ, s.Required, sorted(want))
+		}
+		if s.AdditionalProperties == nil || *s.AdditionalProperties {
+			t.Errorf("%s: data schema must have additionalProperties: false", typ)
+		}
 	}
 }
 

@@ -58,7 +58,23 @@ type memTracking struct {
 	clock   time.Time
 	tickets []domain.Ticket // in id order
 	entries []domain.TicketEntry
-	err     error // returned by every read and write when set
+	err     error // returned by every call a handler makes, when set
+	// calls counts the calls only a handler makes (every method but
+	// TicketAuthor, which TicketAccess uses).
+	calls int
+}
+
+// handlerCalls returns how many times a handler reached the store.
+func (m *memTracking) handlerCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.calls
+}
+
+// lock takes the store's lock for a call a handler makes and counts it.
+func (m *memTracking) lock() {
+	m.mu.Lock()
+	m.calls++
 }
 
 func newMemTracking() *memTracking {
@@ -86,7 +102,7 @@ func (m *memTracking) find(id domain.TicketID) int {
 }
 
 func (m *memTracking) Create(_ context.Context, t domain.Ticket) (domain.Ticket, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.Ticket{}, m.err
@@ -100,7 +116,7 @@ func (m *memTracking) Create(_ context.Context, t domain.Ticket) (domain.Ticket,
 }
 
 func (m *memTracking) Get(_ context.Context, id domain.TicketID) (domain.Ticket, string, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.Ticket{}, "", m.err
@@ -113,12 +129,11 @@ func (m *memTracking) Get(_ context.Context, id domain.TicketID) (domain.Ticket,
 	return m.tickets[i], login, nil
 }
 
+// TicketAuthor ignores fail: it lets the request reach the handler, whose
+// store call then fails.
 func (m *memTracking) TicketAuthor(_ context.Context, id domain.TicketID) (domain.UserID, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.err != nil {
-		return 0, m.err
-	}
 	i := m.find(id)
 	if i < 0 {
 		return 0, fmt.Errorf("mem: %w", domain.ErrNotFound)
@@ -157,7 +172,7 @@ func (m *memTracking) list(q domain.TicketListQuery, keep func(*domain.Ticket) b
 }
 
 func (m *memTracking) ListOwn(_ context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.TicketPage{}, m.err
@@ -170,7 +185,7 @@ func (m *memTracking) ListOwn(_ context.Context, author domain.UserID, q domain.
 }
 
 func (m *memTracking) ListQueue(_ context.Context, q domain.TicketListQuery) (domain.TicketPage, domain.StatusCounts, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.TicketPage{}, domain.StatusCounts{}, m.err
@@ -192,7 +207,7 @@ func (m *memTracking) ListQueue(_ context.Context, q domain.TicketListQuery) (do
 }
 
 func (m *memTracking) QueueAuthors(_ context.Context, limit int) ([]string, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return nil, m.err
@@ -208,7 +223,7 @@ func (m *memTracking) QueueAuthors(_ context.Context, limit int) ([]string, erro
 }
 
 func (m *memTracking) Thread(_ context.Context, ticket domain.TicketID, before domain.TicketEntryID, limit int) (domain.ThreadPage, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.ThreadPage{}, m.err
@@ -236,7 +251,7 @@ func (m *memTracking) addEntry(i int, e domain.TicketEntry) domain.TicketEntry {
 }
 
 func (m *memTracking) AddMessage(_ context.Context, ticket domain.TicketID, actor domain.UserID, text string) (domain.TicketEntry, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.TicketEntry{}, m.err
@@ -252,7 +267,7 @@ func (m *memTracking) AddMessage(_ context.Context, ticket domain.TicketID, acto
 }
 
 func (m *memTracking) ChangeStatus(_ context.Context, ticket domain.TicketID, actor domain.UserID, from, to domain.TicketStatus) (domain.TicketEntry, error) {
-	m.mu.Lock()
+	m.lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
 		return domain.TicketEntry{}, m.err
@@ -297,6 +312,14 @@ func (m *memTracking) fail(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.err = err
+}
+
+// sizes returns the number of stored tickets and entries, to check that a
+// refused request wrote nothing.
+func (m *memTracking) sizes() (tickets, entries int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.tickets), len(m.entries)
 }
 
 func (m *memTracking) ticket(id domain.TicketID) domain.Ticket {

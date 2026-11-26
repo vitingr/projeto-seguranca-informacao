@@ -14,6 +14,10 @@ import (
 // than 201 comes from the middleware chain, not from validation.
 const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough password","papel":"comum"}`
 
+// matrixTicket is the path of the ticket of comumLogin that the matrix app
+// seeds (id 1), for the cells of the {id} routes.
+const matrixTicket = "/api/tickets/1"
+
 // matrixTicketBody is a valid ticket request, for the same reason.
 const matrixTicketBody = `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço acesso à VPN?"}}`
 
@@ -58,9 +62,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodGet, "/api/tickets", http.StatusUnauthorized},
 		{comumLogin, http.MethodGet, "/api/tickets", http.StatusOK},
 		{flowLogin, http.MethodGet, "/api/tickets", http.StatusForbidden},
+		{anonymous, http.MethodGet, matrixTicket, http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixTicket, http.StatusOK},
+		{flowLogin, http.MethodGet, matrixTicket, http.StatusForbidden},
 	}
-	if len(tests) != 21 {
-		t.Fatalf("matrix has %d cells, want 21 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 24 {
+		t.Fatalf("matrix has %d cells, want 24 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {

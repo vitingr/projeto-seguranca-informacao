@@ -1,3 +1,4 @@
+import { cn } from 'cn'
 import Link from 'next/link'
 
 import { buttonVariants } from '@/components/ui/shadcn/button'
@@ -13,7 +14,8 @@ export const Forbidden: React.FC<ForbiddenProps> = ({ role }) => (
       {MESSAGES.forbiddenPage}
     </p>
     <Link
-      className={buttonVariants({ variant: 'outline' })}
+      // `cn` lets the outline border win over the base `border-transparent`.
+      className={cn(buttonVariants({ variant: 'outline' }))}
       href={landingFor(role)}
     >
       Ir para a minha página inicial

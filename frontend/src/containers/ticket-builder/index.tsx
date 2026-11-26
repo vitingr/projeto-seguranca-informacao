@@ -6,6 +6,7 @@ import {
   ClockIcon,
   EyeIcon,
   LightbulbIcon,
+  PencilIcon,
   XIcon
 } from 'lucide-react'
 import Link from 'next/link'
@@ -18,12 +19,14 @@ import { SideCard } from '@/components/side-card'
 import { StepIndicator } from '@/components/step-indicator'
 import { TextAreaField } from '@/components/text-area-field'
 import { TicketPreview } from '@/components/ticket-preview'
+import { TicketReview } from '@/components/ticket-review'
 import { TicketTypePicker } from '@/components/ticket-type-picker'
 import { Button, buttonVariants } from '@/components/ui/shadcn/button'
 import {
   FIELD_LIMITS,
   TICKET_TYPES,
   codePoints,
+  ticketTitle,
   ticketTypeLabel
 } from '@/domain/tickets'
 import type { TicketType } from '@/domain/tickets/types'
@@ -40,10 +43,11 @@ import {
   fieldLayout,
   hasData,
   previewBadges,
-  previewTitle
+  previewTitle,
+  reviewRows
 } from './form-helpers'
 import { builderReducer, initialState } from './reducer'
-import { emptyValues, ticketSchemas } from './schemas'
+import { emptyValues, parseTicket, ticketSchemas } from './schemas'
 import type { BuilderState, FieldSlot, TicketFormValues } from './types'
 
 const tipsFor = ({ step, type }: BuilderState): readonly string[] => [
@@ -98,6 +102,11 @@ export const TicketBuilder = () => {
   })
   const values = useWatch({ control: form.control }) as TicketFormValues
   const { errors } = form.formState
+  // What will be sent: the values as the schema leaves them (trimmed).
+  const reviewInput =
+    state.step === 'revisao' && state.type
+      ? parseTicket(state.type, values)
+      : null
 
   const stepIndex = STEPS.findIndex(step => step.id === state.step)
   const stepLabel = STEPS[stepIndex]?.label ?? ''
@@ -320,6 +329,21 @@ export const TicketBuilder = () => {
                 {fieldLayout(state.type).map(renderField)}
               </form>
             </>
+          ) : state.step === 'revisao' && state.type && reviewInput ? (
+            <>
+              <div className="flex flex-col gap-1">
+                {heading(stepLabel)}
+                <p className="text-muted-foreground text-sm">
+                  {BUILDER_TEXTS.reviewIntro}
+                </p>
+              </div>
+              <TicketReview
+                rows={reviewRows(reviewInput)}
+                title={ticketTitle(reviewInput)}
+                type={state.type}
+                typeLabel={ticketTypeLabel(state.type)}
+              />
+            </>
           ) : (
             heading(stepLabel)
           )}
@@ -357,13 +381,15 @@ export const TicketBuilder = () => {
               </Button>
             </>
           ) : (
+            // AC-4.2: back to the form, every value kept.
             <Button
               className="w-full sm:w-auto"
               onClick={() => dispatch({ step: 'detalhes', type: 'goToStep' })}
               type="button"
               variant="outline"
             >
-              Voltar
+              <PencilIcon data-icon="inline-start" aria-hidden />
+              Editar
             </Button>
           )}
         </div>

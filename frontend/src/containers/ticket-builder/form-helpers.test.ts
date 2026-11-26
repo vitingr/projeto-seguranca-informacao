@@ -4,7 +4,8 @@ import {
   fieldLayout,
   hasData,
   previewBadges,
-  previewTitle
+  previewTitle,
+  reviewRows
 } from './form-helpers'
 
 const layout = (type: Parameters<typeof fieldLayout>[0]) =>
@@ -63,6 +64,53 @@ describe('previewTitle', () => {
     expect(previewTitle('outro', { titulo: 'Liberar porta' })).toBe(
       'Liberar porta'
     )
+  })
+})
+
+describe('reviewRows', () => {
+  it('lists every field in screen order with labels for choices', () => {
+    expect(
+      reviewRows({
+        dados: {
+          descricao: 'Erro 500',
+          passos: '1. Abra\n2. Salve',
+          severidade: 'critica',
+          sistema: 'Portal'
+        },
+        tipo: 'bug'
+      })
+    ).toEqual([
+      {
+        key: 'sistema',
+        label: 'Sistema afetado',
+        risky: false,
+        value: 'Portal'
+      },
+      { key: 'severidade', label: 'Severidade', risky: true, value: 'Crítica' },
+      { key: 'descricao', label: 'Descrição', risky: false, value: 'Erro 500' },
+      {
+        key: 'passos',
+        label: 'Passos para reproduzir',
+        risky: false,
+        value: '1. Abra\n2. Salve'
+      }
+    ])
+  })
+
+  it('gives null for the optional notes left out (AC-4.1)', () => {
+    const rows = reviewRows({
+      dados: {
+        ambiente: 'homolog',
+        projeto: 'api',
+        repositorio: 'https://github.com/org/api'
+      },
+      tipo: 'deploy'
+    })
+    expect(rows.find(row => row.key === 'observacoes')?.value).toBeNull()
+    expect(rows.find(row => row.key === 'ambiente')).toMatchObject({
+      risky: false,
+      value: 'Homologação'
+    })
   })
 })
 

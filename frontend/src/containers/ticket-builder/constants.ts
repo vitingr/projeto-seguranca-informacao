@@ -44,6 +44,8 @@ export const BUILDER_TEXTS = {
   detailsIntro: (type: string) =>
     `${type}: preencha os campos. Os marcados com * são obrigatórios.`,
   keepType: 'Manter o tipo atual',
+  reviewIntro:
+    'Confira o pedido antes de enviar. Para corrigir algum campo, use "Editar".',
   /** AC-3.7. */
   sessionNote:
     'Sua sessão expira após um período sem atividade. Envie o ticket antes de sair da página.',

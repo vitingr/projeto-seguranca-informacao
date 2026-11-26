@@ -495,6 +495,58 @@ const toReview = async (page: Page, typeLabel: string) => {
 const posts = (calls: string[]) =>
   calls.filter(call => call === 'POST /api/tickets')
 
+// The send progress (task T9.8a, AC-5.5 to AC-5.10).
+
+const progress = (page: Page) => page.getByTestId('send-progress')
+
+const stepStates = (page: Page) =>
+  progress(page)
+    .locator('li[data-state]')
+    .evaluateAll(items =>
+      items.map(item => [
+        item.firstChild?.nextSibling?.textContent?.split(' (')[0]?.trim(),
+        item.getAttribute('data-state')
+      ])
+    )
+
+const expectStoppedProgress = async (page: Page) => {
+  await expect(progress(page)).toHaveAttribute('data-phase', 'failed')
+  expect(await stepStates(page)).toEqual([
+    ['Validando campos', 'done'],
+    ['Registrando ticket', 'failed']
+  ])
+  await expect(progress(page)).not.toContainText('Preparando confirmação')
+  await expect(progress(page)).toContainText('Envio interrompido')
+}
+
+const CREATED = {
+  body: JSON.stringify({
+    created_at: '2026-11-25T14:30:00Z',
+    id: 9001,
+    status: 'aberto',
+    title: 'Liberar porta no firewall',
+    type: 'outro',
+    updated_at: '2026-11-25T14:30:00Z'
+  }),
+  contentType: 'application/json',
+  status: 201
+}
+
+/** Holds the POST until `release()`, then answers a fake 201. */
+const holdCreation = async (page: Page) => {
+  let release = () => {}
+  const gate = new Promise<void>(done => {
+    release = done
+  })
+  const seen: number[] = []
+  await page.route('**/api/tickets', async route => {
+    seen.push(Date.now())
+    await gate
+    await route.fulfill(CREATED)
+  })
+  return { release, seen }
+}
+
 test.describe('sending a ticket', () => {
   let sender: { login: string; password: string }
 
@@ -616,6 +668,8 @@ test.describe('errors when sending (US-6)', () => {
         'role',
         'status'
       )
+      // The progress stops on "Registrando ticket" (AC-5.7).
+      await expectStoppedProgress(page)
       await expect(stepHeading(page, 'Revisão')).toBeVisible()
       await expect(
         page.getByRole('button', { name: 'Enviar ticket' })
@@ -653,6 +707,7 @@ test.describe('errors when sending (US-6)', () => {
     await expect(page.getByTestId('send-error')).toHaveText(
       'Não foi possível conectar ao servidor. Tente novamente.'
     )
+    await expectStoppedProgress(page)
     fail = false
     await page.getByRole('button', { name: 'Enviar ticket' }).click()
     await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
@@ -703,4 +758,91 @@ test('an admin cannot create a ticket, even calling the API (S-6)', async ({
     return res.status
   })
   expect(status).toBe(403)
+})
+
+// The answers here are simulated, so nothing is created.
+test.describe('send progress', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, comumUser(), '/usuarios')
+  })
+
+  test('the request starts on the click and the steps follow the real events (AC-5.5, AC-5.6, AC-5.8, AC-5.10)', async ({
+    page
+  }) => {
+    const hold = await holdCreation(page)
+    await toReview(page, 'Outro')
+    const clicked = Date.now()
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+
+    // The POST left at once, before any answer.
+    await expect.poll(() => hold.seen.length).toBe(1)
+    expect(hold.seen[0] - clicked).toBeLessThan(1000)
+
+    // While pending: fields checked, "Registrando ticket" in progress, no
+    // confirmation step and no confirmation.
+    await expect(progress(page)).toHaveAttribute('data-phase', 'registering')
+    expect(await stepStates(page)).toEqual([
+      ['Validando campos', 'done'],
+      ['Registrando ticket', 'active']
+    ])
+    await expect(progress(page)).not.toContainText('Preparando confirmação')
+    await expect(stepHeading(page, 'Ticket criado')).toHaveCount(0)
+    await expect(progress(page)).toContainText('Enviando ticket')
+    await expect(page.getByRole('status').last()).toHaveText('Enviando ticket.')
+    // Chips with the type and the field names, never the values.
+    const chips = progress(page).locator('ul li')
+    await expect(chips).toHaveText(['Outro', 'Título', 'Descrição'])
+    await expect(progress(page)).not.toContainText('Liberar porta')
+
+    // The answer arrives: the confirmation shows with no fixed wait.
+    const released = Date.now()
+    hold.release()
+    await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
+    expect(Date.now() - released).toBeLessThan(1500)
+    await expect(progress(page)).toHaveAttribute('data-phase', 'done')
+    expect(await stepStates(page)).toEqual([
+      ['Validando campos', 'done'],
+      ['Registrando ticket', 'done'],
+      ['Preparando confirmação', 'done']
+    ])
+    await expect(progress(page)).toContainText('Envio concluído')
+    await expect(progress(page)).toContainText(/Enviado em \d+,\d s/)
+    await expect(page.getByRole('status').last()).toHaveText(
+      'Ticket #9001 criado.'
+    )
+  })
+
+  test.describe('with reduced motion (AC-5.9)', () => {
+    test.use({ reducedMotion: 'reduce' })
+
+    const animations = (page: Page) =>
+      progress(page).evaluate(
+        root =>
+          [root, ...root.querySelectorAll('*')]
+            .map(element => getComputedStyle(element))
+            .filter(
+              style =>
+                style.animationName !== 'none' ||
+                (style.filter !== 'none' && style.filter !== '')
+            ).length
+      )
+
+    test('shows the same states with nothing moving', async ({ page }) => {
+      const hold = await holdCreation(page)
+      await toReview(page, 'Outro')
+      await page.getByRole('button', { name: 'Enviar ticket' }).click()
+
+      await expect(progress(page)).toHaveAttribute('data-phase', 'registering')
+      expect(await stepStates(page)).toEqual([
+        ['Validando campos', 'done'],
+        ['Registrando ticket', 'active']
+      ])
+      expect(await animations(page)).toBe(0)
+
+      hold.release()
+      await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
+      await expect(progress(page)).toHaveAttribute('data-phase', 'done')
+      expect(await animations(page)).toBe(0)
+    })
+  })
 })

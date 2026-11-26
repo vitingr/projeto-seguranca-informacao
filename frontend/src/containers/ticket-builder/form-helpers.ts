@@ -1,5 +1,11 @@
 import type { TicketReviewRow } from '@/components/ticket-review/types'
-import { choiceLabel, fieldsOf, ticketTitle, trimField } from '@/domain/tickets'
+import {
+  choiceLabel,
+  fieldsOf,
+  ticketTitle,
+  ticketTypeLabel,
+  trimField
+} from '@/domain/tickets'
 import type { TicketInput, TicketType } from '@/domain/tickets/types'
 
 import type { FieldSlot, TicketFormValues } from './types'
@@ -68,6 +74,17 @@ export const reviewRows = (input: TicketInput): TicketReviewRow[] => {
     }
   })
 }
+
+/**
+ * The chips of the send progress: the type, then the labels of the fields
+ * that carry a value. Names only, never what was typed (AC-5.5).
+ */
+export const progressChips = (input: TicketInput): string[] => [
+  ticketTypeLabel(input.tipo),
+  ...reviewRows(input)
+    .filter(row => row.value !== null)
+    .map(row => row.label)
+]
 
 /** The labels of the options chosen so far, for the preview badges. */
 export const previewBadges = (

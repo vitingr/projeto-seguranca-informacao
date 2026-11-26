@@ -129,6 +129,56 @@
   }
 }
 
+/* Send progress (spec AC-5.5 to AC-5.10, after criacao-tickety.mp4). Used
+   only through `motion-safe:` classes, so reduced motion shows no movement,
+   blur or blinking. No gradient: the video's text shimmer is an opacity
+   pulse here. */
+@theme {
+  --animate-enter-blur: enter-blur 250ms ease-out both;
+  --animate-blink: blink 1.2s ease-in-out infinite;
+
+  @keyframes enter-blur {
+    from {
+      filter: blur(4px);
+      opacity: 0;
+    }
+    to {
+      filter: blur(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+}
+
+/* The 3 × 3 squares blink in a diagonal wave. */
+@layer components {
+  .progress-squares > :nth-child(2),
+  .progress-squares > :nth-child(4) {
+    animation-delay: 100ms;
+  }
+  .progress-squares > :nth-child(3),
+  .progress-squares > :nth-child(5),
+  .progress-squares > :nth-child(7) {
+    animation-delay: 200ms;
+  }
+  .progress-squares > :nth-child(6),
+  .progress-squares > :nth-child(8) {
+    animation-delay: 300ms;
+  }
+  .progress-squares > :nth-child(9) {
+    animation-delay: 400ms;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 

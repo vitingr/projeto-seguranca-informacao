@@ -44,6 +44,12 @@ export type BuilderAction =
 
 export type CreateTicket = ApiClient['createTicket']
 
+/** When the send started and when the answer arrived (`performance.now`). */
+export interface SendTiming {
+  end: null | number
+  start: number
+}
+
 /** The body of a 201 from `createTicket`. */
 export type TicketAnswer = Extract<
   Awaited<ReturnType<CreateTicket>>,

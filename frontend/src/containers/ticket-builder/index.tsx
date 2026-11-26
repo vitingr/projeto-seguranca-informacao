@@ -13,12 +13,14 @@ import {
   XIcon
 } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useId, useReducer, useRef } from 'react'
+import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form'
 
 import { ChoiceSelect } from '@/components/choice-select'
 import { FormField, FormInput, fieldIds } from '@/components/form-field'
 import { InlineAlert } from '@/components/inline-alert'
+import { SendProgress } from '@/components/send-progress'
+import type { SendPhase } from '@/components/send-progress/types'
 import { SideCard } from '@/components/side-card'
 import { StepIndicator } from '@/components/step-indicator'
 import { TextAreaField } from '@/components/text-area-field'
@@ -51,12 +53,18 @@ import {
   hasData,
   previewBadges,
   previewTitle,
+  progressChips,
   reviewRows
 } from './form-helpers'
 import { builderReducer, initialState } from './reducer'
 import { emptyValues, parseTicket, ticketSchemas } from './schemas'
-import { sendTicket } from './send'
-import type { BuilderState, FieldSlot, TicketFormValues } from './types'
+import { clock, sendTicket } from './send'
+import type {
+  BuilderState,
+  FieldSlot,
+  SendTiming,
+  TicketFormValues
+} from './types'
 
 const tipsFor = ({ step, type }: BuilderState): readonly string[] =>
   step === 'confirmacao'
@@ -129,23 +137,56 @@ export const TicketBuilder = () => {
   // AC-5.1: a second click while the request is pending sends nothing.
   const sendOnce = useRef(singleFlight(sendTicket)).current
 
+  // The send progress (AC-5.5 to AC-5.10): the real time since the click,
+  // and the names (never the values) of what is being sent.
+  const [timing, setTiming] = useState<null | SendTiming>(null)
+  const [now, setNow] = useState(0)
+  const [chips, setChips] = useState<readonly string[]>([])
+
+  useEffect(() => {
+    if (!state.sending) return
+    const timer = window.setInterval(() => setNow(clock()), 250)
+    return () => window.clearInterval(timer)
+  }, [state.sending])
+
   const send = async () => {
     if (!reviewInput || state.sending) return
+    const start = clock()
+    setTiming({ end: null, start })
+    setNow(start)
+    setChips(progressChips(reviewInput))
+    // The request starts now; the progress only draws what happens.
     dispatch({ type: 'sendStarted' })
     const outcome = await sendOnce(api.createTicket, reviewInput)
-    if (outcome) dispatch(outcome)
+    if (outcome) {
+      setTiming({ end: clock(), start })
+      dispatch(outcome)
+    }
   }
 
   const restart = () => {
     form.reset({})
+    setTiming(null)
     dispatch({ type: 'restart' })
   }
 
-  const announcement = state.sending
-    ? BUILDER_MESSAGES.sending
-    : done && state.ticket
-      ? BUILDER_MESSAGES.created(state.ticket.id)
-      : `Etapa ${stepIndex + 1} de ${STEPS.length}: ${stepLabel}`
+  const elapsedMs = timing ? (timing.end ?? now) - timing.start : 0
+  const phase: null | SendPhase = state.sending
+    ? 'registering'
+    : state.sendError
+      ? 'failed'
+      : done
+        ? 'done'
+        : null
+
+  // One polite announcement per outcome (AC-5.10): the error is said by
+  // the inline alert, so this region keeps "Enviando ticket." meanwhile.
+  const announcement =
+    state.sending || state.sendError
+      ? BUILDER_MESSAGES.sending
+      : done && state.ticket
+        ? BUILDER_MESSAGES.created(state.ticket.id)
+        : `Etapa ${stepIndex + 1} de ${STEPS.length}: ${stepLabel}`
 
   useEffect(() => {
     if (previousStep.current !== state.step) {
@@ -382,16 +423,33 @@ export const TicketBuilder = () => {
                 type={state.type}
                 typeLabel={ticketTypeLabel(state.type)}
               />
+              {phase ? (
+                <SendProgress
+                  chips={chips}
+                  elapsedMs={elapsedMs}
+                  phase={phase}
+                />
+              ) : null}
               {state.sendError ? (
                 <InlineAlert>{state.sendError}</InlineAlert>
               ) : null}
             </>
           ) : done && state.ticket ? (
-            <TicketConfirmation
-              headingId={headingId}
-              headingRef={headingRef}
-              ticket={state.ticket}
-            />
+            <>
+              {/* The rows already on screen stay; the last step and the
+                  check row enter here. */}
+              <SendProgress
+                chips={chips}
+                elapsedMs={elapsedMs}
+                enterFrom={3}
+                phase="done"
+              />
+              <TicketConfirmation
+                headingId={headingId}
+                headingRef={headingRef}
+                ticket={state.ticket}
+              />
+            </>
           ) : (
             heading(stepLabel)
           )}

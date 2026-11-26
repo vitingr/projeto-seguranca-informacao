@@ -5,6 +5,7 @@ import {
   hasData,
   previewBadges,
   previewTitle,
+  progressChips,
   reviewRows
 } from './form-helpers'
 
@@ -111,6 +112,26 @@ describe('reviewRows', () => {
       risky: false,
       value: 'Homologação'
     })
+  })
+})
+
+describe('progressChips', () => {
+  it('names the type and the fields with a value, never the values (AC-5.5)', () => {
+    const chips = progressChips({
+      dados: {
+        ambiente: 'prod',
+        projeto: 'api-secreta',
+        repositorio: 'https://github.com/org/api'
+      },
+      tipo: 'deploy'
+    })
+    expect(chips).toEqual([
+      'Deploy de projeto',
+      'Nome do projeto',
+      'Repositório',
+      'Ambiente'
+    ])
+    expect(chips.join(' ')).not.toMatch(/api-secreta|github|Produção/)
   })
 })
 

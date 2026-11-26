@@ -3,6 +3,12 @@ import type { CreatedTicket, TicketInput } from '@/domain/tickets/types'
 
 import type { CreateTicket, SendOutcome, TicketAnswer } from './types'
 
+/**
+ * The page clock of the send progress (milliseconds, monotonic). Read only
+ * in event handlers and timers, never while rendering.
+ */
+export const clock = (): number => performance.now()
+
 /** The created ticket as the confirmation shows it (AC-5.2). */
 export const toCreatedTicket = (answer: TicketAnswer): CreatedTicket => ({
   createdAt: answer.created_at,

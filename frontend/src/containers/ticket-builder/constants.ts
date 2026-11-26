@@ -49,6 +49,10 @@ export const BUILDER_TEXTS = {
   detailsIntro: (type: string) =>
     `${type}: preencha os campos. Os marcados com * são obrigatórios.`,
   keepType: 'Manter o tipo atual',
+  /** AC-3.8: the inline warning before following a link out. */
+  leave: 'Sair sem enviar',
+  leaveBody: 'O que você preencheu neste ticket será perdido.',
+  leaveTitle: 'Sair sem enviar?',
   reviewIntro:
     'Confira o pedido antes de enviar. Para corrigir algum campo, use "Editar".',
   send: 'Enviar ticket',
@@ -56,6 +60,7 @@ export const BUILDER_TEXTS = {
   /** AC-3.7. */
   sessionNote:
     'Sua sessão expira após um período sem atividade. Envie o ticket antes de sair da página.',
+  stay: 'Continuar no ticket',
   subtitle: 'Abra um pedido para a equipe de infraestrutura em três etapas.',
   title: 'Novo ticket'
 } as const

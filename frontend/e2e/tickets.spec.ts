@@ -850,3 +850,151 @@ test.describe('send progress', () => {
     })
   })
 })
+
+// The steps in the browser history and the leave warning (task T9.9). The
+// one send is answered in the browser, so nothing is created.
+
+const atStep = (step?: string) =>
+  new RegExp(`${BUILDER}${step ? `\\?etapa=${step}` : ''}$`)
+
+const leaveGuard = (page: Page) => page.getByTestId('leave-guard')
+
+const sendFakeTicket = async (page: Page) => {
+  await page.route('**/api/tickets', route => route.fulfill(CREATED))
+  await goToDetails(page, 'Outro')
+  await VALID.Outro(page)
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Enviar ticket' }).click()
+  await expect(stepHeading(page, 'Ticket criado')).toBeFocused()
+  await expect(page).toHaveURL(atStep('confirmacao'))
+}
+
+test.describe('step history and leaving (T9.9)', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, comumUser(), '/usuarios')
+    await page.goto(BUILDER)
+  })
+
+  test('Back moves one step with the values kept and never sends (spec section 7, S-10)', async ({
+    page
+  }) => {
+    const calls = recordApiCalls(page)
+    await goToDetails(page, 'Outro')
+    await expect(page).toHaveURL(atStep('detalhes'))
+    await VALID.Outro(page)
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(stepHeading(page, 'Revisão')).toBeFocused()
+    // Only the step is in the URL, never a typed value.
+    await expect(page).toHaveURL(atStep('revisao'))
+
+    await page.goBack()
+    await expect(stepHeading(page, 'Detalhes')).toBeFocused()
+    await expect(page).toHaveURL(atStep('detalhes'))
+    await expect(page.getByLabel('Título')).toHaveValue(
+      'Liberar porta no firewall'
+    )
+
+    // Forward does not skip the check of "Continuar".
+    await page.goForward()
+    await expect(page).toHaveURL(atStep('detalhes'))
+    await expect(stepHeading(page, 'Detalhes')).toBeVisible()
+
+    await page.goBack()
+    await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeFocused()
+    await expect(page).toHaveURL(atStep())
+    await expect(
+      typeGroup(page).getByRole('radio', { name: 'Outro' })
+    ).toHaveAttribute('aria-checked', 'true')
+    expect(posts(calls)).toHaveLength(0)
+  })
+
+  test('"Voltar" and "Editar" move back in the history too', async ({
+    page
+  }) => {
+    await goToDetails(page, 'Outro')
+    await VALID.Outro(page)
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await page.getByRole('button', { name: 'Editar' }).click()
+    await expect(stepHeading(page, 'Detalhes')).toBeFocused()
+    await expect(page).toHaveURL(atStep('detalhes'))
+    await page.getByRole('button', { name: 'Voltar' }).click()
+    await expect(page).toHaveURL(atStep())
+    // Forward again is undone, as above.
+    await page.goForward()
+    await expect(page).toHaveURL(atStep())
+    await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
+  })
+
+  test('reload on the confirmation sends nothing (AC-5.3)', async ({
+    page
+  }) => {
+    const calls = recordApiCalls(page)
+    await sendFakeTicket(page)
+    expect(posts(calls)).toHaveLength(1)
+
+    await page.reload()
+    // The typed data lived in the page only (BR-7): the builder starts over.
+    await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
+    await expect(page).toHaveURL(atStep())
+    expect(posts(calls)).toHaveLength(1)
+  })
+
+  test('Back from the confirmation leaves the builder and sends nothing (AC-5.3)', async ({
+    page
+  }) => {
+    const calls = recordApiCalls(page)
+    await sendFakeTicket(page)
+    // Sent: no warning, and the steps of the sent ticket are skipped.
+    await page.goBack()
+    await expect(page).toHaveURL(/\/usuarios$/)
+    expect(posts(calls)).toHaveLength(1)
+  })
+
+  test('a header link with typed data shows "Sair sem enviar?" and staying keeps the data (AC-3.8)', async ({
+    page
+  }) => {
+    await goToDetails(page, 'Outro')
+    await page.getByLabel('Título').fill('Liberar porta')
+
+    await page.getByRole('link', { name: 'Minha conta' }).click()
+    await expect(leaveGuard(page)).toHaveText(
+      /^Sair sem enviar\? O que você preencheu neste ticket será perdido\./
+    )
+    await expect(page).toHaveURL(atStep('detalhes'))
+    const stay = leaveGuard(page).getByRole('button', {
+      name: 'Continuar no ticket'
+    })
+    await expect(stay).toBeFocused()
+    await stay.click()
+    await expect(leaveGuard(page)).toHaveCount(0)
+    await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
+
+    // "Cancelar" goes through the same warning; leaving works.
+    await page.getByRole('link', { name: 'Cancelar' }).click()
+    await leaveGuard(page)
+      .getByRole('button', { name: 'Sair sem enviar' })
+      .click()
+    await expect(page).toHaveURL(/\/usuarios$/)
+  })
+
+  test('with nothing typed, a link out leaves at once', async ({ page }) => {
+    await page.getByRole('link', { name: 'Cancelar' }).click()
+    await expect(page).toHaveURL(/\/usuarios$/)
+    await expect(leaveGuard(page)).toHaveCount(0)
+  })
+
+  test('closing the tab with typed data asks the browser first (AC-3.8)', async ({
+    page
+  }) => {
+    await goToDetails(page, 'Outro')
+    await page.getByLabel('Título').fill('Liberar porta')
+    const dialog = new Promise<string>(resolve => {
+      page.once('dialog', async prompt => {
+        resolve(prompt.type())
+        await prompt.accept()
+      })
+    })
+    await page.close({ runBeforeUnload: true })
+    expect(await dialog).toBe('beforeunload')
+  })
+})

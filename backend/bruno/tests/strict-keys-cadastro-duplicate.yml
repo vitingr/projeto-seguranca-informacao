@@ -1,0 +1,37 @@
+info:
+  name: strict-keys-cadastro-duplicate
+  type: http
+  seq: 27
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.strict",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "comum",
+        "Papel": "admin"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The role twice, the second in another case (plan P-11): a reviewer
+        // or a log reading the first sees "comum", while encoding/json alone
+        // keeps the last and would register an admin.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+          expect(body.error).to.equal("bad_request");
+        });

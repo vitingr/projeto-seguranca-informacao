@@ -1,0 +1,26 @@
+info:
+  name: strict-keys-csrf
+  type: http
+  seq: 20
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/csrf"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar("csrfToken", res.getBody().csrf_token);
+    - type: tests
+      code: |-
+        // Starts the strict-keys requests (plan P-11) with a new anonymous
+        // session: the earlier requests ended with a logout.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("creates an anonymous session cookie", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(true);
+        });

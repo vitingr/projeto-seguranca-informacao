@@ -1,10 +1,12 @@
 package security
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -280,5 +282,212 @@ func TestParseRole(t *testing.T) {
 				t.Errorf("error %q quotes the input", err)
 			}
 		})
+	}
+}
+
+// registrationBody mirrors the registration request (login, senha, papel).
+type registrationBody struct {
+	Login string `json:"login"`
+	Senha string `json:"senha"`
+	Papel string `json:"papel"`
+}
+
+// decodeInto runs DecodeJSON on body with the JSON content type.
+func decodeInto(t *testing.T, s *Security, body string, dst any) error {
+	t.Helper()
+	return s.DecodeJSON(httptest.NewRecorder(), newJSONRequest(t, "application/json", body), dst)
+}
+
+// checkFixedRefusal checks that err is the fixed error of reason: it wraps
+// ErrInvalidInput (400) and quotes nothing from the body.
+func checkFixedRefusal(t *testing.T, err error, reason string) {
+	t.Helper()
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Fatalf("error = %v, want ErrInvalidInput (400)", err)
+	}
+	if err.Error() != invalidBody(reason).Error() {
+		t.Errorf("error = %q, want the fixed %q", err, invalidBody(reason))
+	}
+	if strings.Contains(err.Error(), sentinelPassword) {
+		t.Errorf("error %q quotes the body", err)
+	}
+}
+
+// TestDecodeJSONKeySpelling covers plan P-11 for login and registration:
+// encoding/json alone matches keys in any case and keeps the last of
+// duplicate keys, so {"login":"a",…,"LOGIN":"b"} would be read as "b" here
+// and maybe as "a" by a proxy or a log. Every key must be one of the
+// struct's json names, spelled exactly, and none may repeat in any case.
+func TestDecodeJSONKeySpelling(t *testing.T) {
+	t.Parallel()
+
+	const pw = `"senha":"` + sentinelPassword + `"`
+	login := []struct {
+		name   string
+		body   string
+		reason string
+	}{
+		{"LOGIN", `{"LOGIN":"admin",` + pw + `}`, reasonMalformed},
+		{"Login", `{"Login":"admin",` + pw + `}`, reasonMalformed},
+		{"Senha", `{"login":"admin","Senha":"` + sentinelPassword + `"}`, reasonMalformed},
+		{"SENHA", `{"login":"admin","SENHA":"` + sentinelPassword + `"}`, reasonMalformed},
+		{"login twice", `{"login":"nobody",` + pw + `,"login":"admin"}`, reasonDuplicateKey},
+		{"login and LOGIN", `{"login":"nobody",` + pw + `,"LOGIN":"admin"}`, reasonDuplicateKey},
+		{"senha and Senha", `{"login":"admin","senha":"x","Senha":"` + sentinelPassword + `"}`, reasonDuplicateKey},
+		// Refused at its first key already, for the spelling.
+		{"LOGIN before login", `{"LOGIN":"admin","login":"nobody",` + pw + `}`, reasonMalformed},
+	}
+	for _, tt := range login {
+		t.Run("login/"+tt.name, func(t *testing.T) {
+			t.Parallel()
+			var dst loginBody
+			err := decodeInto(t, newTestSecurity(t, nil), tt.body, &dst)
+			checkFixedRefusal(t, err, tt.reason)
+		})
+	}
+
+	registration := []struct {
+		name   string
+		body   string
+		reason string
+	}{
+		{"Papel", `{"login":"maria",` + pw + `,"Papel":"admin"}`, reasonMalformed},
+		{"PAPEL", `{"login":"maria",` + pw + `,"PAPEL":"admin"}`, reasonMalformed},
+		{"LOGIN", `{"LOGIN":"maria",` + pw + `,"papel":"comum"}`, reasonMalformed},
+		{"Senha", `{"login":"maria","Senha":"` + sentinelPassword + `","papel":"comum"}`, reasonMalformed},
+		{"papel twice", `{"login":"maria",` + pw + `,"papel":"comum","papel":"admin"}`, reasonDuplicateKey},
+		{"papel and PAPEL", `{"login":"maria",` + pw + `,"papel":"comum","PAPEL":"admin"}`, reasonDuplicateKey},
+		{"login and Login", `{"login":"maria",` + pw + `,"papel":"comum","Login":"admin"}`, reasonDuplicateKey},
+	}
+	for _, tt := range registration {
+		t.Run("registration/"+tt.name, func(t *testing.T) {
+			t.Parallel()
+			var dst registrationBody
+			err := decodeInto(t, newTestSecurity(t, nil), tt.body, &dst)
+			checkFixedRefusal(t, err, tt.reason)
+		})
+	}
+
+	// The documented keys, exactly spelled, still decode.
+	var dst registrationBody
+	if err := decodeInto(t, newTestSecurity(t, nil), `{"login":"maria",`+pw+`,"papel":"comum"}`, &dst); err != nil {
+		t.Fatalf("exact keys: %v", err)
+	}
+	if dst != (registrationBody{Login: "maria", Senha: sentinelPassword, Papel: "comum"}) {
+		t.Errorf("decoded %+v", dst)
+	}
+}
+
+// TestDecodeJSONRefusesInvalidUTF8 covers plan P-11 at the body level:
+// encoding/json alone would turn each invalid byte into U+FFFD and accept
+// the login or the password.
+func TestDecodeJSONRefusesInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	// Built from bytes, so no tool can rewrite them as valid characters.
+	var (
+		invalidByte = string([]byte{0xff})
+		truncated   = string([]byte{0xc3})
+		overlong    = string([]byte{0xc0, 0xaf})
+		surrogate   = string([]byte{0xed, 0xa0, 0x80})
+	)
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"invalid byte in login", `{"login":"adm` + invalidByte + `in","senha":"` + sentinelPassword + `"}`},
+		{"invalid byte in senha", `{"login":"admin","senha":"` + sentinelPassword + invalidByte + `"}`},
+		{"truncated character at the end of senha", `{"login":"admin","senha":"` + sentinelPassword + truncated + `"}`},
+		{"overlong encoding", `{"login":"admin` + overlong + `","senha":"` + sentinelPassword + `"}`},
+		{"utf-16 surrogate encoded as utf-8", `{"login":"admin","senha":"` + sentinelPassword + surrogate + `"}`},
+		{"invalid byte in a key", `{"login":"admin","senha":"` + sentinelPassword + `","` + invalidByte + `":"x"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var dst loginBody
+			err := decodeInto(t, newTestSecurity(t, nil), tt.body, &dst)
+			checkFixedRefusal(t, err, reasonInvalidUTF8)
+			if dst != (loginBody{}) {
+				t.Errorf("decoded %+v on error, want zero", dst)
+			}
+		})
+	}
+
+	// The same kinds of characters, written correctly, decode as typed.
+	var dst loginBody
+	if err := decodeInto(t, newTestSecurity(t, nil), `{"login":"joão","senha":"Sênha-çã-😀-`+sentinelPassword+`"}`, &dst); err != nil {
+		t.Fatalf("valid UTF-8 body: %v", err)
+	}
+	if dst.Login != "joão" || dst.Senha != "Sênha-çã-😀-"+sentinelPassword {
+		t.Errorf("decoded %+v", dst)
+	}
+}
+
+// TestDecodeJSONRefusesBodiesThatAreNotObjects: the key rule needs an
+// object, so a JSON null (which encoding/json reads into a struct as "no
+// fields") or an array is refused like any other wrong shape.
+func TestDecodeJSONRefusesBodiesThatAreNotObjects(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{`null`, `[]`, `["admin"]`, `1`, `true`} {
+		var dst loginBody
+		err := decodeInto(t, newTestSecurity(t, nil), body, &dst)
+		checkFixedRefusal(t, err, reasonMalformed)
+	}
+	var dst loginBody
+	if err := decodeInto(t, newTestSecurity(t, nil), `{}`, &dst); err != nil {
+		t.Errorf("empty object: %v (missing keys are left to the caller's rules)", err)
+	}
+}
+
+// TestDecodeJSONKeysComeFromTheTags checks how the accepted keys are read
+// from the destination, and that a destination the rule cannot describe is
+// refused as a server error (not ErrInvalidInput), so it fails closed.
+func TestDecodeJSONKeysComeFromTheTags(t *testing.T) {
+	t.Parallel()
+
+	type tagged struct {
+		Named    string `json:"named,omitempty"`
+		Untagged string
+		Skipped  string `json:"-"`
+		hidden   string //nolint:unused // proves unexported fields accept no key
+	}
+	keys, err := jsonKeys(&tagged{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"named", "Untagged"}; !slices.Equal(keys, want) {
+		t.Errorf("keys = %q, want %q", keys, want)
+	}
+
+	s := newTestSecurity(t, nil)
+	var got tagged
+	if err := decodeInto(t, s, `{"named":"a","Untagged":"b"}`, &got); err != nil {
+		t.Fatalf("exact keys: %v", err)
+	}
+	if got.Named != "a" || got.Untagged != "b" {
+		t.Errorf("decoded %+v", got)
+	}
+	for _, body := range []string{`{"Skipped":"x"}`, `{"hidden":"x"}`, `{"untagged":"x"}`, `{"Named":"x"}`} {
+		var dst tagged
+		checkFixedRefusal(t, decodeInto(t, s, body, &dst), reasonMalformed)
+	}
+
+	type embedded struct{ loginBody }
+	var raw json.RawMessage
+	var m map[string]string
+	for name, dst := range map[string]any{
+		"nil":                nil,
+		"struct value":       loginBody{},
+		"raw message":        &raw,
+		"map":                &m,
+		"embedded struct":    &embedded{},
+		"pointer to pointer": new(*loginBody),
+	} {
+		err := decodeInto(t, s, `{"login":"admin"}`, dst)
+		if !errors.Is(err, errNotAStruct) || errors.Is(err, domain.ErrInvalidInput) {
+			t.Errorf("%s: error = %v, want errNotAStruct and not ErrInvalidInput", name, err)
+		}
 	}
 }

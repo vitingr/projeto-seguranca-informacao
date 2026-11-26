@@ -1,0 +1,37 @@
+info:
+  name: strict-keys-login-admin
+  type: http
+  seq: 24
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.SEED_ADMIN_LOGIN}}",
+        "senha": "{{process.env.SEED_ADMIN_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // After the three refusals, the documented keys still sign in, on the
+        // same anonymous session and token (S-11). The admin session is used
+        // by the registration requests below.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("returns the seed admin", function () {
+          expect(res.getBody().role).to.equal("admin");
+        });
+        test("sets a new session cookie", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(true);
+        });

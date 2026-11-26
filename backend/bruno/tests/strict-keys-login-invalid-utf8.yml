@@ -1,0 +1,50 @@
+info:
+  name: strict-keys-login-invalid-utf8
+  type: http
+  seq: 23
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "replaced by the before-request script",
+        "senha": ""
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // A YAML file can only hold valid UTF-8, so the body is built from
+        // bytes: the seed login and password with a 0xff byte (never valid
+        // in UTF-8) at the end of the password. A Buffer is sent as is.
+        const login = bru.interpolate("{{process.env.SEED_ADMIN_LOGIN}}");
+        const password = bru.interpolate("{{process.env.SEED_ADMIN_PASSWORD}}");
+        req.setBody(Buffer.concat([
+          Buffer.from(JSON.stringify({ login: login, senha: password }).slice(0, -2)),
+          Buffer.from([0xff]),
+          Buffer.from('"}'),
+        ]));
+    - type: tests
+      code: |-
+        // encoding/json alone would turn the byte into U+FFFD and check the
+        // password (plan P-11); the body is refused before that.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+          expect(body.error).to.equal("bad_request");
+        });
+        test("does not start a session", function () {
+          const cookies = [].concat(res.getHeader("set-cookie") || []);
+          expect(cookies.some((c) => c.startsWith("__Host-session="))).to.equal(false);
+        });

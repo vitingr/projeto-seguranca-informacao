@@ -2,6 +2,7 @@ package security
 
 import (
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -155,4 +156,182 @@ func TestHTTPSURL(t *testing.T) {
 		{"NUL", "https://github.com/\x00repo", "", fieldControl},
 		{"invalid utf-8", "https://github.com/\xffrepo", "", fieldInvalidUTF8},
 	})
+}
+
+// marker is in every value of the ticket tests, so they can check that no
+// error ever carries a field value (S-7).
+const marker = "marcador7f3a"
+
+func strPtr(s string) *string { return &s }
+
+func validDraft(typ domain.TicketType) domain.TicketDraft {
+	switch typ {
+	case domain.TicketTypeAccess:
+		return domain.TicketDraft{Type: typ, System: " Grafana " + marker, AccessLevel: "leitura", Justification: "\nPreciso ver os painéis " + marker + ".\n"}
+	case domain.TicketTypeBug:
+		return domain.TicketDraft{Type: typ, System: "Portal " + marker, Description: "A página não carrega " + marker, Steps: "1. Abrir\n2. Entrar " + marker, Severity: "critica"}
+	case domain.TicketTypeDeploy:
+		return domain.TicketDraft{Type: typ, Project: "api-" + marker, Repository: " https://git.example.com/org/" + marker + " ", Environment: "prod"}
+	default:
+		return domain.TicketDraft{Type: typ, Title: "  Dúvida " + marker, Description: "Como peço uma VPN? " + marker}
+	}
+}
+
+func TestValidateTicketAccepts(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	withNotes := func(notes *string) domain.TicketDraft {
+		d := validDraft(domain.TicketTypeDeploy)
+		d.Notes = notes
+		return d
+	}
+	tests := []struct {
+		name  string
+		draft domain.TicketDraft
+		want  domain.Ticket
+	}{
+		{"acesso", validDraft(domain.TicketTypeAccess), domain.Ticket{
+			Type: domain.TicketTypeAccess, System: "Grafana " + marker, AccessLevel: domain.AccessLevelRead,
+			Justification: "Preciso ver os painéis " + marker + ".",
+		}},
+		{"bug", validDraft(domain.TicketTypeBug), domain.Ticket{
+			Type: domain.TicketTypeBug, System: "Portal " + marker, Description: "A página não carrega " + marker,
+			Steps: "1. Abrir\n2. Entrar " + marker, Severity: domain.SeverityCritical,
+		}},
+		{"deploy without notes", withNotes(nil), domain.Ticket{
+			Type: domain.TicketTypeDeploy, Project: "api-" + marker,
+			Repository: "https://git.example.com/org/" + marker, Environment: domain.EnvironmentProduction,
+		}},
+		{"deploy with empty notes", withNotes(strPtr("")), domain.Ticket{
+			Type: domain.TicketTypeDeploy, Project: "api-" + marker,
+			Repository: "https://git.example.com/org/" + marker, Environment: domain.EnvironmentProduction,
+		}},
+		{"deploy with blank notes", withNotes(strPtr(" \n ")), domain.Ticket{
+			Type: domain.TicketTypeDeploy, Project: "api-" + marker,
+			Repository: "https://git.example.com/org/" + marker, Environment: domain.EnvironmentProduction,
+		}},
+		{"deploy with notes", withNotes(strPtr(" Depois das 18h. ")), domain.Ticket{
+			Type: domain.TicketTypeDeploy, Project: "api-" + marker,
+			Repository: "https://git.example.com/org/" + marker, Environment: domain.EnvironmentProduction,
+			Notes: "Depois das 18h.",
+		}},
+		{"outro", validDraft(domain.TicketTypeOther), domain.Ticket{
+			Type: domain.TicketTypeOther, Title: "Dúvida " + marker, Description: "Como peço uma VPN? " + marker,
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := s.ValidateTicket(tt.draft)
+			if err != nil {
+				t.Fatalf("ValidateTicket: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ticket = %+v\nwant     %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateTicketRefuses(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	with := func(typ domain.TicketType, change func(*domain.TicketDraft)) domain.TicketDraft {
+		d := validDraft(typ)
+		change(&d)
+		return d
+	}
+	const (
+		access = domain.TicketTypeAccess
+		bug    = domain.TicketTypeBug
+		deploy = domain.TicketTypeDeploy
+		other  = domain.TicketTypeOther
+	)
+	tests := []struct {
+		name   string
+		draft  domain.TicketDraft
+		reason string // field name or rule reason expected in the error
+	}{
+		// Type.
+		{"unknown type", with(other, func(d *domain.TicketDraft) { d.Type = "incidente" }), "unknown type"},
+		{"empty type", with(other, func(d *domain.TicketDraft) { d.Type = "" }), "unknown type"},
+		{"type in upper case", with(other, func(d *domain.TicketDraft) { d.Type = "OUTRO" }), "unknown type"},
+
+		// A field of another type.
+		{"acesso with descricao", with(access, func(d *domain.TicketDraft) { d.Description = "Descrição " + marker }), "descricao: not a field"},
+		{"bug with titulo", with(bug, func(d *domain.TicketDraft) { d.Title = "Título " + marker }), "titulo: not a field"},
+		{"bug with empty notes", with(bug, func(d *domain.TicketDraft) { d.Notes = strPtr("") }), "observacoes: not a field"},
+		{"deploy with sistema", with(deploy, func(d *domain.TicketDraft) { d.System = "Portal " + marker }), "sistema: not a field"},
+		{"outro with severidade", with(other, func(d *domain.TicketDraft) { d.Severity = "baixa" }), "severidade: not a field"},
+
+		// acesso.
+		{"acesso sistema missing", with(access, func(d *domain.TicketDraft) { d.System = "" }), "sistema: empty"},
+		{"acesso sistema spaces only", with(access, func(d *domain.TicketDraft) { d.System = "   " }), "sistema: empty"},
+		{"acesso sistema too short", with(access, func(d *domain.TicketDraft) { d.System = "é" }), "sistema: too short"},
+		{"acesso sistema too long", with(access, func(d *domain.TicketDraft) { d.System = rep(marker, 11) }), "sistema: too long"},
+		{"acesso sistema line break", with(access, func(d *domain.TicketDraft) { d.System = "Gra\nfana " + marker }), "sistema: line break"},
+		{"acesso nivel_acesso missing", with(access, func(d *domain.TicketDraft) { d.AccessLevel = "" }), "nivel_acesso: not one of"},
+		{"acesso nivel_acesso label", with(access, func(d *domain.TicketDraft) { d.AccessLevel = "Leitura" }), "nivel_acesso: not one of"},
+		{"acesso nivel_acesso padded", with(access, func(d *domain.TicketDraft) { d.AccessLevel = " leitura" }), "nivel_acesso: not one of"},
+		{"acesso nivel_acesso unknown", with(access, func(d *domain.TicketDraft) { d.AccessLevel = "root" }), "nivel_acesso: not one of"},
+		{"acesso justificativa missing", with(access, func(d *domain.TicketDraft) { d.Justification = "" }), "justificativa: empty"},
+		{"acesso justificativa too short", with(access, func(d *domain.TicketDraft) { d.Justification = rep("é", 9) }), "justificativa: too short"},
+		{"acesso justificativa too long", with(access, func(d *domain.TicketDraft) { d.Justification = rep("a", 2001) }), "justificativa: too long"},
+		{"acesso justificativa NUL", with(access, func(d *domain.TicketDraft) { d.Justification = "Preciso\x00 " + marker }), "justificativa: control"},
+
+		// bug.
+		{"bug sistema missing", with(bug, func(d *domain.TicketDraft) { d.System = "" }), "sistema: empty"},
+		{"bug descricao too short", with(bug, func(d *domain.TicketDraft) { d.Description = "curta" }), "descricao: too short"},
+		{"bug descricao invalid utf-8", with(bug, func(d *domain.TicketDraft) { d.Description = "Não \xff carrega " + marker }), "descricao: invalid utf-8"},
+		{"bug passos missing", with(bug, func(d *domain.TicketDraft) { d.Steps = " \n " }), "passos: empty"},
+		{"bug passos too long", with(bug, func(d *domain.TicketDraft) { d.Steps = rep("ç", 2001) }), "passos: too long"},
+		{"bug passos escape", with(bug, func(d *domain.TicketDraft) { d.Steps = "1. Abrir\x1b[2J " + marker }), "passos: control"},
+		{"bug severidade missing", with(bug, func(d *domain.TicketDraft) { d.Severity = "" }), "severidade: not one of"},
+		{"bug severidade accented label", with(bug, func(d *domain.TicketDraft) { d.Severity = "média" }), "severidade: not one of"},
+		{"bug severidade wrong case", with(bug, func(d *domain.TicketDraft) { d.Severity = "Alta" }), "severidade: not one of"},
+
+		// deploy.
+		{"deploy projeto missing", with(deploy, func(d *domain.TicketDraft) { d.Project = "" }), "projeto: empty"},
+		{"deploy projeto tab", with(deploy, func(d *domain.TicketDraft) { d.Project = "api\t" + marker }), "projeto: control"},
+		{"deploy projeto too long", with(deploy, func(d *domain.TicketDraft) { d.Project = rep("a", 121) }), "projeto: too long"},
+		{"deploy repositorio missing", with(deploy, func(d *domain.TicketDraft) { d.Repository = "" }), "repositorio: empty"},
+		{"deploy repositorio http", with(deploy, func(d *domain.TicketDraft) { d.Repository = "http://git.example.com/" + marker }), "repositorio: not an https url"},
+		{"deploy repositorio javascript", with(deploy, func(d *domain.TicketDraft) { d.Repository = "javascript:alert('" + marker + "')" }), "repositorio: not an https url"},
+		{"deploy repositorio ssh", with(deploy, func(d *domain.TicketDraft) { d.Repository = "git@github.com:org/" + marker + ".git" }), "repositorio: not an https url"},
+		{"deploy repositorio no host", with(deploy, func(d *domain.TicketDraft) { d.Repository = "https:///" + marker }), "repositorio: not an https url"},
+		{"deploy repositorio credentials", with(deploy, func(d *domain.TicketDraft) { d.Repository = "https://user:" + marker + "@git.example.com/x" }), "repositorio: credentials"},
+		{"deploy repositorio too long", with(deploy, func(d *domain.TicketDraft) { d.Repository = "https://git.example.com/" + rep("a", 277) }), "repositorio: too long"},
+		{"deploy ambiente missing", with(deploy, func(d *domain.TicketDraft) { d.Environment = "" }), "ambiente: not one of"},
+		{"deploy ambiente label", with(deploy, func(d *domain.TicketDraft) { d.Environment = "Produção" }), "ambiente: not one of"},
+		{"deploy observacoes too long", with(deploy, func(d *domain.TicketDraft) { d.Notes = strPtr(rep("a", 2001)) }), "observacoes: too long"},
+		{"deploy observacoes NUL", with(deploy, func(d *domain.TicketDraft) { d.Notes = strPtr("Depois\x00 " + marker) }), "observacoes: control"},
+
+		// outro.
+		{"outro titulo missing", with(other, func(d *domain.TicketDraft) { d.Title = "" }), "titulo: empty"},
+		{"outro titulo too short", with(other, func(d *domain.TicketDraft) { d.Title = " a " }), "titulo: too short"},
+		{"outro titulo too long", with(other, func(d *domain.TicketDraft) { d.Title = rep("é", 121) }), "titulo: too long"},
+		{"outro titulo line break", with(other, func(d *domain.TicketDraft) { d.Title = "Dúvida\r\n" + marker }), "titulo: line break"},
+		{"outro descricao missing", with(other, func(d *domain.TicketDraft) { d.Description = "" }), "descricao: empty"},
+		{"outro descricao too long", with(other, func(d *domain.TicketDraft) { d.Description = rep("a", 2001) }), "descricao: too long"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := s.ValidateTicket(tt.draft)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("error = %v, want ErrInvalidInput", err)
+			}
+			if !strings.Contains(err.Error(), tt.reason) {
+				t.Errorf("error = %q, want %q in it", err, tt.reason)
+			}
+			if strings.Contains(err.Error(), marker) {
+				t.Errorf("error %q leaks a field value", err)
+			}
+			if got != (domain.Ticket{}) {
+				t.Errorf("ticket = %+v on error, want zero", got)
+			}
+		})
+	}
 }

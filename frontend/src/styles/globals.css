@@ -28,6 +28,22 @@
   --color-accent: var(--accent);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand: var(--brand);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-1-foreground: var(--avatar-1-foreground);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-2-foreground: var(--avatar-2-foreground);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-3-foreground: var(--avatar-3-foreground);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-4-foreground: var(--avatar-4-foreground);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-5-foreground: var(--avatar-5-foreground);
+  --color-avatar-6: var(--avatar-6);
+  --color-avatar-6-foreground: var(--avatar-6-foreground);
+  --color-avatar-7: var(--avatar-7);
+  --color-avatar-7-foreground: var(--avatar-7-foreground);
+  --color-avatar-8: var(--avatar-8);
+  --color-avatar-8-foreground: var(--avatar-8-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -98,6 +114,25 @@
      Blue 600: 5.2:1 against white, and white on it, so text passes AA too. */
   --brand: oklch(0.546 0.245 262.881);
   --brand-foreground: oklch(1 0 0);
+  /* Avatar tints (spec AC-7.2, plan 5.6): a quiet tile and its initials in
+     the same hue, far apart in lightness, so every pair passes AA (checked
+     by components/avatar/index.test.tsx). */
+  --avatar-1: oklch(0.94 0.035 25);
+  --avatar-1-foreground: oklch(0.4 0.09 25);
+  --avatar-2: oklch(0.94 0.035 65);
+  --avatar-2-foreground: oklch(0.4 0.09 65);
+  --avatar-3: oklch(0.94 0.035 110);
+  --avatar-3-foreground: oklch(0.4 0.09 110);
+  --avatar-4: oklch(0.94 0.035 150);
+  --avatar-4-foreground: oklch(0.4 0.09 150);
+  --avatar-5: oklch(0.94 0.035 190);
+  --avatar-5-foreground: oklch(0.4 0.09 190);
+  --avatar-6: oklch(0.94 0.035 235);
+  --avatar-6-foreground: oklch(0.4 0.09 235);
+  --avatar-7: oklch(0.94 0.035 280);
+  --avatar-7-foreground: oklch(0.4 0.09 280);
+  --avatar-8: oklch(0.94 0.035 330);
+  --avatar-8-foreground: oklch(0.4 0.09 330);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);

@@ -35,6 +35,8 @@ export interface TicketField {
   kind: TicketFieldKind
   label: string
   options?: readonly ChoiceOption[]
+  /** A short example inside the empty control (plan 5.4). */
+  placeholder?: string
   required: boolean
 }
 

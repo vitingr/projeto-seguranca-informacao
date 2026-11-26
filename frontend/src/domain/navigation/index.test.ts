@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Role } from '@/domain/roles/types'
+import type { Session } from '@/domain/session/types'
 
-import { landingFor, loginUrl, safeNext } from '.'
+import { landingFor, loginUrl, rootRedirect, safeNext } from '.'
 
 describe('landingFor', () => {
   it.each<[Role, string]>([
@@ -57,5 +58,20 @@ describe('loginUrl', () => {
     expect(loginUrl('/usuarios', { expired: true })).toBe(
       '/login?next=%2Fusuarios&sessao=expirada'
     )
+  })
+})
+
+describe('rootRedirect', () => {
+  it.each<[string, Session, string]>([
+    ['anonymous', { kind: 'anonymous' }, '/login'],
+    ['expired', { kind: 'expired' }, '/login'],
+    [
+      'admin',
+      { kind: 'user', user: { role: 'admin', userId: 1 } },
+      '/administradores'
+    ],
+    ['comum', { kind: 'user', user: { role: 'comum', userId: 2 } }, '/usuarios']
+  ])('%s → %s', (_name, session, want) => {
+    expect(rootRedirect(session)).toBe(want)
   })
 })

@@ -14,9 +14,10 @@ test('logout ends the session, and Back shows no protected content', async ({
   await loginAs(page, seedAdmin(), '/administradores')
   await expect(page.getByTestId('area')).toBeVisible()
 
-  // Real clicks, so Chromium keeps the history entries (spike 3).
+  // Real clicks, so Chromium keeps the history entries (spike 3). `/` only
+  // redirects to the landing page now (spec AC-0.6).
   await page.getByRole('link', { name: 'Início' }).click()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/administradores')
 
   await page.getByRole('button', { name: 'Sair' }).click()
   await expect(page).toHaveURL('/login')

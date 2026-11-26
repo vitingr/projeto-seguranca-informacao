@@ -888,3 +888,116 @@ func TestTicketTrackingIndexesIntegration(t *testing.T) {
 		})
 	}
 }
+
+// newTrackingUser creates a user with a random "it_" login for the spec 003
+// tests and deletes, when the test ends, everything it left: the entries on
+// its tickets and the entries it wrote, its tickets, then the user (nothing
+// cascades).
+func newTrackingUser(t *testing.T, db *sql.DB, role domain.Role) (domain.UserID, string) {
+	t.Helper()
+	ctx := t.Context()
+	login := "it_" + strings.ToLower(rand.Text()[:12])
+	id, err := NewUsers(db).Create(ctx, domain.User{Login: login, PasswordHash: "$argon2id$fake", Role: role}) //nolint:gosec // fake hash fixture, not a real credential
+	if err != nil {
+		t.Fatalf("Create user: %v", err)
+	}
+	t.Cleanup(func() {
+		bg := context.WithoutCancel(ctx)
+		for _, q := range []string{
+			`DELETE FROM ticket_entries WHERE actor_id = $1 OR ticket_id IN (SELECT id FROM tickets WHERE author_id = $1)`,
+			`DELETE FROM tickets WHERE author_id = $1`,
+			`DELETE FROM users WHERE id = $1`,
+		} {
+			if _, err := db.ExecContext(bg, q, id); err != nil {
+				t.Errorf("cleanup %q for %s: %v", q, login, err)
+			}
+		}
+	})
+	return id, login
+}
+
+// sampleTickets returns one valid ticket of each type by author, with notes
+// on the deploy, as Tickets.Create takes them.
+func sampleTickets(author domain.UserID) []domain.Ticket {
+	return []domain.Ticket{
+		{
+			AuthorID: author, Type: domain.TicketTypeAccess, Title: "Acesso a Grafana",
+			System: "Grafana", AccessLevel: domain.AccessLevelWrite, Justification: "Preciso editar os painéis.",
+		},
+		{
+			AuthorID: author, Type: domain.TicketTypeBug, Title: "Bug em Portal",
+			System: "Portal", Description: "A página não carrega.", Steps: "1. Abrir\n2. Entrar", Severity: domain.SeverityCritical,
+		},
+		{
+			AuthorID: author, Type: domain.TicketTypeDeploy, Title: "Deploy de api em Produção",
+			Project: "api", Repository: "https://git.example/api", Environment: domain.EnvironmentProduction, Notes: "Depois das 18h.\nObrigado.",
+		},
+		{
+			AuthorID: author, Type: domain.TicketTypeOther, Title: "Dúvida <b>'; --",
+			Description: "Como peço uma VPN?\n\tObrigado.",
+		},
+	}
+}
+
+// TestTicketReadsIntegration covers Tickets.TicketAuthor (the store of
+// security.TicketAccess, spec 003 S-2) and Tickets.Get (US-2, US-5): every
+// field of each type comes back as stored, with the author's login, and a
+// missing ticket is ErrNotFound for both.
+func TestTicketReadsIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	repo := NewTickets(db)
+	author, login := newTrackingUser(t, db, domain.RoleComum)
+	other, _ := newTrackingUser(t, db, domain.RoleComum)
+
+	for _, in := range sampleTickets(author) {
+		t.Run(string(in.Type), func(t *testing.T) {
+			created, err := repo.Create(ctx, in)
+			if err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+
+			gotAuthor, err := repo.TicketAuthor(ctx, created.ID)
+			if err != nil || gotAuthor != author {
+				t.Errorf("TicketAuthor = %d, %v; want %d, nil", gotAuthor, err, author)
+			}
+
+			got, gotLogin, err := repo.Get(ctx, created.ID)
+			if err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+			if !ticketsEqual(got, created) {
+				t.Errorf("Get = %+v, want %+v", got, created)
+			}
+			if gotLogin != login {
+				t.Errorf("author login = %q, want %q", gotLogin, login)
+			}
+		})
+	}
+
+	t.Run("someone else's ticket reads its own author", func(t *testing.T) {
+		created, err := repo.Create(ctx, sampleTickets(other)[3])
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if got, err := repo.TicketAuthor(ctx, created.ID); err != nil || got != other {
+			t.Errorf("TicketAuthor = %d, %v; want %d, nil", got, err, other)
+		}
+	})
+
+	t.Run("missing ticket", func(t *testing.T) {
+		var maxID domain.TicketID
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(max(id), 0) FROM tickets`).Scan(&maxID); err != nil {
+			t.Fatalf("max id: %v", err)
+		}
+		for _, id := range []domain.TicketID{maxID + 1000, 0, -1, 9223372036854775807} {
+			if got, err := repo.TicketAuthor(ctx, id); !errors.Is(err, domain.ErrNotFound) || got != 0 {
+				t.Errorf("TicketAuthor(%d) = %d, %v; want ErrNotFound", id, got, err)
+			}
+			got, gotLogin, err := repo.Get(ctx, id)
+			if !errors.Is(err, domain.ErrNotFound) || got != (domain.Ticket{}) || gotLogin != "" {
+				t.Errorf("Get(%d) = %+v, %q, %v; want ErrNotFound", id, got, gotLogin, err)
+			}
+		}
+	})
+}

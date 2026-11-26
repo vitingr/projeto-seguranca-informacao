@@ -37,6 +37,13 @@ const (
 	healthcheckTimeout = 3 * time.Second
 )
 
+// The repository implements the stores security declares; it may not
+// import security (depguard), so the composition root checks it.
+var (
+	_ security.SessionStore     = (*repository.Sessions)(nil)
+	_ security.TicketOwnerStore = (*repository.Tickets)(nil)
+)
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := run(ctx, os.Args[1:], os.Getenv, os.Stdout)

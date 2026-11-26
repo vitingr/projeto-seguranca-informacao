@@ -18,6 +18,9 @@ const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough passw
 // seeds (id 1), for the cells of the {id} routes.
 const matrixTicket = "/api/tickets/1"
 
+// matrixAdminTicket is the same ticket on the admin routes.
+const matrixAdminTicket = "/api/administradores/tickets/1"
+
 // matrixReplyBody is a valid reply, for the same reason.
 const matrixReplyBody = `{"texto":"Alguma novidade?"}`
 
@@ -80,9 +83,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodGet, "/api/administradores/tickets/autores", http.StatusUnauthorized},
 		{comumLogin, http.MethodGet, "/api/administradores/tickets/autores", http.StatusForbidden},
 		{flowLogin, http.MethodGet, "/api/administradores/tickets/autores", http.StatusOK},
+		{anonymous, http.MethodGet, matrixAdminTicket, http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixAdminTicket, http.StatusForbidden}, // the author, on the admin route
+		{flowLogin, http.MethodGet, matrixAdminTicket, http.StatusOK},
 	}
-	if len(tests) != 36 {
-		t.Fatalf("matrix has %d cells, want 36 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 39 {
+		t.Fatalf("matrix has %d cells, want 39 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {

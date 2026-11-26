@@ -118,11 +118,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `POST /api/tickets/{id}/mensagens` | 401 | 201 | 403 |
 | `GET /api/administradores/tickets` | 401 | 403 | 200 |
 | `GET /api/administradores/tickets/autores` | 401 | 403 | 200 |
+| `GET /api/administradores/tickets/{id}` | 401 | 403 | 200 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
 They do not create tickets either, nor read "Meus tickets". The Go test
 `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 36 cells (the `{id}` cells use a
+`tests/access-matrix` both cover the 39 cells (the `{id}` cells use a
 ticket of the comum user).
 
 Routes with a ticket id also run `security.TicketAccess`, after the role
@@ -214,6 +215,8 @@ Administrators work the tickets on their own routes (comum users get 403):
 - `GET /api/administradores/tickets/autores` answers `{logins}`: the users
   with at least one ticket, in byte order, at most 500 (more is a known
   limitation). It reads no parameter: any is 400.
+- `GET /api/administradores/tickets/{id}` answers any user's ticket like
+  `GET /api/tickets/{id}`, plus `author_login`.
 
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.

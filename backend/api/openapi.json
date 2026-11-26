@@ -541,6 +541,42 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/administradores/tickets/{id}": {
+      "get": {
+        "operationId": "getAdminTicket",
+        "tags": ["admin-tickets"],
+        "summary": "Get a ticket of the queue",
+        "description": "Any user's ticket, for administrators: the answer of `GET /api/tickets/{id}` plus the author's login. `comum` users get 403, also for their own tickets, before any ticket is read.\n\n**404** (`not_found`): the ticket does not exist or the id is malformed; both get the same answer.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ticket with every field of its type and its author's login.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminTicketDetail" },
+                "example": {
+                  "id": 42,
+                  "type": "acesso",
+                  "status": "aberto",
+                  "title": "Acesso a Grafana",
+                  "author_login": "maria.souza",
+                  "created_at": "2026-11-25T14:30:00.123456Z",
+                  "updated_at": "2026-11-25T14:30:00.123456Z",
+                  "data": { "sistema": "Grafana", "nivel_acesso": "leitura", "justificativa": "Preciso ver os painéis da equipe." }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -1087,6 +1123,30 @@
         "type": "string",
         "description": "`author`: the ticket's author; `support`: an administrator.",
         "enum": ["author", "support"]
+      },
+      "AdminTicketDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`TicketDetail` plus the author's login. Never the author's id.",
+        "required": ["id", "type", "status", "title", "author_login", "created_at", "updated_at", "data"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "author_login": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "data": {
+            "description": "As in `TicketDetail`.",
+            "oneOf": [
+              { "$ref": "#/components/schemas/AccessTicketData" },
+              { "$ref": "#/components/schemas/BugTicketData" },
+              { "$ref": "#/components/schemas/DeployTicketDetailData" },
+              { "$ref": "#/components/schemas/OtherTicketData" }
+            ]
+          }
+        }
       },
       "DeployTicketDetailData": {
         "type": "object",

@@ -244,6 +244,38 @@ func (h *handlers) getOwnTicket(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, newTicketDetail(t))
 }
 
+// adminTicketDetail is the admin ticket page (spec 003 AC-5.1): the ticket
+// page plus the author's login, never the author's id.
+type adminTicketDetail struct {
+	ID          domain.TicketID     `json:"id"`
+	Type        domain.TicketType   `json:"type"`
+	Status      domain.TicketStatus `json:"status"`
+	Title       string              `json:"title"`
+	AuthorLogin string              `json:"author_login"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	Data        map[string]*string  `json:"data"`
+}
+
+// getAdminTicket answers the ticket page of an admin (spec 003 US-5). The
+// route is admin only, so a comum author gets 403 before any read; for an
+// admin TicketAccess only checks that the ticket exists (S-2).
+func (h *handlers) getAdminTicket(w http.ResponseWriter, r *http.Request) {
+	_, ref, ok := h.ticketCaller(w, r)
+	if !ok {
+		return
+	}
+	t, login, err := h.tickets.Get(r.Context(), ref.ID)
+	if err != nil {
+		h.sec.RespondError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, adminTicketDetail{
+		ID: t.ID, Type: t.Type, Status: t.Status, Title: t.Title, AuthorLogin: login,
+		CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt, Data: ticketData(t),
+	})
+}
+
 // errNoTicketRef is a wiring error: a ticket route without TicketAccess.
 // It is not a client error, so the answer is a 500 (fail closed).
 var errNoTicketRef = errors.New("web: ticket route without TicketAccess")

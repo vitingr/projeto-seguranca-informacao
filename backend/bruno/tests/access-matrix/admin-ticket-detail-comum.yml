@@ -1,0 +1,20 @@
+info:
+  name: admin-ticket-detail-comum
+  type: http
+  seq: 217
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-4: the author gets 403 on the admin route of their own
+        // ticket, before any ticket is read.
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+          expect(res.getBody().error).to.equal("forbidden");
+        });

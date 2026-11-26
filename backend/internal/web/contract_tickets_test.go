@@ -234,6 +234,7 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 		{"StatusCounts", reflect.TypeFor[statusCounts]()},
 		{"QueuePage", reflect.TypeFor[queuePage]()},
 		{"AuthorList", reflect.TypeFor[authorList]()},
+		{"AdminTicketDetail", reflect.TypeFor[adminTicketDetail]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {
@@ -262,6 +263,14 @@ func TestContractTicketDetailData(t *testing.T) {
 		t.Fatal("schema TicketDetail is missing")
 	}
 	data := propertySchema(t, detail.Properties["data"])
+	// AdminTicketDetail.data is the same oneOf (plan T5.3).
+	if admin, ok := schemas["AdminTicketDetail"]; ok {
+		if got := propertySchema(t, admin.Properties["data"]).OneOf; !slices.Equal(got, data.OneOf) {
+			t.Errorf("AdminTicketDetail.data oneOf = %v, want the one of TicketDetail %v", got, data.OneOf)
+		}
+	} else {
+		t.Error("schema AdminTicketDetail is missing")
+	}
 	byKeys := map[string]ticketSchema{}
 	for _, r := range data.OneOf {
 		s := schemas[schemaName(t, r.Ref)]

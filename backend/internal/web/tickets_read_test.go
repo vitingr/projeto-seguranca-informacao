@@ -489,6 +489,53 @@ func TestListQueueAuthors(t *testing.T) {
 	}
 }
 
+// TestGetAdminTicket covers AC-5.1, AC-5.2 (server) on R7: any author's
+// ticket with the author's login; a missing or malformed id is the same 404;
+// the ticket's own comum author gets 403 before any read (S-4).
+func TestGetAdminTicket(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	ticket := a.store.seed(trackJoaoID, domain.TicketTypeDeploy, "Deploy de api em Produção")
+	for _, admin := range []string{flowLogin, anaLogin} {
+		cookie, _ := a.loginAs(t, admin)
+		code, body := a.get(t, fmt.Sprintf("/api/administradores/tickets/%d", ticket.ID), cookie)
+		if code != http.StatusOK {
+			t.Fatalf("%s: status = %d", admin, code)
+		}
+		want := append([]string{"author_login"}, detailKeys...)
+		slices.Sort(want)
+		if got := keysOf(body); !slices.Equal(got, want) {
+			t.Errorf("%s: keys = %v, want %v", admin, got, want)
+		}
+		data, _ := body["data"].(map[string]any)
+		if body["author_login"] != joaoLogin || data["projeto"] != "api" || data["observacoes"] != nil {
+			t.Errorf("%s: body = %v", admin, body)
+		}
+	}
+
+	admin, _ := a.loginAs(t, flowLogin)
+	missing := a.send(t, http.MethodGet, "/api/administradores/tickets/999999", "", admin, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing: status = %d, want 404", missing.Code)
+	}
+	for _, id := range []string{"0", "-1", "abc", "9223372036854775808"} {
+		rr := a.send(t, http.MethodGet, "/api/administradores/tickets/"+id, "", admin, nil)
+		if !normalize(missing).equal(normalize(rr)) {
+			t.Errorf("id %s: answer differs from a missing ticket: %d %s", id, rr.Code, rr.Body.String())
+		}
+	}
+
+	author, _ := a.loginAs(t, joaoLogin)
+	calls := a.store.handlerCalls()
+	if rr := a.send(t, http.MethodGet, fmt.Sprintf("/api/administradores/tickets/%d", ticket.ID), "", author, nil); rr.Code != http.StatusForbidden {
+		t.Errorf("the author: status = %d, want 403", rr.Code)
+	}
+	if a.store.handlerCalls() != calls {
+		t.Error("the author's request reached the store")
+	}
+}
+
 // TestListOwnTicketsEmpty is an empty list: items is [], never null, and
 // "Página 1 de 1".
 func TestListOwnTicketsEmpty(t *testing.T) {

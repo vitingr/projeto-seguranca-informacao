@@ -1,0 +1,24 @@
+info:
+  name: admin-ticket-detail-admin
+  type: http
+  seq: 317
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-5.1: the admin reads any ticket, with its author.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("is the ticket with its author's login", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["author_login", "created_at", "data", "id", "status", "title", "type", "updated_at"]);
+          expect(body.id).to.equal(bru.getVar("matrixTicketId"));
+          expect(body.author_login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
+        });

@@ -176,6 +176,16 @@ func ptr(s string) *string { return &s }
 // shown to count characters rather than bytes.
 func chars(n int) string { return strings.Repeat("é", n) }
 
+// ticketsEqual compares two tickets field by field, with the dates compared
+// as instants (the database may return another location).
+func ticketsEqual(a, b domain.Ticket) bool {
+	if !a.CreatedAt.Equal(b.CreatedAt) || !a.UpdatedAt.Equal(b.UpdatedAt) {
+		return false
+	}
+	a.CreatedAt, a.UpdatedAt, b.CreatedAt, b.UpdatedAt = time.Time{}, time.Time{}, time.Time{}, time.Time{}
+	return a == b
+}
+
 func insertTicket(ctx context.Context, db *sql.DB, r ticketRow) (domain.TicketID, error) {
 	var id domain.TicketID
 	err := db.QueryRowContext(ctx, `
@@ -370,6 +380,154 @@ func TestTicketsTableIntegration(t *testing.T) {
 					t.Errorf("row count %d → %d: a refused row was written", before, after)
 				}
 			})
+		}
+	})
+
+	t.Run("Tickets.Create", func(t *testing.T) {
+		repo := NewTickets(db)
+		tickets := []domain.Ticket{
+			{
+				AuthorID: author, Type: domain.TicketTypeAccess, Title: "Acesso a Grafana",
+				System: "Grafana", AccessLevel: domain.AccessLevelRead, Justification: "Preciso ver os painéis.",
+			},
+			{
+				AuthorID: author, Type: domain.TicketTypeBug, Title: "Bug em Portal",
+				System: "Portal", Description: "A página não carrega.", Steps: "1. Abrir\n2. Entrar", Severity: domain.SeverityHigh,
+			},
+			{
+				AuthorID: author, Type: domain.TicketTypeDeploy, Title: "Deploy de api em Produção",
+				Project: "api", Repository: "https://git.example/api", Environment: domain.EnvironmentProduction,
+			},
+			{
+				AuthorID: author, Type: domain.TicketTypeDeploy, Title: "Deploy de api em Homologação",
+				Project: "api", Repository: "https://git.example/api", Environment: domain.EnvironmentStaging, Notes: "Depois das 18h.",
+			},
+			// The status column is left to its default: a status in the
+			// input is not stored (BR-1).
+			{
+				AuthorID: author, Type: domain.TicketTypeOther, Status: domain.TicketStatusClosed,
+				Title: "Dúvida <b>'; DROP TABLE tickets; --", Description: "Como peço uma VPN?\n\tObrigado.",
+			},
+		}
+		for _, in := range tickets {
+			t.Run(string(in.Type)+" "+in.Title, func(t *testing.T) {
+				before := time.Now()
+				got, err := repo.Create(ctx, in)
+				if err != nil {
+					t.Fatalf("Create: %v", err)
+				}
+				if got.ID == 0 {
+					t.Error("Create returned no id")
+				}
+				if got.Status != domain.TicketStatusOpen {
+					t.Errorf("status = %q, want %q", got.Status, domain.TicketStatusOpen)
+				}
+				if got.CreatedAt.IsZero() || !got.CreatedAt.Equal(got.UpdatedAt) {
+					t.Errorf("created_at %v, updated_at %v: want equal server dates", got.CreatedAt, got.UpdatedAt)
+				}
+				if d := got.CreatedAt.Sub(before); d < -time.Minute || d > time.Minute {
+					t.Errorf("created_at = %v, not the server time (test started at %v)", got.CreatedAt, before)
+				}
+
+				// Every column as stored; NULL reads back as "".
+				var stored domain.Ticket
+				var status string
+				var system, level, justification, description, steps, severity, project, repository, environment, notes sql.NullString
+				err = db.QueryRowContext(ctx, `
+					SELECT author_id, type, status, title, system, access_level, justification, description,
+					       steps, severity, project, repository, environment, notes, created_at, updated_at
+					FROM tickets WHERE id = $1`, got.ID).
+					Scan(&stored.AuthorID, &stored.Type, &status, &stored.Title, &system, &level, &justification,
+						&description, &steps, &severity, &project, &repository, &environment, &notes,
+						&stored.CreatedAt, &stored.UpdatedAt)
+				if err != nil {
+					t.Fatalf("read back: %v", err)
+				}
+				stored.ID, stored.Status = got.ID, domain.TicketStatus(status)
+				stored.System, stored.AccessLevel, stored.Justification = system.String, domain.AccessLevel(level.String), justification.String
+				stored.Description, stored.Steps, stored.Severity = description.String, steps.String, domain.Severity(severity.String)
+				stored.Project, stored.Repository, stored.Environment = project.String, repository.String, domain.Environment(environment.String)
+				stored.Notes = notes.String
+
+				want := in
+				want.ID, want.Status, want.CreatedAt, want.UpdatedAt = got.ID, domain.TicketStatusOpen, got.CreatedAt, got.UpdatedAt
+				if !ticketsEqual(got, want) {
+					t.Errorf("returned ticket = %+v, want %+v", got, want)
+				}
+				if !ticketsEqual(stored, want) {
+					t.Errorf("stored ticket = %+v, want %+v", stored, want)
+				}
+				if in.Notes == "" && notes.Valid {
+					t.Error("notes stored as an empty string, want NULL")
+				}
+			})
+		}
+	})
+
+	t.Run("Tickets.Create refused by a CHECK writes nothing", func(t *testing.T) {
+		repo := NewTickets(db)
+		refused := []struct {
+			name       string
+			ticket     domain.Ticket
+			constraint string
+		}{
+			{"field of another type", domain.Ticket{
+				AuthorID: author, Type: domain.TicketTypeOther, Title: "Dúvida",
+				Description: "Como peço uma VPN?", Severity: domain.SeverityLow,
+			}, "tickets_fields_by_type"},
+			{"missing required field", domain.Ticket{
+				AuthorID: author, Type: domain.TicketTypeBug, Title: "Bug em Portal",
+				System: "Portal", Description: "A página não carrega.", Severity: domain.SeverityHigh,
+			}, "tickets_fields_by_type"},
+			{"enum outside its list", domain.Ticket{
+				AuthorID: author, Type: domain.TicketTypeDeploy, Title: "Deploy de api",
+				Project: "api", Repository: "https://git.example/api", Environment: "Produção",
+			}, "tickets_environment_check"},
+			{"empty title", domain.Ticket{
+				AuthorID: author, Type: domain.TicketTypeOther,
+				Description: "Como peço uma VPN?",
+			}, "tickets_title_check"},
+			{"title over 120", domain.Ticket{
+				AuthorID: author, Type: domain.TicketTypeOther, Title: chars(121),
+				Description: "Como peço uma VPN?",
+			}, "tickets_title_check"},
+		}
+		for _, tt := range refused {
+			t.Run(tt.name, func(t *testing.T) {
+				var before, after int
+				count := func(dst *int) {
+					if err := db.QueryRowContext(ctx, `SELECT count(*) FROM tickets`).Scan(dst); err != nil {
+						t.Fatalf("count: %v", err)
+					}
+				}
+				count(&before)
+				got, err := repo.Create(ctx, tt.ticket)
+				var pgErr *pgconn.PgError
+				if !errors.As(err, &pgErr) || pgErr.Code != "23514" || pgErr.ConstraintName != tt.constraint {
+					t.Fatalf("Create error = %v, want a wrapped CHECK violation of %s", err, tt.constraint)
+				}
+				if !strings.HasPrefix(err.Error(), "repository: criar ticket: ") {
+					t.Errorf("error %q is not wrapped by the repository", err)
+				}
+				if got != (domain.Ticket{}) {
+					t.Errorf("Create returned %+v with an error, want the zero ticket", got)
+				}
+				count(&after)
+				if after != before {
+					t.Errorf("row count %d → %d: a refused ticket was written", before, after)
+				}
+			})
+		}
+	})
+
+	t.Run("Tickets.Create with an unknown author", func(t *testing.T) {
+		_, err := NewTickets(db).Create(ctx, domain.Ticket{
+			AuthorID: -1, Type: domain.TicketTypeOther,
+			Title: "Dúvida", Description: "Como peço uma VPN?",
+		})
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
+			t.Fatalf("Create error = %v, want a foreign key violation", err)
 		}
 	})
 

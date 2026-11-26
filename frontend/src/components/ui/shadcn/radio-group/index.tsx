@@ -10,9 +10,9 @@ import type { RadioGroupItemProps, RadioGroupProps } from './types'
 // shadcn radio-group (base-nova), adapted to the design rules: no dark
 // variants. The dot keeps `rounded-full`.
 
-function RadioGroup({ className, ...props }: RadioGroupProps) {
+function RadioGroup<Value>({ className, ...props }: RadioGroupProps<Value>) {
   return (
-    <RadioGroupPrimitive
+    <RadioGroupPrimitive<Value>
       className={cn('grid w-full gap-2', className)}
       data-slot="radio-group"
       {...props}

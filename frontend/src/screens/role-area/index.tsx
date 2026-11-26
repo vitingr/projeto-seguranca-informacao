@@ -5,6 +5,7 @@ import { requireArea, requireRole } from '@/services/session'
 import type { RoleAreaProps } from './types'
 
 export const RoleArea: React.FC<RoleAreaProps> = async ({
+  actions,
   description,
   endpoint,
   route,
@@ -23,6 +24,9 @@ export const RoleArea: React.FC<RoleAreaProps> = async ({
           <p className="text-muted-foreground text-sm" data-testid="area">
             Área liberada pelo servidor: {area.area}
           </p>
+          {actions ? (
+            <div className="flex flex-wrap gap-3 pt-3">{actions}</div>
+          ) : null}
         </main>
       ) : (
         <Forbidden role={user.role} />

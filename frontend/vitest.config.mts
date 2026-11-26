@@ -18,6 +18,8 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/**/*.test.ts',
+      // Components rendered to static markup with react-dom/server.
+      'src/**/*.test.tsx',
       'scripts/**/*.test.mjs',
       'e2e/support/**/*.test.ts'
     ]

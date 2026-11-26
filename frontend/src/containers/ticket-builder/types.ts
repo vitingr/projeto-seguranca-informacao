@@ -5,6 +5,20 @@ import type { TicketType } from '@/domain/tickets/types'
 
 import type { FIELD_MESSAGES, ticketSchemas } from './schemas'
 
+export type Step = 'confirmacao' | 'detalhes' | 'revisao' | 'tipo'
+
+export interface BuilderState {
+  step: Step
+  type: TicketType | null
+  /** "Escolha um tipo de ticket." is shown (AC-2.2). */
+  typeError: boolean
+}
+
+export type BuilderAction =
+  | { step: Step; type: 'goToStep' }
+  | { ticketType: TicketType; type: 'selectType' }
+  | { type: 'continueFromType' }
+
 /** Why a field value is refused; maps to a message under the field. */
 export type FieldProblem =
   'tooLong' | 'tooShort' | Exclude<keyof typeof FIELD_MESSAGES, 'choice'>

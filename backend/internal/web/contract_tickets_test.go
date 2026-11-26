@@ -345,6 +345,31 @@ func TestContractThreadEntryKinds(t *testing.T) {
 	}
 }
 
+// TestContractMessageRequest checks CreateMessageRequest against the
+// decoder: only texto, required, no other key (S-8), and the limit of
+// security.MessageMaxLength.
+func TestContractMessageRequest(t *testing.T) {
+	t.Parallel()
+
+	schemas := loadTicketSchemas(t)
+	s, ok := schemas["CreateMessageRequest"]
+	if !ok {
+		t.Fatal("schema CreateMessageRequest is missing")
+	}
+	if s.AdditionalProperties == nil || *s.AdditionalProperties {
+		t.Error("CreateMessageRequest must have additionalProperties: false")
+	}
+	if got := sortedKeys(s.Properties); !slices.Equal(got, []string{"texto"}) || !slices.Equal(s.Required, []string{"texto"}) {
+		t.Errorf("properties = %v, required = %v; want only texto, required", got, s.Required)
+	}
+	var texto struct {
+		MaxLength int `json:"maxLength"`
+	}
+	if err := json.Unmarshal(s.Properties["texto"], &texto); err != nil || texto.MaxLength != security.MessageMaxLength {
+		t.Errorf("texto maxLength = %d (%v), want %d", texto.MaxLength, err, security.MessageMaxLength)
+	}
+}
+
 // TestContractListParameters checks the list parameters: their names are
 // the ones the security parsers read, their codes come from the domain
 // enums, and the page size is the server's.

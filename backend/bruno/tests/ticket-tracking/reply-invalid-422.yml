@@ -1,0 +1,32 @@
+info:
+  name: reply-invalid-422
+  type: http
+  seq: 64
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "   \n\t   "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-3.5, BR-6: whitespace only is empty after trimming.
+        test("status is 422", function () {
+          expect(res.getStatus()).to.equal(422);
+        });
+        test("generic message", function () {
+          const body = res.getBody();
+          expect(body.error).to.equal("unprocessable_entity");
+          expect(body.message).to.equal("Dados inválidos. Revise os campos e tente novamente.");
+        });

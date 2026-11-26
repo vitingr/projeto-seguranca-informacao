@@ -115,11 +115,12 @@ restricted route get 401, callers with the wrong role get 403.
 | `GET /api/tickets` | 401 | 200 | 403 |
 | `GET /api/tickets/{id}` | 401 | 200 | 403 |
 | `GET /api/tickets/{id}/mensagens` | 401 | 200 | 403 |
+| `POST /api/tickets/{id}/mensagens` | 401 | 201 | 403 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
 They do not create tickets either, nor read "Meus tickets". The Go test
 `TestAccessMatrix` (`internal/web`) and the Bruno folder
-`tests/access-matrix` both cover the 27 cells (the `{id}` cells use a
+`tests/access-matrix` both cover the 30 cells (the `{id}` cells use a
 ticket of the comum user).
 
 Routes with a ticket id also run `security.TicketAccess`, after the role
@@ -196,6 +197,12 @@ field value.
   its `side` (`author` or `support`) and `mine`, never an administrator's
   login or id. At most 100 entries per page; `has_more` and
   `?antes=<entry id>` read the older ones. Any other parameter is 400.
+- `POST /api/tickets/{id}/mensagens` (comum only, own tickets) with
+  `{"texto"}` answers 201 with the stored message. 400 for a body that is
+  not well-formed (any key but `texto`), 422 for a text outside 1 to 2000
+  characters after trimming or with a forbidden control character, 409 on
+  a `fechado` ticket, 429 after 30 replies in 60 seconds. A reply moves
+  `updated_at` and never the status.
 
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.
@@ -208,8 +215,9 @@ password with `crypto/rand` for every run and passes them to Bruno as the
 `BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
 as arguments. `tests/tickets` registers a second one, the same login plus
 `.rl`, for the rate limit test, and `tests/ticket-tracking` registers users
-A and B, the same login plus `.a` and `.b`. So every run leaves four
-`e2e.*` users in the database, with the tickets they created.
+A and B, the same login plus `.a` and `.b`, and the reply rate limit user,
+plus `.rlm`. So every run leaves five `e2e.*` users in the database, with
+the tickets and messages they created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 
@@ -256,7 +264,8 @@ Fixed in code:
   user could send 10 per instance. The stack runs a single backend
   container, so this is accepted. If the backend ever scales out, the fix is
   a shared store for the counts (PostgreSQL or Redis) behind the same
-  `RateLimiter` API.
+  `RateLimiter` API. The reply limit of spec 003 (`MessageCreateLimit`,
+  30 per user in 60 seconds) has the same limitation.
 
 ## Go version
 

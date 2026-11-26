@@ -28,6 +28,8 @@ var idorRoutes = []idorRoute{
 	{"R3 thread", http.MethodGet, "/api/tickets/%s/mensagens", ""},
 	{"R3 thread with antes", http.MethodGet, "/api/tickets/%s/mensagens?antes=5", ""},
 	{"R3 thread with a bad antes", http.MethodGet, "/api/tickets/%s/mensagens?antes=abc", ""},
+	{"R4 reply", http.MethodPost, "/api/tickets/%s/mensagens", `{"texto":"Uma mensagem no ticket de A"}`},
+	{"R4 reply with an invalid body", http.MethodPost, "/api/tickets/%s/mensagens", `{"texto":"Uma mensagem","id":1}`},
 }
 
 // missingIDs are ids that must answer like a ticket that does not exist:

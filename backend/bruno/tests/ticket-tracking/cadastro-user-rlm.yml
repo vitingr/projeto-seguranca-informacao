@@ -1,0 +1,31 @@
+info:
+  name: cadastro-user-rlm
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.rlm",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "comum"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The user of the reply rate limit (400-490), so no other request
+        // shares its quota. An e2e.* login.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          expect(res.getBody().role).to.equal("comum");
+        });

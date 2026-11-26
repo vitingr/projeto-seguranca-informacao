@@ -1,0 +1,19 @@
+info:
+  name: rlm-thread-count
+  type: http
+  seq: 405
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{ticketRlm}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The 31st reply was not stored: exactly 30 entries.
+        test("holds 30 replies", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().entries.length).to.equal(30);
+        });

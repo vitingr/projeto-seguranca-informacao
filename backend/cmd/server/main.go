@@ -136,6 +136,10 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	messageLimiter, err := sec.NewRateLimiter(security.MessageCreateLimit, security.MessageCreateWindow)
+	if err != nil {
+		return err
+	}
 	handler, err := web.NewHandler(web.Deps{
 		Logger:        logger,
 		Security:      sec,
@@ -143,6 +147,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Users:         service.NewUsers(users, sec, sec),
 		Tickets:       service.NewTicketsWithThread(tickets, repository.NewTicketEntries(db), sec),
 		TicketLimiter: ticketLimiter,
+		// Spec 003 S-9: replies of both sides share one limiter per user.
+		MessageLimiter: messageLimiter,
 	})
 	if err != nil {
 		return err
@@ -156,6 +162,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	var purge sync.WaitGroup
 	purge.Go(func() { sec.PurgeExpiredSessions(purgeCtx, cfg.SessionIdleTimeout) })
 	purge.Go(func() { sec.PurgeIdleRateLimits(purgeCtx, ticketLimiter, security.TicketCreateWindow) })
+	purge.Go(func() { sec.PurgeIdleRateLimits(purgeCtx, messageLimiter, security.MessageCreateWindow) })
 	defer func() {
 		stopPurge()
 		purge.Wait()

@@ -28,6 +28,8 @@ type TicketService interface {
 	// Thread returns a page of a ticket's thread, older than before (0: the
 	// latest entries).
 	Thread(ctx context.Context, id domain.TicketID, before domain.TicketEntryID) (domain.ThreadPage, error)
+	// Reply validates and stores a message of actor on a ticket.
+	Reply(ctx context.Context, actor domain.UserID, ticket domain.TicketID, raw string) (domain.TicketEntry, error)
 }
 
 type Deps struct {
@@ -38,16 +40,20 @@ type Deps struct {
 	Tickets  TicketService
 	// TicketLimiter limits ticket creation per user (spec S-12).
 	TicketLimiter *security.RateLimiter
+	// MessageLimiter limits ticket replies per user, on both sides (spec
+	// 003 S-9).
+	MessageLimiter *security.RateLimiter
 }
 
 func NewHandler(d Deps) (http.Handler, error) {
-	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil || d.TicketLimiter == nil {
+	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil || d.TicketLimiter == nil ||
+		d.MessageLimiter == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
 	h := &handlers{
 		logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users,
-		tickets: d.Tickets, ticketLimiter: d.TicketLimiter,
+		tickets: d.Tickets, ticketLimiter: d.TicketLimiter, messageLimiter: d.MessageLimiter,
 	}
 
 	mux := http.NewServeMux()

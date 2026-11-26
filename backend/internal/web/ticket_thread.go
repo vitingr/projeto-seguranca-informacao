@@ -1,6 +1,8 @@
 package web
 
 import (
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -65,6 +67,66 @@ func (h *handlers) getOwnThread(w http.ResponseWriter, r *http.Request) {
 		out.Entries = append(out.Entries, newThreadEntry(&page.Entries[i], ref, p.UserID))
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// replyOwnTicket stores a message of the comum author on their ticket (spec
+// 003 US-3, AC-3.5 to AC-3.8). Inside Authorize the route runs the message
+// rate limit, then TicketAccess (plan P-16), so a request on someone
+// else's ticket spends the caller's quota and gets the generic 404.
+func (h *handlers) replyOwnTicket(w http.ResponseWriter, r *http.Request) {
+	p, ref, ok := h.ticketCaller(w, r)
+	if !ok {
+		return
+	}
+	if entry, ok := h.reply(w, r, p, ref); ok {
+		writeJSON(w, http.StatusCreated, newThreadEntry(&entry, ref, p.UserID))
+	}
+}
+
+// reply decodes and stores a message of p on the ticket ref. A body that is
+// not well-formed is 400, a text that breaks the message rule 422, a
+// "fechado" ticket 409; nothing is stored then. The log holds ids and a
+// fixed reason, never the text (S-12). On error it writes the answer and
+// ok is false.
+func (h *handlers) reply(w http.ResponseWriter, r *http.Request, p security.Principal, ref security.TicketRef) (domain.TicketEntry, bool) {
+	raw, err := h.sec.DecodeMessage(w, r)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			h.replyRefused(r, p, ref, err)
+		}
+		h.badRequest(w, r, err)
+		return domain.TicketEntry{}, false
+	}
+
+	entry, err := h.tickets.Reply(r.Context(), p.UserID, ref.ID, raw)
+	switch {
+	case errors.Is(err, domain.ErrInvalidInput):
+		h.replyRefused(r, p, ref, err)
+		writeErrorMessage(w, r, http.StatusUnprocessableEntity, msgDadosInvalidos)
+	case errors.Is(err, domain.ErrTicketClosed):
+		h.replyRefused(r, p, ref, err)
+		writeErrorMessage(w, r, http.StatusConflict, msgTicketClosed)
+	case err != nil:
+		h.sec.RespondError(w, r, err)
+	default:
+		h.logger.InfoContext(r.Context(), "ticket message created",
+			slog.Int64("ticket_id", int64(ref.ID)),
+			slog.Int64("actor_id", int64(p.UserID)),
+			slog.Int64("entry_id", int64(entry.ID)),
+		)
+		return entry, true
+	}
+	return domain.TicketEntry{}, false
+}
+
+// replyRefused logs a refused message. The reason is the error text, built
+// from fixed strings by the security, service and repository layers.
+func (h *handlers) replyRefused(r *http.Request, p security.Principal, ref security.TicketRef, err error) {
+	h.logger.InfoContext(r.Context(), "ticket message refused",
+		slog.Int64("ticket_id", int64(ref.ID)),
+		slog.Int64("actor_id", int64(p.UserID)),
+		slog.String("reason", err.Error()),
+	)
 }
 
 // ticketCaller returns the principal and the ticket TicketAccess let

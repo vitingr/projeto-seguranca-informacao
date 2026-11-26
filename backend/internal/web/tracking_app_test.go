@@ -322,6 +322,17 @@ func (m *memTracking) sizes() (tickets, entries int) {
 	return len(m.tickets), len(m.entries)
 }
 
+func (m *memTracking) entry(id domain.TicketEntryID) domain.TicketEntry {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range m.entries {
+		if m.entries[i].ID == id {
+			return m.entries[i]
+		}
+	}
+	return domain.TicketEntry{}
+}
+
 func (m *memTracking) ticket(id domain.TicketID) domain.Ticket {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -333,7 +344,8 @@ func (m *memTracking) ticket(id domain.TicketID) domain.Ticket {
 // memTracking as every store.
 type trackingApp struct {
 	flowApp
-	store *memTracking
+	store    *memTracking
+	messages *security.RateLimiter // the reply limiter of the app
 }
 
 func newTrackingApp(t *testing.T, logOut io.Writer) trackingApp {
@@ -360,11 +372,12 @@ func newTrackingApp(t *testing.T, logOut io.Writer) trackingApp {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewHandler(trackingDeps(t, logger, sec, service.NewTicketsWithThread(store, store, sec)))
+	deps := trackingDeps(t, logger, sec, service.NewTicketsWithThread(store, store, sec))
+	app, err := NewHandler(deps)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return trackingApp{flowApp: flowApp{app: app, sessions: sessions}, store: store}
+	return trackingApp{flowApp: flowApp{app: app, sessions: sessions}, store: store, messages: deps.MessageLimiter}
 }
 
 // trackingDeps is a complete Deps for the tracking app.
@@ -373,7 +386,19 @@ func trackingDeps(t *testing.T, logger *slog.Logger, sec *security.Security, tic
 	return Deps{
 		Logger: logger, Security: sec, Auth: trackingAuth{}, Users: fakeUsers{},
 		Tickets: tickets, TicketLimiter: newTicketLimiter(t, sec),
+		MessageLimiter: newMessageLimiter(t, sec),
 	}
+}
+
+// newMessageLimiter is the production limiter of replies: 30 per user in
+// any 60-second window (spec 003 S-9).
+func newMessageLimiter(t *testing.T, sec *security.Security) *security.RateLimiter {
+	t.Helper()
+	l, err := sec.NewRateLimiter(security.MessageCreateLimit, security.MessageCreateWindow)
+	if err != nil {
+		t.Fatalf("NewRateLimiter: %v", err)
+	}
+	return l
 }
 
 // get sends a GET with the session of cookie and decodes a JSON object.

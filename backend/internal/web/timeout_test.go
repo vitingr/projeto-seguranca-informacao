@@ -52,7 +52,7 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}, Tickets: service.NewTickets(newMemTicketRepo(), sec), TicketLimiter: newTicketLimiter(t, sec)})
+	app, err := NewHandler(Deps{Logger: logger, Security: sec, Auth: waitingAuth{}, Users: fakeUsers{}, Tickets: service.NewTickets(newMemTicketRepo(), sec), TicketLimiter: newTicketLimiter(t, sec), MessageLimiter: newMessageLimiter(t, sec)})
 	if err != nil {
 		t.Fatal(err)
 	}

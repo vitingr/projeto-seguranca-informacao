@@ -1,0 +1,18 @@
+info:
+  name: thread-after-refusals
+  type: http
+  seq: 66
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The refused replies (63-65) stored nothing.
+        test("still only the reply of 60", function () {
+          expect(res.getBody().entries.map((e) => e.id)).to.deep.equal([bru.getVar("messageA1")]);
+        });

@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+// msgTicketClosed is the 409 of a reply on a "fechado" ticket (spec 003
+// BR-5, AC-3.7).
+const msgTicketClosed = "Este ticket foi fechado e não aceita novas mensagens."
+
 type errorResponse struct {
 	Error     string `json:"error"`
 	Message   string `json:"message"`

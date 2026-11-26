@@ -26,6 +26,9 @@ type handlers struct {
 	// ticketLimiter runs inside Authorize on POST /api/tickets, so only
 	// comum users that passed Session and CSRF use their quota (S-12).
 	ticketLimiter *security.RateLimiter
+	// messageLimiter runs inside Authorize and before TicketAccess on the
+	// reply routes (spec 003 S-9, plan P-16).
+	messageLimiter *security.RateLimiter
 }
 
 type loginRequest struct {

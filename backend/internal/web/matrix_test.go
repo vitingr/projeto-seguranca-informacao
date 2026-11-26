@@ -18,6 +18,9 @@ const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough passw
 // seeds (id 1), for the cells of the {id} routes.
 const matrixTicket = "/api/tickets/1"
 
+// matrixReplyBody is a valid reply, for the same reason.
+const matrixReplyBody = `{"texto":"Alguma novidade?"}`
+
 // matrixTicketBody is a valid ticket request, for the same reason.
 const matrixTicketBody = `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço acesso à VPN?"}}`
 
@@ -68,9 +71,12 @@ func TestAccessMatrix(t *testing.T) {
 		{anonymous, http.MethodGet, matrixTicket + "/mensagens", http.StatusUnauthorized},
 		{comumLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusOK},
 		{flowLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusForbidden},
+		{anonymous, http.MethodPost, matrixTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodPost, matrixTicket + "/mensagens", http.StatusCreated},
+		{flowLogin, http.MethodPost, matrixTicket + "/mensagens", http.StatusForbidden},
 	}
-	if len(tests) != 27 {
-		t.Fatalf("matrix has %d cells, want 27 (18 of spec 001, 3 per spec 003 route)", len(tests))
+	if len(tests) != 30 {
+		t.Fatalf("matrix has %d cells, want 30 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
@@ -99,6 +105,8 @@ func TestAccessMatrix(t *testing.T) {
 					body = matrixCadastroBody
 				case "/api/tickets":
 					body = matrixTicketBody
+				case matrixTicket + "/mensagens":
+					body = matrixReplyBody
 				}
 			}
 

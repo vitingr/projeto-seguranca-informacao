@@ -1,0 +1,35 @@
+info:
+  name: reply-comum
+  type: http
+  seq: 214
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{matrixTicketId}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "  Alguma novidade?  "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-1, AC-3.6: the author replies on their ticket.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the stored message", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["created_at", "id", "kind", "mine", "side", "text"]);
+          expect(body.kind).to.equal("message");
+          expect(body.side).to.equal("author");
+          expect(body.mine).to.equal(true);
+          expect(body.text).to.equal("Alguma novidade?");
+        });

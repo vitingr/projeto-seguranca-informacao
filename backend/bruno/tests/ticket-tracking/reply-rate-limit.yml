@@ -1,0 +1,59 @@
+info:
+  name: reply-rate-limit
+  type: http
+  seq: 404
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{ticketRlm}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Resposta 31"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Spends the quota: 30 replies, each answered 201 (spec 003 S-9).
+        // This request is then the 31st within the minute.
+        const url = bru.interpolate("{{baseUrl}}/api/tickets/{{ticketRlm}}/mensagens");
+        const statuses = [];
+        for (let i = 1; i <= 30; i++) {
+          const r = await bru.sendRequest({
+            method: "POST",
+            url: url,
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": bru.getVar("csrfToken"),
+              "Cookie": bru.getVar("rlmCookie"),
+            },
+            data: { texto: "Resposta " + i },
+          });
+          statuses.push(r.status);
+        }
+        bru.setVar("replyRateLimitStatuses", statuses.join(","));
+    - type: tests
+      code: |-
+        test("the first 30 replies were stored", function () {
+          expect(bru.getVar("replyRateLimitStatuses")).to.equal(Array(30).fill("201").join(","));
+        });
+        test("status is 429", function () {
+          expect(res.getStatus()).to.equal(429);
+        });
+        test("body is the generic error", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+          expect(body.error).to.equal("too_many_requests");
+        });
+        test("Retry-After is in whole seconds, at most a minute", function () {
+          const retry = Number(res.getHeader("retry-after"));
+          expect(Number.isInteger(retry)).to.equal(true);
+          expect(retry).to.be.within(1, 60);
+        });

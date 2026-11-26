@@ -109,6 +109,58 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 	}
 }
 
+// TestSessionGetReadsTheUserProfileIntegration covers spec Q-16: the same
+// session query returns the user's login and registration time, and an
+// anonymous session has neither.
+func TestSessionGetReadsTheUserProfileIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	users, sessions := NewUsers(db), NewSessions(db)
+
+	login := "it_" + rand.Text()[:10]
+	t.Cleanup(func() {
+		// Sessions go with the user (ON DELETE CASCADE).
+		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
+			t.Errorf("cleanup: delete test user %s: %v", login, err)
+		}
+	})
+
+	id, err := users.Create(ctx, domain.User{Login: login, PasswordHash: "$argon2id$fake", Role: domain.RoleComum}) //nolint:gosec // fake hash fixture, not a real credential
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	var registered time.Time
+	if err = db.QueryRowContext(ctx, `SELECT created_at FROM users WHERE id = $1`, int64(id)).Scan(&registered); err != nil {
+		t.Fatalf("read created_at: %v", err)
+	}
+
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	hashAuth := sha256.Sum256([]byte(rand.Text()))
+	hashAnon := sha256.Sum256([]byte(rand.Text()))
+	t.Cleanup(func() {
+		if _, delErr := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM sessions WHERE token_hash = $1`, hashAnon[:]); delErr != nil {
+			t.Errorf("cleanup: delete anonymous session: %v", delErr)
+		}
+	})
+	for _, s := range []domain.Session{
+		{TokenHash: hashAuth[:], UserID: id, CSRFToken: "p", CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Minute)},
+		{TokenHash: hashAnon[:], CSRFToken: "q", CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Minute)},
+	} {
+		if err = sessions.Create(ctx, s); err != nil {
+			t.Fatalf("Create session: %v", err)
+		}
+	}
+
+	got, err := sessions.Get(ctx, hashAuth[:])
+	if err != nil || got.Login != login || !got.UserCreatedAt.Equal(registered) || got.UserCreatedAt.IsZero() {
+		t.Fatalf("Get = login %q, created %v, %v; want %q, %v", got.Login, got.UserCreatedAt, err, login, registered)
+	}
+	got, err = sessions.Get(ctx, hashAnon[:])
+	if err != nil || got.Login != "" || !got.UserCreatedAt.IsZero() {
+		t.Fatalf("anonymous Get = login %q, created %v, %v; want neither", got.Login, got.UserCreatedAt, err)
+	}
+}
+
 // TestRoleChangeIntegration covers 003 D-12: a role changed in the database
 // is what the next Sessions.Get returns, in both directions, with no new
 // session.

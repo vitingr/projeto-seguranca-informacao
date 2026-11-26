@@ -20,3 +20,10 @@ runtime:
           expect(body.user_id).to.equal(bru.getVar("adminUserId"));
           expect(body.role).to.equal("admin");
         });
+        test("returns the login and the registration date (spec Q-16)", function () {
+          const body = res.getBody();
+          expect(body.login).to.equal(bru.interpolate("{{process.env.SEED_ADMIN_LOGIN}}").toLowerCase());
+          expect(body.created_at).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+          expect(new Date(body.created_at).getTime()).to.be.below(Date.now() + 60000);
+          expect(Object.keys(body).sort()).to.eql(["created_at", "login", "role", "user_id"]);
+        });

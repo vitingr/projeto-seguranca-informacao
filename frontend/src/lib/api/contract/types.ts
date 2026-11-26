@@ -96,6 +96,8 @@ export interface LoginRequest {
 }
 
 export interface UserResponse {
+  /** When the user was registered (UTC); sent by GET /api/me only. */
+  created_at?: string
   login?: string
   role: Role
   user_id: number

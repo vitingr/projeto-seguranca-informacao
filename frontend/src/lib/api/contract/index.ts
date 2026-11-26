@@ -37,7 +37,8 @@ export const CADASTRO_REQUEST_FIELDS = [
 export const USER_RESPONSE_FIELDS = [
   'user_id',
   'login',
-  'role'
+  'role',
+  'created_at'
 ] as const satisfies readonly (keyof UserResponse)[]
 
 // Tickets (POST /api/tickets). Request keys are in Portuguese and response

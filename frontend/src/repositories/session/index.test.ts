@@ -43,6 +43,47 @@ describe('loadSession', () => {
     expect(b.calls).toEqual([`/api/me ${SESSION}`])
   })
 
+  it('keeps the login and the registration date of /api/me (US-7)', async () => {
+    const b = backend({
+      '/api/me': {
+        body: {
+          created_at: '2026-11-20T12:15:00Z',
+          login: 'maria.silva',
+          role: 'comum',
+          user_id: 7
+        },
+        status: 200
+      }
+    })
+    expect(await loadSession(SESSION, b.get)).toStrictEqual({
+      kind: 'user',
+      user: {
+        createdAt: '2026-11-20T12:15:00Z',
+        login: 'maria.silva',
+        role: 'comum',
+        userId: 7
+      }
+    })
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['a login that is not a string', { login: 42 }],
+    ['an empty login', { login: '' }],
+    ['a date that is not a date', { created_at: 'ontem' }],
+    ['a date that is not a string', { created_at: 1732104900 }]
+  ])('leaves out %s, still letting the user in', async (_name, extra) => {
+    const b = backend({
+      '/api/me': {
+        body: { role: 'comum', user_id: 7, ...extra },
+        status: 200
+      }
+    })
+    expect(await loadSession(SESSION, b.get)).toStrictEqual({
+      kind: 'user',
+      user: { role: 'comum', userId: 7 }
+    })
+  })
+
   it('401 means the session expired', async () => {
     const b = backend({
       '/api/me': { body: { error: 'unauthorized' }, status: 401 }

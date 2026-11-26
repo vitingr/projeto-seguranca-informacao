@@ -13,12 +13,26 @@ import type { BackendGet } from '@/lib/backend/types'
 
 const parseMe = (body: unknown): CurrentUser | null => {
   if (typeof body !== 'object' || body === null) return null
-  const { role, user_id: userId } = body as Record<string, unknown>
+  const {
+    created_at: createdAt,
+    login,
+    role,
+    user_id: userId
+  } = body as Record<string, unknown>
   if (typeof userId !== 'number' || !Number.isInteger(userId) || userId <= 0) {
     return null
   }
   if (!ROLES.includes(role as Role)) return null
-  return { role: role as Role, userId }
+  // The profile fields only describe the user (US-7): a missing or
+  // malformed one is left out, never trusted, and decides no access.
+  return {
+    role: role as Role,
+    userId,
+    ...(typeof login === 'string' && login !== '' ? { login } : {}),
+    ...(typeof createdAt === 'string' && !Number.isNaN(Date.parse(createdAt))
+      ? { createdAt }
+      : {})
+  }
 }
 
 /**

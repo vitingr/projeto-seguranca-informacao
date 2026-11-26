@@ -37,6 +37,20 @@ describe('messageFor', () => {
     expect(messageFor(error(code), context)).toBe(want)
   })
 
+  it.each<MessageContext>(['action', 'cadastro', 'login'])(
+    'too_many_requests in %s (spec 001 AC-6.7)',
+    context => {
+      const tooMany = error('too_many_requests', {
+        message: 'texto do backend',
+        requestId: 'R',
+        status: 429
+      })
+      expect(messageFor(tooMany, context)).toBe(
+        'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
+      )
+    }
+  )
+
   it('adds the request id to the internal message', () => {
     expect(
       messageFor(error('internal', { requestId: 'RID123' }), 'action')

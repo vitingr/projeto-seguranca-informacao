@@ -591,3 +591,300 @@ func TestTicketsTableIntegration(t *testing.T) {
 		}
 	})
 }
+
+// entryRow is a ticket_entries row as inserted by hand, so the table's own
+// constraints are tested without the repository rules. nil is NULL.
+type entryRow struct {
+	ticketID any
+	actorID  any
+	kind     any
+	body     *string
+	from     *string
+	to       *string
+}
+
+func insertEntry(ctx context.Context, db *sql.DB, r entryRow) (domain.TicketEntryID, error) {
+	var id domain.TicketEntryID
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO ticket_entries (ticket_id, actor_id, kind, body, from_status, to_status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id`,
+		r.ticketID, r.actorID, r.kind, r.body, r.from, r.to,
+	).Scan(&id)
+	return id, err
+}
+
+// TestTicketEntriesTableIntegration covers migration 00003 (spec
+// 003-ticket-tracking, plan P-3 and P-15; BR-3, BR-4, BR-8; S-7): every row
+// that breaks a rule of ticket_entries or tickets is refused by the
+// constraint of that rule, writing nothing, and the six BR-3 transitions
+// and valid messages are accepted.
+func TestTicketEntriesTableIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+
+	users := NewUsers(db)
+	newUser := func(role domain.Role) domain.UserID {
+		login := "it_" + rand.Text()[:10]
+		id, err := users.Create(ctx, domain.User{Login: login, PasswordHash: "$argon2id$fake", Role: role}) //nolint:gosec // fake hash fixture, not a real credential
+		if err != nil {
+			t.Fatalf("Create user: %v", err)
+		}
+		return id
+	}
+	author, admin := newUser(domain.RoleComum), newUser(domain.RoleAdmin)
+	ticket, err := insertTicket(ctx, db, ticketRow{
+		authorID: author, typ: "outro", title: "Dúvida", description: ptr("Como peço uma VPN?"),
+	})
+	if err != nil {
+		t.Fatalf("insert ticket: %v", err)
+	}
+	t.Cleanup(func() {
+		// Nothing cascades: entries, then tickets, then users.
+		bg := context.WithoutCancel(ctx)
+		for _, q := range []string{
+			`DELETE FROM ticket_entries WHERE ticket_id IN (SELECT id FROM tickets WHERE author_id = $1) OR actor_id IN ($1, $2)`,
+			`DELETE FROM tickets WHERE author_id IN ($1, $2)`,
+			`DELETE FROM users WHERE id IN ($1, $2)`,
+		} {
+			if _, err := db.ExecContext(bg, q, author, admin); err != nil {
+				t.Errorf("cleanup %q: %v", q, err)
+			}
+		}
+	})
+
+	statuses := []string{"aberto", "em_andamento", "resolvido", "fechado"}
+	allowed := map[[2]string]bool{
+		{"aberto", "em_andamento"}: true, {"aberto", "fechado"}: true,
+		{"em_andamento", "resolvido"}: true, {"em_andamento", "fechado"}: true,
+		{"resolvido", "em_andamento"}: true, {"resolvido", "fechado"}: true,
+	}
+	message := func(body *string) entryRow {
+		return entryRow{ticketID: ticket, actorID: author, kind: "message", body: body}
+	}
+	change := func(from, to *string) entryRow {
+		return entryRow{ticketID: ticket, actorID: admin, kind: "status_change", from: from, to: to}
+	}
+	countEntries := func(t *testing.T) int {
+		t.Helper()
+		var n int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM ticket_entries`).Scan(&n); err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		return n
+	}
+
+	t.Run("accepted", func(t *testing.T) {
+		type accepted struct {
+			name string
+			row  entryRow
+		}
+		cases := []accepted{
+			{"message of 1 character", message(ptr("a"))},
+			{"message of 2000 multi-byte characters", message(ptr(chars(2000)))},
+			{"message with line breaks and a tab", message(ptr("Linha 1\nLinha 2\r\n\tFim"))},
+			{"message by an admin", entryRow{ticketID: ticket, actorID: admin, kind: "message", body: ptr("Olá")}},
+		}
+		for _, from := range statuses {
+			for _, to := range statuses {
+				if allowed[[2]string{from, to}] {
+					cases = append(cases, accepted{"change " + from + " → " + to, change(ptr(from), ptr(to))})
+				}
+			}
+		}
+		if got := len(cases) - 4; got != 6 {
+			t.Fatalf("%d BR-3 transitions in the table, want 6", got)
+		}
+		for _, tt := range cases {
+			t.Run(tt.name, func(t *testing.T) {
+				before := time.Now()
+				id, err := insertEntry(ctx, db, tt.row)
+				if err != nil {
+					t.Fatalf("insert: %v", err)
+				}
+				var createdAt time.Time
+				if err := db.QueryRowContext(ctx, `SELECT created_at FROM ticket_entries WHERE id = $1`, id).Scan(&createdAt); err != nil {
+					t.Fatalf("read back: %v", err)
+				}
+				if d := createdAt.Sub(before); d < -time.Minute || d > time.Minute {
+					t.Errorf("created_at = %v, not the server time (test started at %v)", createdAt, before)
+				}
+			})
+		}
+	})
+
+	t.Run("refused", func(t *testing.T) {
+		const (
+			fk         = "23503"
+			check      = "23514"
+			notNull    = "23502"
+			byKind     = "ticket_entries_fields_by_kind"
+			transition = "ticket_entries_allowed_transition"
+			bodyCheck  = "ticket_entries_body_check"
+		)
+		type refused struct {
+			name       string
+			row        entryRow
+			code       string
+			constraint string
+		}
+		cases := []refused{
+			// Wrong set of fields for the kind. A message with a valid pair
+			// passes ticket_entries_allowed_transition (it only looks at
+			// status changes), and a status change with one NULL status
+			// makes that CHECK NULL, which passes; so fields_by_kind is the
+			// one that refuses them.
+			{"message without body", message(nil), check, byKind},
+			{"message with both statuses", entryRow{ticketID: ticket, actorID: author, kind: "message", body: ptr("Oi"), from: ptr("aberto"), to: ptr("em_andamento")}, check, byKind},
+			{"message with a to status", entryRow{ticketID: ticket, actorID: author, kind: "message", body: ptr("Oi"), to: ptr("fechado")}, check, byKind},
+			{"status change with a body", entryRow{ticketID: ticket, actorID: admin, kind: "status_change", body: ptr("Oi"), from: ptr("aberto"), to: ptr("em_andamento")}, check, byKind},
+			{"status change without from", change(nil, ptr("em_andamento")), check, byKind},
+			{"status change without to", change(ptr("aberto"), nil), check, byKind},
+			{"status change without statuses", change(nil, nil), check, byKind},
+			// An unknown kind breaks both fields_by_kind and the kind
+			// CHECK; PostgreSQL checks constraints in name order.
+			{"unknown kind", entryRow{ticketID: ticket, actorID: author, kind: "note", body: ptr("Oi")}, check, byKind},
+
+			// Body length, in characters.
+			{"body empty", message(ptr("")), check, bodyCheck},
+			{"body 2001 multi-byte characters", message(ptr(chars(2001))), check, bodyCheck},
+
+			// Missing or unknown references.
+			{"no kind", entryRow{ticketID: ticket, actorID: author, body: ptr("Oi")}, notNull, ""},
+			{"no ticket", entryRow{actorID: author, kind: "message", body: ptr("Oi")}, notNull, ""},
+			{"no actor", entryRow{ticketID: ticket, kind: "message", body: ptr("Oi")}, notNull, ""},
+			{"unknown ticket", entryRow{ticketID: int64(-1), actorID: author, kind: "message", body: ptr("Oi")}, fk, "ticket_entries_ticket_id_fkey"},
+			{"unknown actor", entryRow{ticketID: ticket, actorID: int64(-1), kind: "message", body: ptr("Oi")}, fk, "ticket_entries_actor_id_fkey"},
+		}
+		// Every pair outside BR-3: the same status, anything from
+		// "fechado", and the backward or skipping moves.
+		outside := 0
+		for _, from := range statuses {
+			for _, to := range statuses {
+				if !allowed[[2]string{from, to}] {
+					outside++
+					cases = append(cases, refused{"change " + from + " → " + to, change(ptr(from), ptr(to)), check, transition})
+				}
+			}
+		}
+		if outside != 10 {
+			t.Fatalf("%d pairs outside BR-3, want 10", outside)
+		}
+		for _, tt := range cases {
+			t.Run(tt.name, func(t *testing.T) {
+				before := countEntries(t)
+				_, err := insertEntry(ctx, db, tt.row)
+				var pgErr *pgconn.PgError
+				if !errors.As(err, &pgErr) {
+					t.Fatalf("insert error = %v, want PostgreSQL error %s", err, tt.code)
+				}
+				if pgErr.Code != tt.code || pgErr.ConstraintName != tt.constraint {
+					t.Errorf("refused by %s %q, want %s %q", pgErr.Code, pgErr.ConstraintName, tt.code, tt.constraint)
+				}
+				if after := countEntries(t); after != before {
+					t.Errorf("row count %d → %d: a refused entry was written", before, after)
+				}
+			})
+		}
+	})
+
+	t.Run("updated_at is never before created_at", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			shift      string // added to created_at
+			constraint string
+		}{
+			{"one second before", "-1 second", "tickets_updated_not_before_created"},
+			{"equal", "0", ""},
+			{"later", "1 minute", ""},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var prev time.Time
+				if err := db.QueryRowContext(ctx, `SELECT updated_at FROM tickets WHERE id = $1`, ticket).Scan(&prev); err != nil {
+					t.Fatalf("read: %v", err)
+				}
+				_, err := db.ExecContext(ctx, `UPDATE tickets SET updated_at = created_at + $2::interval WHERE id = $1`, ticket, tt.shift)
+				if tt.constraint == "" {
+					if err != nil {
+						t.Fatalf("update: %v", err)
+					}
+					return
+				}
+				var pgErr *pgconn.PgError
+				if !errors.As(err, &pgErr) || pgErr.Code != "23514" || pgErr.ConstraintName != tt.constraint {
+					t.Fatalf("update error = %v, want CHECK violation of %s", err, tt.constraint)
+				}
+				var now time.Time
+				if err := db.QueryRowContext(ctx, `SELECT updated_at FROM tickets WHERE id = $1`, ticket).Scan(&now); err != nil {
+					t.Fatalf("read back: %v", err)
+				}
+				if !now.Equal(prev) {
+					t.Errorf("updated_at %v → %v: a refused update was written", prev, now)
+				}
+			})
+		}
+	})
+
+	t.Run("a ticket or a user with entries cannot be deleted", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			query      string
+			id         any
+			constraint string
+		}{
+			{"ticket", `DELETE FROM tickets WHERE id = $1`, ticket, "ticket_entries_ticket_id_fkey"},
+			{"admin actor", `DELETE FROM users WHERE id = $1`, admin, "ticket_entries_actor_id_fkey"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := db.ExecContext(ctx, tt.query, tt.id)
+				var pgErr *pgconn.PgError
+				if !errors.As(err, &pgErr) || pgErr.Code != "23503" || pgErr.ConstraintName != tt.constraint {
+					t.Fatalf("delete = %v, want foreign key violation of %s", err, tt.constraint)
+				}
+			})
+		}
+	})
+}
+
+// TestTicketTrackingIndexesIntegration covers the indexes of migration 00003
+// (plan section 1, S-14): the thread and both lists have their index, and
+// the "Meus tickets" index of 00002, ordered by creation, is gone.
+func TestTicketTrackingIndexesIntegration(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+
+	tests := []struct {
+		name    string
+		table   string
+		columns string // "" means the index must not exist
+	}{
+		{"ticket_entries_ticket_idx", "ticket_entries", "(ticket_id, id)"},
+		{"ticket_entries_actor_idx", "ticket_entries", "(actor_id)"},
+		{"tickets_author_updated_idx", "tickets", "(author_id, updated_at DESC, id DESC)"},
+		{"tickets_updated_idx", "tickets", "(updated_at DESC, id DESC)"},
+		{"tickets_status_updated_idx", "tickets", "(status, updated_at DESC, id DESC)"},
+		{"tickets_author_created_idx", "tickets", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var table, def string
+			err := db.QueryRowContext(ctx,
+				`SELECT tablename, indexdef FROM pg_indexes WHERE schemaname = current_schema() AND indexname = $1`,
+				tt.name).Scan(&table, &def)
+			if tt.columns == "" {
+				if !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("index %s: err = %v (definition %q), want it dropped", tt.name, err, def)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("index %s: %v", tt.name, err)
+			}
+			if table != tt.table || !strings.HasSuffix(def, "USING btree "+tt.columns) {
+				t.Errorf("index %s on %s: %q, want a btree on %s %s", tt.name, table, def, tt.table, tt.columns)
+			}
+		})
+	}
+}

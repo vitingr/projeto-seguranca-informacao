@@ -182,12 +182,15 @@ To delete them, with the `POSTGRES_USER` and `POSTGRES_DB` values of
 
 ```sh
 docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
+  -c "DELETE FROM ticket_entries WHERE ticket_id IN (SELECT t.id FROM tickets t JOIN users u ON u.id = t.author_id WHERE u.login LIKE 'e2e.%') OR actor_id IN (SELECT id FROM users WHERE login LIKE 'e2e.%');" \
   -c "DELETE FROM tickets WHERE author_id IN (SELECT id FROM users WHERE login LIKE 'e2e.%');" \
   -c "DELETE FROM users WHERE login LIKE 'e2e.%';"
 ```
 
-Their sessions are deleted with them (`ON DELETE CASCADE`). Tickets are
-not (they are history), so they are deleted first.
+Their sessions are deleted with them (`ON DELETE CASCADE`). Tickets and
+ticket entries (messages and status changes) are not (they are history),
+so they are deleted first: the entries of their tickets and the entries
+they wrote, then their tickets, then the users.
 
 ## Sessions and security settings
 

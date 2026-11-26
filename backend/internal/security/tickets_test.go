@@ -3,8 +3,11 @@ package security
 import (
 	"errors"
 	"io"
+	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"backend_si/internal/domain"
 )
@@ -333,5 +336,176 @@ func TestValidateTicketRefuses(t *testing.T) {
 				t.Errorf("ticket = %+v on error, want zero", got)
 			}
 		})
+	}
+}
+
+func decodeTicket(t *testing.T, s *Security, contentType, body string) (domain.TicketDraft, error) {
+	t.Helper()
+	req := newJSONRequest(t, contentType, body)
+	return s.DecodeTicket(httptest.NewRecorder(), req)
+}
+
+func TestDecodeTicketAccepts(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	tests := []struct {
+		name string
+		body string
+		want domain.TicketDraft
+	}{
+		{
+			"acesso", `{"tipo":"acesso","dados":{"sistema":" Grafana ","nivel_acesso":"leitura","justificativa":"Preciso ver.\n"}}`,
+			domain.TicketDraft{Type: "acesso", System: " Grafana ", AccessLevel: "leitura", Justification: "Preciso ver.\n"},
+		},
+		{
+			"bug", `{"tipo":"bug","dados":{"sistema":"Portal","descricao":"Não carrega","passos":"1. Abrir","severidade":"alta"}}`,
+			domain.TicketDraft{Type: "bug", System: "Portal", Description: "Não carrega", Steps: "1. Abrir", Severity: "alta"},
+		},
+		{
+			"deploy without observacoes", `{"tipo":"deploy","dados":{"projeto":"api","repositorio":"https://git.example.com/api","ambiente":"prod"}}`,
+			domain.TicketDraft{Type: "deploy", Project: "api", Repository: "https://git.example.com/api", Environment: "prod"},
+		},
+		{
+			"deploy with empty observacoes", `{"tipo":"deploy","dados":{"projeto":"api","repositorio":"https://git.example.com/api","ambiente":"prod","observacoes":""}}`,
+			domain.TicketDraft{Type: "deploy", Project: "api", Repository: "https://git.example.com/api", Environment: "prod", Notes: strPtr("")},
+		},
+		{
+			"deploy with null observacoes", `{"tipo":"deploy","dados":{"projeto":"api","repositorio":"https://git.example.com/api","ambiente":"prod","observacoes":null}}`,
+			domain.TicketDraft{Type: "deploy", Project: "api", Repository: "https://git.example.com/api", Environment: "prod"},
+		},
+		{
+			"outro", `{"dados":{"descricao":"Como peço uma VPN?","titulo":"Dúvida"},"tipo":"outro"}`,
+			domain.TicketDraft{Type: "outro", Title: "Dúvida", Description: "Como peço uma VPN?"},
+		},
+		// Left to ValidateTicket (422): missing keys decode as empty, and an
+		// unknown or missing tipo decodes with no field.
+		{
+			"missing required key", `{"tipo":"outro","dados":{"titulo":"Dúvida"}}`,
+			domain.TicketDraft{Type: "outro", Title: "Dúvida"},
+		},
+		{"empty dados", `{"tipo":"bug","dados":{}}`, domain.TicketDraft{Type: "bug"}},
+		{"unknown tipo", `{"tipo":"incidente","dados":{"qualquer":"coisa"}}`, domain.TicketDraft{Type: "incidente"}},
+		{"missing tipo", `{"dados":{"titulo":"Dúvida"}}`, domain.TicketDraft{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := decodeTicket(t, s, "application/json", tt.body)
+			if err != nil {
+				t.Fatalf("DecodeTicket: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("draft = %+v\nwant    %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeTicketRefuses(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	const (
+		ct     = "application/json"
+		access = `"tipo":"acesso","dados":{"sistema":"` + marker + `","nivel_acesso":"leitura","justificativa":"` + marker + `"`
+	)
+	valid := `{` + access + `}}`
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		reason      string
+	}{
+		// Keys of another type, unknown keys.
+		{"field of another type", ct, `{` + access + `,"descricao":"` + marker + `"}}`, reasonMalformed},
+		{"notes in a bug", ct, `{"tipo":"bug","dados":{"observacoes":"` + marker + `"}}`, reasonMalformed},
+		{"unknown field in dados", ct, `{` + access + `,"` + marker + `":"x"}}`, reasonMalformed},
+		{"unknown field outside", ct, `{` + access + `},"` + marker + `":"x"}`, reasonMalformed},
+		{"type key in english", ct, `{"type":"outro","dados":{"titulo":"` + marker + `"}}`, reasonMalformed},
+
+		// Server-owned keys (S-4, S-5), outside and inside dados.
+		{"author outside", ct, `{` + access + `},"author":"` + marker + `"}`, reasonMalformed},
+		{"user_id outside", ct, `{` + access + `},"user_id":1}`, reasonMalformed},
+		{"author_id outside", ct, `{` + access + `},"author_id":1}`, reasonMalformed},
+		{"status outside", ct, `{` + access + `},"status":"resolvido"}`, reasonMalformed},
+		{"id outside", ct, `{` + access + `},"id":1}`, reasonMalformed},
+		{"created_at outside", ct, `{` + access + `},"created_at":"2020-01-01T00:00:00Z"}`, reasonMalformed},
+		{"author inside", ct, `{` + access + `,"author":"` + marker + `"}}`, reasonMalformed},
+		{"user_id inside", ct, `{` + access + `,"user_id":1}}`, reasonMalformed},
+		{"status inside", ct, `{` + access + `,"status":"resolvido"}}`, reasonMalformed},
+		{"id inside", ct, `{` + access + `,"id":1}}`, reasonMalformed},
+		{"created_at inside", ct, `{` + access + `,"created_at":"2020-01-01T00:00:00Z"}}`, reasonMalformed},
+		{"updated_at inside", ct, `{` + access + `,"updated_at":"2020-01-01T00:00:00Z"}}`, reasonMalformed},
+
+		// dados missing or not an object.
+		{"dados missing", ct, `{"tipo":"outro"}`, reasonNoData},
+		{"dados null", ct, `{"tipo":"outro","dados":null}`, reasonNoData},
+		{"dados array", ct, `{"tipo":"outro","dados":["` + marker + `"]}`, reasonMalformed},
+		{"dados string", ct, `{"tipo":"outro","dados":"` + marker + `"}`, reasonMalformed},
+		{"dados array with unknown tipo", ct, `{"tipo":"incidente","dados":["` + marker + `"]}`, reasonMalformed},
+		{"dados number with unknown tipo", ct, `{"tipo":"incidente","dados":1}`, reasonMalformed},
+
+		// Wrong JSON types.
+		{"tipo number", ct, `{"tipo":1,"dados":{}}`, reasonMalformed},
+		{"sistema number", ct, `{"tipo":"acesso","dados":{"sistema":1}}`, reasonMalformed},
+		{"sistema object", ct, `{"tipo":"acesso","dados":{"sistema":{"x":"` + marker + `"}}}`, reasonMalformed},
+		{"observacoes array", ct, `{"tipo":"deploy","dados":{"observacoes":["` + marker + `"]}}`, reasonMalformed},
+		{"severidade bool", ct, `{"tipo":"bug","dados":{"severidade":true}}`, reasonMalformed},
+		{"outer array", ct, `[` + valid + `]`, reasonMalformed},
+
+		// The envelope rules of DecodeJSON.
+		{"trailing data", ct, valid + `{"x":"` + marker + `"}`, reasonTrailing},
+		{"wrong content type", "text/plain", valid, reasonContentType},
+		{"no content type", "", valid, reasonContentType},
+		{"empty body", ct, ``, reasonEmpty},
+		{"body over 64 KiB", ct, `{"tipo":"outro","dados":{"descricao":"` + rep(marker, MaxBodyBytes/len(marker)+1) + `"}}`, reasonTooLarge},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := decodeTicket(t, s, tt.contentType, tt.body)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("error = %v, want ErrInvalidInput", err)
+			}
+			if !strings.Contains(err.Error(), tt.reason) {
+				t.Errorf("error = %q, want reason %q", err, tt.reason)
+			}
+			if strings.Contains(err.Error(), marker) {
+				t.Errorf("error %q quotes the body", err)
+			}
+			if !reflect.DeepEqual(got, domain.TicketDraft{}) {
+				t.Errorf("draft = %+v on error, want zero", got)
+			}
+		})
+	}
+}
+
+// TestDecodeTicketLargestValid sends the largest valid ticket (a bug: two
+// 2000-character fields and a 120-character one) with every character an
+// emoji written as a JSON escape pair, 12 bytes each, the most a client can
+// spend per character. It must fit the 64 KiB body limit and validate.
+func TestDecodeTicketLargestValid(t *testing.T) {
+	t.Parallel()
+
+	s := newTestSecurity(t, io.Discard)
+	const emoji = `😀`
+	body := `{"tipo":"bug","dados":{"sistema":"` + rep(emoji, 120) +
+		`","descricao":"` + rep(emoji, 2000) +
+		`","passos":"` + rep(emoji, 2000) +
+		`","severidade":"critica"}}`
+	if len(body) > MaxBodyBytes {
+		t.Fatalf("body is %d bytes, over the %d limit", len(body), MaxBodyBytes)
+	}
+	draft, err := decodeTicket(t, s, "application/json", body)
+	if err != nil {
+		t.Fatalf("DecodeTicket: %v", err)
+	}
+	ticket, err := s.ValidateTicket(draft)
+	if err != nil {
+		t.Fatalf("ValidateTicket: %v", err)
+	}
+	if got := utf8.RuneCountInString(ticket.Steps); got != 2000 {
+		t.Errorf("steps has %d characters, want 2000", got)
 	}
 }

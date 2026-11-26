@@ -19,6 +19,16 @@ const (
 	TicketCreateWindow = time.Minute
 )
 
+// Message and status change limits (spec 003-ticket-tracking, S-9 and
+// Q-9): at most 30 replies per user and 30 status changes per admin in any
+// 60-second window, each with its own limiter.
+const (
+	MessageCreateLimit  = 30
+	MessageCreateWindow = time.Minute
+	StatusChangeLimit   = 30
+	StatusChangeWindow  = time.Minute
+)
+
 // RateLimiter is a sliding-window limiter per user: it keeps the times of
 // the last accepted requests of each user, at most limit of them, and
 // accepts a new request only while fewer than limit fall inside the window

@@ -359,3 +359,70 @@ func TestRateLimitMiddleware(t *testing.T) {
 		}
 	})
 }
+
+// TestTrackingLimits covers spec 003 S-9 (Q-9): a limiter built from each
+// pair of constants allows 30 requests of a user in a minute and refuses
+// the 31st, then lets the user in again once the window has passed. The
+// two limiters count apart.
+func TestTrackingLimits(t *testing.T) {
+	t.Parallel()
+
+	if MessageCreateLimit != 30 || MessageCreateWindow != time.Minute ||
+		StatusChangeLimit != 30 || StatusChangeWindow != time.Minute {
+		t.Fatalf("limits = %d per %v (messages), %d per %v (status); want 30 per 1m each",
+			MessageCreateLimit, MessageCreateWindow, StatusChangeLimit, StatusChangeWindow)
+	}
+
+	tests := []struct {
+		name   string
+		limit  int
+		window time.Duration
+	}{
+		{"messages", MessageCreateLimit, MessageCreateWindow},
+		{"status changes", StatusChangeLimit, StatusChangeWindow},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			clk := newClock()
+			s := newTestSecurityWith(t, func(o *Options) { o.Now = clk.Now })
+			l, err := s.NewRateLimiter(tt.limit, tt.window)
+			if err != nil {
+				t.Fatalf("NewRateLimiter: %v", err)
+			}
+			const user, other domain.UserID = 7, 8
+			for i := 1; i <= 30; i++ {
+				if ok, _ := l.Allow(user); !ok {
+					t.Fatalf("request %d refused, want the first 30 allowed", i)
+				}
+				clk.Advance(time.Second)
+			}
+			ok, retryAfter := l.Allow(user)
+			if ok {
+				t.Fatal("request 31 allowed, want refused")
+			}
+			if retryAfter <= 0 || retryAfter > tt.window {
+				t.Errorf("retryAfter = %v, want within (0, %v]", retryAfter, tt.window)
+			}
+			if ok, _ := l.Allow(other); !ok {
+				t.Error("another user was refused: the quota is per user")
+			}
+			clk.Advance(tt.window)
+			if ok, _ := l.Allow(user); !ok {
+				t.Error("request refused after the window passed")
+			}
+		})
+	}
+
+	// Separate limiters: using up the message quota leaves the status quota.
+	clk := newClock()
+	s := newTestSecurityWith(t, func(o *Options) { o.Now = clk.Now })
+	messages, _ := s.NewRateLimiter(MessageCreateLimit, MessageCreateWindow)
+	statuses, _ := s.NewRateLimiter(StatusChangeLimit, StatusChangeWindow)
+	for range MessageCreateLimit + 1 {
+		messages.Allow(1)
+	}
+	if ok, _ := statuses.Allow(1); !ok {
+		t.Error("the status limiter refused after only messages were sent")
+	}
+}

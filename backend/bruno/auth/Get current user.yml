@@ -19,7 +19,7 @@ settings:
 
 examples:
   - name: 200 Response
-    description: The authenticated user. `login` is omitted.
+    description: The authenticated user, with `login` and `created_at`.
     request:
       url: "{{baseUrl}}/api/me"
       method: GET
@@ -34,7 +34,9 @@ examples:
         data: |-
           {
             "user_id": 1,
-            "role": "admin"
+            "login": "admin",
+            "role": "admin",
+            "created_at": "2026-11-25T14:30:00Z"
           }
   - name: 401 Response
     description: Not authenticated (no session, or the session expired), or invalid credentials on login.
@@ -94,4 +96,4 @@ examples:
             "request_id": "0f8e2c4b9a7d4e1f"
           }
 
-docs: Returns who is authenticated and with which role.
+docs: Returns who is authenticated, with which role, and the user's login and registration date.

@@ -301,6 +301,54 @@ func TestMeReturnsTheCaller(t *testing.T) {
 	}
 }
 
+// TestMeReturnsTheLoginAndRegistrationDate covers spec Q-16 and AC-7.3:
+// GET /api/me also answers the session user's login and registration time
+// (in UTC), for both roles, and no other field.
+func TestMeReturnsTheLoginAndRegistrationDate(t *testing.T) {
+	t.Parallel()
+
+	registered := time.Date(2026, 11, 20, 9, 15, 0, 0, time.FixedZone("BRT", -3*60*60))
+	tests := []struct {
+		login string
+		id    domain.UserID
+		role  domain.Role
+	}{
+		{flowLogin, 1, domain.RoleAdmin},
+		{comumLogin, 2, domain.RoleComum},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.role), func(t *testing.T) {
+			t.Parallel()
+			f := newFlowApp(t)
+			f.sessions.setProfile(tt.id, tt.login, registered)
+			cookie, _ := f.loginAs(t, tt.login)
+
+			rr := f.send(t, http.MethodGet, "/api/me", "", cookie, nil)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200: %s", rr.Code, rr.Body.String())
+			}
+			var body map[string]any
+			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]any{
+				"user_id":    float64(tt.id),
+				"login":      tt.login,
+				"role":       string(tt.role),
+				"created_at": "2026-11-20T12:15:00Z",
+			}
+			if len(body) != len(want) {
+				t.Errorf("body = %v, want exactly %v", body, want)
+			}
+			for key, value := range want {
+				if body[key] != value {
+					t.Errorf("%s = %v, want %v", key, body[key], value)
+				}
+			}
+		})
+	}
+}
+
 // TestLogout covers the logout criterion: 204, the session row is deleted,
 // the cookie is expired, and the old cookie then gets 401.
 func TestLogout(t *testing.T) {

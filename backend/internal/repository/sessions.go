@@ -30,18 +30,22 @@ func (r *Sessions) Create(ctx context.Context, s domain.Session) error {
 }
 
 func (r *Sessions) Get(ctx context.Context, tokenHash []byte) (domain.Session, error) {
-	const q = `SELECT s.token_hash, s.user_id, u.role, s.csrf_token, s.created_at, s.last_seen_at, s.expires_at
+	// The login and registration date of the user come from the same JOIN
+	// as the role, so GET /api/me costs no extra query.
+	const q = `SELECT s.token_hash, s.user_id, u.role, u.login, u.created_at, s.csrf_token, s.created_at, s.last_seen_at, s.expires_at
 		FROM sessions s
 		LEFT JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = $1`
 
 	var (
-		s      domain.Session
-		userID sql.NullInt64
-		role   sql.NullString
+		s             domain.Session
+		userID        sql.NullInt64
+		role          sql.NullString
+		login         sql.NullString
+		userCreatedAt sql.NullTime
 	)
 	err := r.db.QueryRowContext(ctx, q, tokenHash).
-		Scan(&s.TokenHash, &userID, &role, &s.CSRFToken, &s.CreatedAt, &s.LastSeenAt, &s.ExpiresAt)
+		Scan(&s.TokenHash, &userID, &role, &login, &userCreatedAt, &s.CSRFToken, &s.CreatedAt, &s.LastSeenAt, &s.ExpiresAt)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return domain.Session{}, fmt.Errorf("repository: buscar sessão: %w", domain.ErrNotFound)
@@ -50,6 +54,8 @@ func (r *Sessions) Get(ctx context.Context, tokenHash []byte) (domain.Session, e
 	}
 	s.UserID = domain.UserID(userID.Int64)
 	s.Role = domain.Role(role.String)
+	s.Login = login.String
+	s.UserCreatedAt = userCreatedAt.Time
 	return s, nil
 }
 

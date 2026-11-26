@@ -24,13 +24,17 @@ type User struct {
 }
 
 type Session struct {
-	TokenHash  []byte
-	UserID     UserID
-	Role       Role
-	CSRFToken  string
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ExpiresAt  time.Time
+	TokenHash []byte
+	UserID    UserID
+	Role      Role
+	// Login and UserCreatedAt are the session user's login and registration
+	// time, read with the role; empty for an anonymous session.
+	Login         string
+	UserCreatedAt time.Time
+	CSRFToken     string
+	CreatedAt     time.Time
+	LastSeenAt    time.Time
+	ExpiresAt     time.Time
 }
 
 func (s Session) Authenticated() bool {

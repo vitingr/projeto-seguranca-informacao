@@ -43,6 +43,8 @@ type userResponse struct {
 	UserID domain.UserID `json:"user_id"`
 	Login  string        `json:"login,omitempty"`
 	Role   domain.Role   `json:"role"`
+	// CreatedAt is the registration time, sent by GET /api/me only.
+	CreatedAt *time.Time `json:"created_at,omitempty"`
 }
 
 // ticketResponse is what the confirmation shows (spec AC-5.2). It never
@@ -125,7 +127,12 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusUnauthorized)
 		return
 	}
-	writeJSON(w, http.StatusOK, userResponse{UserID: p.UserID, Role: p.Role})
+	me := userResponse{UserID: p.UserID, Login: p.Login, Role: p.Role}
+	if !p.CreatedAt.IsZero() {
+		createdAt := p.CreatedAt.UTC()
+		me.CreatedAt = &createdAt
+	}
+	writeJSON(w, http.StatusOK, me)
 }
 
 func (h *handlers) cadastro(w http.ResponseWriter, r *http.Request) {

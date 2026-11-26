@@ -9,17 +9,26 @@ import (
 )
 
 // memSessions is an in-memory security.SessionStore for tests that need
-// working sessions. Get fills Role from roles, like the repository JOIN.
+// working sessions. Get fills Role from roles, and the login and the
+// registration time from profiles, like the repository JOIN.
 type memSessions struct {
-	mu    sync.Mutex
-	rows  map[string]domain.Session
-	roles map[domain.UserID]domain.Role
+	mu       sync.Mutex
+	rows     map[string]domain.Session
+	roles    map[domain.UserID]domain.Role
+	profiles map[domain.UserID]memProfile
+}
+
+// memProfile is what the users table holds besides the role.
+type memProfile struct {
+	login     string
+	createdAt time.Time
 }
 
 func newMemSessions() *memSessions {
 	return &memSessions{
-		rows:  map[string]domain.Session{},
-		roles: map[domain.UserID]domain.Role{1: domain.RoleAdmin, 2: domain.RoleComum},
+		rows:     map[string]domain.Session{},
+		roles:    map[domain.UserID]domain.Role{1: domain.RoleAdmin, 2: domain.RoleComum},
+		profiles: map[domain.UserID]memProfile{},
 	}
 }
 
@@ -38,6 +47,8 @@ func (m *memSessions) Get(_ context.Context, h []byte) (domain.Session, error) {
 		return domain.Session{}, domain.ErrNotFound
 	}
 	s.Role = m.roles[s.UserID]
+	profile := m.profiles[s.UserID]
+	s.Login, s.UserCreatedAt = profile.login, profile.createdAt
 	return s, nil
 }
 
@@ -74,4 +85,12 @@ func (m *memSessions) setRole(id domain.UserID, role domain.Role) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.roles[id] = role
+}
+
+// setProfile sets a user's login and registration time, as the users
+// table would return them.
+func (m *memSessions) setProfile(id domain.UserID, login string, createdAt time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.profiles[id] = memProfile{login: login, createdAt: createdAt}
 }

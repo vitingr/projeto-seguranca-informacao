@@ -325,6 +325,30 @@ func TestSessionLoadsAndTouches(t *testing.T) {
 	}
 }
 
+// TestSessionPrincipalCarriesTheProfile covers spec Q-16: the login and the
+// registration time the store reads with the role reach the principal, for
+// GET /api/me.
+func TestSessionPrincipalCarriesTheProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newMemStore()
+	s := newSessionSecurity(t, store, newClock(), nil)
+	token := login(t, s, 2, domain.RoleComum)
+	registered := time.Date(2026, 11, 20, 12, 15, 0, 0, time.UTC)
+	store.mu.Lock()
+	key := string(hashToken(token))
+	row := store.rows[key]
+	row.Login, row.UserCreatedAt = "maria.silva", registered
+	store.rows[key] = row
+	store.mu.Unlock()
+
+	_, o := serve(t, s, token)
+	want := Principal{UserID: 2, Role: domain.RoleComum, Login: "maria.silva", CreatedAt: registered}
+	if !o.auth || o.principal != want {
+		t.Errorf("principal = %+v (auth %v), want %+v", o.principal, o.auth, want)
+	}
+}
+
 func TestSessionAnonymousHasNoPrincipal(t *testing.T) {
 	t.Parallel()
 

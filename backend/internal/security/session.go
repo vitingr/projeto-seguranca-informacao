@@ -29,6 +29,10 @@ type SessionStore interface {
 type Principal struct {
 	UserID domain.UserID
 	Role   domain.Role
+	// Login and CreatedAt (the registration time) describe the user for
+	// GET /api/me; they play no part in any access decision.
+	Login     string
+	CreatedAt time.Time
 }
 
 type principalKey struct{}
@@ -75,7 +79,12 @@ func (s *Security) Session(next http.Handler) http.Handler {
 			csrfToken: sess.CSRFToken,
 		})
 		if sess.Authenticated() {
-			ctx = context.WithValue(ctx, principalKey{}, Principal{UserID: sess.UserID, Role: sess.Role})
+			ctx = context.WithValue(ctx, principalKey{}, Principal{
+				UserID:    sess.UserID,
+				Role:      sess.Role,
+				Login:     sess.Login,
+				CreatedAt: sess.UserCreatedAt,
+			})
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

@@ -157,15 +157,15 @@
         "operationId": "getCurrentUser",
         "tags": ["auth"],
         "summary": "Get current user",
-        "description": "Returns who is authenticated and with which role.",
+        "description": "Returns who is authenticated, with which role, and the user's login and registration date.",
         "x-policy": ["admin", "comum"],
         "responses": {
           "200": {
-            "description": "The authenticated user. `login` is omitted.",
+            "description": "The authenticated user, with `login` and `created_at`.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/UserResponse" },
-                "example": { "user_id": 1, "role": "admin" }
+                "example": { "user_id": 1, "login": "admin", "role": "admin", "created_at": "2026-11-25T14:30:00Z" }
               }
             }
           },
@@ -460,8 +460,9 @@
         "required": ["user_id", "role"],
         "properties": {
           "user_id": { "type": "integer", "format": "int64" },
-          "login": { "type": "string", "description": "Omitted by `GET /api/me`." },
-          "role": { "$ref": "#/components/schemas/Role" }
+          "login": { "type": "string" },
+          "role": { "$ref": "#/components/schemas/Role" },
+          "created_at": { "type": "string", "format": "date-time", "description": "When the user was registered (UTC). Sent by `GET /api/me` only." }
         }
       },
       "CsrfResponse": {

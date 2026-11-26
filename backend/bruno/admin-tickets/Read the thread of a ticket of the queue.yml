@@ -1,0 +1,228 @@
+info:
+  name: Read the thread of a ticket of the queue
+  type: http
+  seq: 4
+  tags:
+    - admin-tickets
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    - name: antes
+      value: "1"
+      type: query
+      description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+      disabled: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: A page of the thread, oldest first.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "entries": [
+              {
+                "id": 7,
+                "kind": "message",
+                "side": "author",
+                "mine": false,
+                "actor_login": "maria.souza",
+                "text": "O erro voltou hoje de manhã.",
+                "created_at": "2026-11-26T09:10:00.123456Z"
+              },
+              {
+                "id": 9,
+                "kind": "status_change",
+                "side": "support",
+                "mine": true,
+                "actor_login": "ana.lima",
+                "from": "aberto",
+                "to": "em_andamento",
+                "created_at": "2026-11-26T09:12:00.654321Z"
+              }
+            ],
+            "has_more": false
+          }
+  - name: 400 Response
+    description: A query parameter that the operation does not read, a parameter given twice, an empty value, a value outside its rule, or a malformed query string.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Recurso não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/mensagens"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+        - name: antes
+          value: "1"
+          type: query
+          description: "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries."
+          disabled: true
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  The thread of any ticket, for administrators: the answer of `GET /api/tickets/{id}/mensagens` where every entry adds `actor_login`, and `mine` is true for the caller's own entries only. Same pages, cursor and 400 rules.
+
+  **404** (`not_found`): the ticket does not exist or the id is malformed.

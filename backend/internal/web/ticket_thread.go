@@ -69,6 +69,53 @@ func (h *handlers) getOwnThread(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// adminThreadEntry is an entry of the thread as an admin sees it (spec 003
+// AC-5.3): threadEntry plus the actor's login (plan P-11). mine is true
+// only for the requesting admin's own entries.
+type adminThreadEntry struct {
+	ID         domain.TicketEntryID `json:"id"`
+	Kind       domain.EntryKind     `json:"kind"`
+	Side       string               `json:"side"`
+	Mine       bool                 `json:"mine"`
+	ActorLogin string               `json:"actor_login"`
+	Text       string               `json:"text,omitempty"`
+	From       domain.TicketStatus  `json:"from,omitempty"`
+	To         domain.TicketStatus  `json:"to,omitempty"`
+	CreatedAt  time.Time            `json:"created_at"`
+}
+
+// adminThreadPage is a page of the thread for admins.
+type adminThreadPage struct {
+	Entries []adminThreadEntry `json:"entries"`
+	HasMore bool               `json:"has_more"`
+}
+
+func newAdminThreadEntry(e *domain.TicketEntry, ref security.TicketRef, viewer domain.UserID) adminThreadEntry {
+	c := newThreadEntry(e, ref, viewer)
+	return adminThreadEntry{
+		ID: c.ID, Kind: c.Kind, Side: c.Side, Mine: c.Mine, ActorLogin: e.ActorLogin,
+		Text: c.Text, From: c.From, To: c.To, CreatedAt: c.CreatedAt,
+	}
+}
+
+// getAdminThread answers the thread of any ticket for an admin (spec 003
+// US-5), with the same cursor and limit as the comum thread.
+func (h *handlers) getAdminThread(w http.ResponseWriter, r *http.Request) {
+	p, ref, ok := h.ticketCaller(w, r)
+	if !ok {
+		return
+	}
+	page, ok := h.thread(w, r, p, ref)
+	if !ok {
+		return
+	}
+	out := adminThreadPage{Entries: make([]adminThreadEntry, 0, len(page.Entries)), HasMore: page.HasMore}
+	for i := range page.Entries {
+		out.Entries = append(out.Entries, newAdminThreadEntry(&page.Entries[i], ref, p.UserID))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // replyOwnTicket stores a message of the comum author on their ticket (spec
 // 003 US-3, AC-3.5 to AC-3.8). Inside Authorize the route runs the message
 // rate limit, then TicketAccess (plan P-16), so a request on someone

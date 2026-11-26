@@ -110,6 +110,77 @@ func TestOwnThread(t *testing.T) {
 	}
 }
 
+// TestAdminThread covers AC-5.3 (data) and P-11 on R8: every entry adds
+// actor_login; mine is true only for the requesting admin; the author's
+// entries are on side "author"; antes and the 100 limit as R3.
+func TestAdminThread(t *testing.T) {
+	t.Parallel()
+
+	a := newTrackingApp(t, nil)
+	ticket := a.store.seed(trackMariaID, domain.TicketTypeBug, "Bug em Portal")
+	a.addMessage(t, ticket.ID, trackMariaID, "Alguma novidade?")
+	if _, err := a.store.ChangeStatus(t.Context(), ticket.ID, trackAnaID, domain.TicketStatusOpen, domain.TicketStatusInProgress); err != nil {
+		t.Fatal(err)
+	}
+	a.addMessage(t, ticket.ID, trackAdminID, "Estamos vendo.")
+	path := fmt.Sprintf("/api/administradores/tickets/%d/mensagens", ticket.ID)
+
+	cookie, _ := a.loginAs(t, flowLogin)
+	code, body := a.get(t, path, cookie)
+	if code != http.StatusOK || body["has_more"] != false {
+		t.Fatalf("status = %d, page = %v", code, body)
+	}
+	want := []map[string]any{
+		{"kind": "message", "side": "author", "mine": false, "actor_login": comumLogin},
+		{"kind": "status_change", "side": "support", "mine": false, "actor_login": anaLogin, "from": "aberto", "to": "em_andamento"},
+		{"kind": "message", "side": "support", "mine": true, "actor_login": flowLogin},
+	}
+	entries := entriesOf(t, body)
+	if len(entries) != len(want) {
+		t.Fatalf("%d entries, want %d", len(entries), len(want))
+	}
+	for i, e := range entries {
+		keys := append([]string{"actor_login"}, messageEntryKeys...)
+		if e["kind"] == "status_change" {
+			keys = append([]string{"actor_login"}, statusEntryKeys...)
+		}
+		slices.Sort(keys)
+		if got := keysOf(e); !slices.Equal(got, keys) {
+			t.Errorf("entry %d keys = %v, want %v", i, got, keys)
+		}
+		for k, v := range want[i] {
+			if e[k] != v {
+				t.Errorf("entry %d: %s = %#v, want %#v", i, k, e[k], v)
+			}
+		}
+	}
+
+	// ana sees the status change as hers.
+	_, body = a.get(t, path, a.mustLogin(t, anaLogin))
+	if mine := entriesOf(t, body)[1]["mine"]; mine != true {
+		t.Errorf("ana's status change: mine = %v, want true", mine)
+	}
+
+	for range 120 {
+		a.addMessage(t, ticket.ID, trackMariaID, "mais uma")
+	}
+	_, body = a.get(t, path, cookie)
+	page := entriesOf(t, body)
+	if len(page) != 100 || body["has_more"] != true {
+		t.Fatalf("%d entries, has_more %v; want 100, true", len(page), body["has_more"])
+	}
+	_, body = a.get(t, fmt.Sprintf("%s?antes=%v", path, page[0]["id"]), cookie)
+	if older := entriesOf(t, body); len(older) != 23 || body["has_more"] != false {
+		t.Errorf("older page: %d entries, has_more %v; want 23, false", len(older), body["has_more"])
+	}
+	if rr := a.send(t, http.MethodGet, path+"?antes=abc", "", cookie, nil); rr.Code != http.StatusBadRequest {
+		t.Errorf("bad antes: status = %d, want 400", rr.Code)
+	}
+	if rr := a.send(t, http.MethodGet, path, "", a.mustLogin(t, comumLogin), nil); rr.Code != http.StatusForbidden {
+		t.Errorf("the author on the admin route: status = %d, want 403", rr.Code)
+	}
+}
+
 // TestOwnThreadPages covers P-4 and S-14: at most 100 entries, the latest
 // ones first answered, older ones with antes, has_more on the first page
 // only.

@@ -53,6 +53,13 @@ func TestTicketEnumsValid(t *testing.T) {
 		{"environment wrong case", Environment("Prod"), false},
 		{"environment label instead of code", Environment("Produção"), false},
 		{"environment unknown", Environment("staging"), false},
+
+		{"entry kind message", EntryKind("message"), true},
+		{"entry kind status_change", EntryKind("status_change"), true},
+		{"entry kind empty", EntryKind(""), false},
+		{"entry kind wrong case", EntryKind("Message"), false},
+		{"entry kind with spaces", EntryKind(" message "), false},
+		{"entry kind unknown", EntryKind("note"), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

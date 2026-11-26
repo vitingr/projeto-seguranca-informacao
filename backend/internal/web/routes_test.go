@@ -79,12 +79,18 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	if err != nil {
 		t.Fatalf("security.New: %v", err)
 	}
-	deps := Deps{Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{}, Tickets: service.NewTickets(newMemTicketRepo(), sec)}
+	deps := Deps{
+		Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{},
+		Tickets: service.NewTickets(newMemTicketRepo(), sec), TicketLimiter: newTicketLimiter(t, sec),
+	}
 	h, err := NewHandler(deps)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	return &handlers{logger: logger, sec: sec, auth: deps.Auth, users: deps.Users, tickets: deps.Tickets}, h
+	return &handlers{
+		logger: logger, sec: sec, auth: deps.Auth, users: deps.Users,
+		tickets: deps.Tickets, ticketLimiter: deps.TicketLimiter,
+	}, h
 }
 
 func TestEveryRouteDeclaresPolicy(t *testing.T) {

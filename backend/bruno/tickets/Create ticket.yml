@@ -206,6 +206,40 @@ examples:
             "message": "Dados inválidos. Revise os campos e tente novamente.",
             "request_id": "0f8e2c4b9a7d4e1f"
           }
+  - name: 429 Response
+    description: Too many requests by this user in a short time. Nothing was done.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: POST
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      body:
+        type: json
+        data: |-
+          {
+            "tipo": "acesso",
+            "dados": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis de monitoramento da equipe."
+            }
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "too_many_requests",
+            "message": "Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
   - name: 500 Response
     description: Unexpected error. Details go to the log, never to the client.
     request:
@@ -251,5 +285,7 @@ docs: |-
   **400** (`bad_request`): the body is not well-formed for this operation: malformed JSON, a body that is not valid UTF-8, a `Content-Type` other than `application/json`, a key that is not one of the documented names spelled exactly (case-sensitive), a key of another type, a duplicate key (also when only the case differs), a field of the wrong JSON type, or `dados` missing or `null`. Keys the server owns (`author`, `user_id`, `status`, `id`, `created_at`, ...) are unknown keys.
 
   **422** (`unprocessable_entity`): the body is well-formed but a value is invalid: an unknown `tipo`, a missing or empty required field, a length out of its limits, a forbidden character, a code outside its list, or a repository that is not an https URL. The answer never names the field.
+
+  **429** (`too_many_requests`): the user already sent 10 creation requests in the last 60 seconds. Every request that passes the CSRF check and the role check counts, valid or not; refused CSRF, anonymous and admin requests do not. `Retry-After` says how many seconds to wait. The counts live in the memory of the backend process.
 
   Nothing is stored when the answer is not 201. The response does not echo the field contents.

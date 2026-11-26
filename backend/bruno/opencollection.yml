@@ -10,8 +10,8 @@ docs:
     Generated from api/openapi.json by "mage bruno". The tag folders are
     generated and must not be edited by hand; opencollection.yml,
     environments/ and tests/ are hand-written. "mage brunoRun" runs the
-    requests of tests/ and then tests/access-matrix/, in that order and with a
-    shared cookie jar.
+    requests of tests/, then tests/access-matrix/, then tests/tickets/, in that
+    order and with a shared cookie jar.
   type: text/markdown
 
 request:

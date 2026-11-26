@@ -29,14 +29,19 @@ type Deps struct {
 	Auth     AuthService
 	Users    UserService
 	Tickets  TicketService
+	// TicketLimiter limits ticket creation per user (spec S-12).
+	TicketLimiter *security.RateLimiter
 }
 
 func NewHandler(d Deps) (http.Handler, error) {
-	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil {
+	if d.Logger == nil || d.Security == nil || d.Auth == nil || d.Users == nil || d.Tickets == nil || d.TicketLimiter == nil {
 		return nil, errors.New("web: dependências obrigatórias ausentes")
 	}
 
-	h := &handlers{logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users, tickets: d.Tickets}
+	h := &handlers{
+		logger: d.Logger, sec: d.Security, auth: d.Auth, users: d.Users,
+		tickets: d.Tickets, ticketLimiter: d.TicketLimiter,
+	}
 
 	mux := http.NewServeMux()
 	for _, rt := range h.routes() {

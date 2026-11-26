@@ -1,0 +1,64 @@
+info:
+  name: tickets-rate-limit
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "Pedido 11",
+          "descricao": "Teste do limite de criação."
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Spends the quota: 10 creations, each answered 201 (S-12). This request
+        // is then the 11th within the minute.
+        const url = bru.interpolate("{{baseUrl}}/api/tickets");
+        const statuses = [];
+        for (let i = 1; i <= 10; i++) {
+          const r = await bru.sendRequest({
+            method: "POST",
+            url: url,
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": bru.getVar("csrfToken"),
+              "Cookie": bru.getVar("rateLimitCookie"),
+            },
+            data: { tipo: "outro", dados: { titulo: "Pedido " + i, descricao: "Teste do limite de criação." } },
+          });
+          statuses.push(r.status);
+        }
+        bru.setVar("rateLimitStatuses", statuses.join(","));
+    - type: tests
+      code: |-
+        test("the first 10 requests were created", function () {
+          expect(bru.getVar("rateLimitStatuses")).to.equal("201,201,201,201,201,201,201,201,201,201");
+        });
+        test("status is 429", function () {
+          expect(res.getStatus()).to.equal(429);
+        });
+        test("body is the generic error", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+          expect(body.error).to.equal("too_many_requests");
+          expect(body.message).to.equal("Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.");
+        });
+        test("Retry-After is in whole seconds, at most a minute", function () {
+          const retry = Number(res.getHeader("retry-after"));
+          expect(Number.isInteger(retry)).to.equal(true);
+          expect(retry).to.be.within(1, 60);
+        });

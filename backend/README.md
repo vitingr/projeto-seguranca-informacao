@@ -58,7 +58,7 @@ Run `go tool mage -l` for the full list.
 | `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers one `e2e.*` comum user (see [Test users](#test-users-left-by-mage-brunorun)). |
+| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers two `e2e.*` comum users (see [Test users](#test-users-left-by-mage-brunorun)). |
 
 ## API contract and Bruno collection
 
@@ -88,7 +88,8 @@ The only exception is the 404 catch-all, which stays out of the contract.
   [access matrix](#access-control), anonymous, then as the seed
   administrator, who registers a comum user, then as that user.
   `tests/tickets/` runs last, as that comum user: the CSRF refusals, a 400,
-  a 422 and one ticket of each type.
+  a 422, one ticket of each type, and the rate limit: a second comum user
+  sends 10 creations and gets 429 on the 11th.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -148,6 +149,10 @@ never has the login or the password.
   value breaks a rule: an unknown `tipo`, a missing or empty field, a
   length, a control character, a code outside its list, or a repository
   that is not an `https://` URL without credentials.
+- 429 `too_many_requests` with `Retry-After` (whole seconds) after 10
+  creation requests by the same user in 60 seconds. Every request that
+  passes CSRF and the role check counts, valid or not (see
+  [Known limitations](#known-limitations)).
 
 Nothing is stored unless the answer is 201. The rules live in
 `internal/security` (`DecodeTicket`, `ValidateTicket`), and the `tickets`
@@ -162,8 +167,9 @@ The access matrix registers a comum user through the seed administrator.
 `mage brunoRun` generates its login (`e2e.` and 26 random characters) and
 password with `crypto/rand` for every run and passes them to Bruno as the
 `BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
-as arguments. So every run leaves one `e2e.*` user in the database, with
-the tickets it created.
+as arguments. `tests/tickets` registers a second one, the same login plus
+`.rl`, for the rate limit test. So every run leaves two `e2e.*` users in
+the database, with the tickets they created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 

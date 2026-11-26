@@ -1,0 +1,47 @@
+info:
+  name: strict-keys-cadastro-invalid-utf8
+  type: http
+  seq: 28
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "replaced by the before-request script",
+        "senha": "",
+        "papel": "comum"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // A YAML file can only hold valid UTF-8, so the body is built from
+        // bytes: a valid registration with a 0xff byte (never valid in
+        // UTF-8) at the end of the password. A Buffer is sent as is.
+        const login = bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}.strict");
+        const password = bru.interpolate("{{process.env.BRUNO_COMUM_PASSWORD}}");
+        req.setBody(Buffer.concat([
+          Buffer.from(JSON.stringify({ login: login, papel: "comum", senha: password }).slice(0, -2)),
+          Buffer.from([0xff]),
+          Buffer.from('"}'),
+        ]));
+    - type: tests
+      code: |-
+        // encoding/json alone would store the password with U+FFFD in place
+        // of the byte (plan P-11); the body is refused before that.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+        });
+        test("error is bad_request", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["error", "message", "request_id"]);
+          expect(body.error).to.equal("bad_request");
+        });

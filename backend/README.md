@@ -123,7 +123,11 @@ no new login.
   is stored as an Argon2id hash.
 - 400 `bad_request` when the body is not well-formed: malformed JSON, a
   `Content-Type` other than `application/json`, an unknown field, or a
-  field of the wrong JSON type (`"papel": 1`).
+  field of the wrong JSON type (`"papel": 1`). Also when the body is not
+  valid UTF-8, when a key is not a documented name spelled exactly
+  (`"PAPEL"`, `"Login"`), or when a key repeats, exactly or in another case
+  (`{"papel":"comum",…,"Papel":"admin"}`). The login (`POST /api/login`)
+  follows the same body rules, so such a body starts no session.
 - 422 `unprocessable_entity` when the body is well-formed but a value is
   invalid: the login pattern, the password length (15 to 128), a `papel`
   other than exactly `admin` or `comum`, or a missing field.

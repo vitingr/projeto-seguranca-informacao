@@ -1,0 +1,22 @@
+info:
+  name: strict-keys-logout
+  type: http
+  seq: 29
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/logout"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Ends the strict-keys requests signed out, so the access matrix
+        // starts with an anonymous session, as before.
+        test("status is 204", function () {
+          expect(res.getStatus()).to.equal(204);
+        });

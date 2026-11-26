@@ -146,18 +146,14 @@ type otherData struct {
 	Descricao string `json:"descricao"`
 }
 
-const (
-	reasonNoData       = "missing dados"
-	reasonDuplicateKey = "duplicate key"
-	reasonInvalidUTF8  = "invalid utf-8"
-)
+const reasonNoData = "missing dados"
 
 // ticketRequestKeys are the keys of the outer object of a ticket request.
 var ticketRequestKeys = []string{"tipo", "dados"}
 
 // DecodeTicket reads a ticket request in two strict steps: the outer object
-// (after DecodeJSON's content type, size limit and trailing data checks),
-// then "dados" against its "tipo". At both levels every key must be one of
+// (after the content type, size limit, trailing data and UTF-8 checks that
+// DecodeJSON also uses), then "dados" against its "tipo". At both levels every key must be one of
 // the documented names, spelled exactly (encoding/json alone would match
 // any case), and no key may repeat, even in another case (plan P-10). A key
 // of another type, or one the server owns (author, status, id, dates), is
@@ -169,12 +165,9 @@ var ticketRequestKeys = []string{"tipo", "dados"}
 // silently turn each invalid byte into U+FFFD, so the field rules would
 // never see it (spec section 4: text that is not valid UTF-8 is rejected).
 func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.TicketDraft, error) {
-	var raw json.RawMessage
-	if err := s.DecodeJSON(w, r, &raw); err != nil {
+	raw, err := readJSON(w, r)
+	if err != nil {
 		return domain.TicketDraft{}, err
-	}
-	if !utf8.Valid(raw) {
-		return domain.TicketDraft{}, invalidBody(reasonInvalidUTF8)
 	}
 	var req ticketRequest
 	if err := decodeObject(raw, ticketRequestKeys, &req); err != nil {
@@ -222,8 +215,10 @@ func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.
 }
 
 // decodeObject checks the keys of raw (see checkKeys), then decodes it into
-// dst, refusing unknown keys and wrong JSON types. The raw bytes were
-// already size-checked by DecodeJSON and hold exactly one JSON value.
+// dst, refusing unknown keys and wrong JSON types. The raw bytes come from
+// readJSON: size-checked, valid UTF-8, exactly one JSON value. DecodeJSON
+// and DecodeTicket share it, so login, registration and tickets apply the
+// same key rule.
 func decodeObject(raw json.RawMessage, allowed []string, dst any) error {
 	if err := checkKeys(raw, allowed); err != nil {
 		return err

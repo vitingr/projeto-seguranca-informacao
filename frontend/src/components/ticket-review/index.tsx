@@ -1,9 +1,9 @@
 import { cn } from 'cn'
 
+import { DetailList, DetailRow } from '@/components/detail-list'
 import { TicketTypeIcon } from '@/components/ticket-type-icon'
 
 import type {
-  ReviewRowProps,
   ReviewSectionProps,
   TicketReviewProps,
   TicketReviewRow
@@ -19,26 +19,13 @@ export const REVIEW_TEXTS = {
   type: 'Tipo'
 } as const
 
-const Row = ({ children, label }: ReviewRowProps) => (
-  <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-6">
-    <dt className="text-muted-foreground text-sm sm:w-44 sm:shrink-0">
-      {label}
-    </dt>
-    <dd className="min-w-0 flex-1 text-sm break-words whitespace-pre-wrap">
-      {children}
-    </dd>
-  </div>
-)
-
 const Section = ({ children, hint, title }: ReviewSectionProps) => (
   <section className="flex flex-col gap-3">
     <div className="flex flex-col gap-0.5">
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="text-muted-foreground text-xs">{hint}</p>
     </div>
-    <dl className="border-border divide-border flex flex-col divide-y rounded-sm border">
-      {children}
-    </dl>
+    <DetailList>{children}</DetailList>
   </section>
 )
 
@@ -64,19 +51,21 @@ export const TicketReview = ({
 }: TicketReviewProps) => (
   <div className="flex flex-col gap-6">
     <Section hint={REVIEW_TEXTS.requestHint} title={REVIEW_TEXTS.request}>
-      <Row label={REVIEW_TEXTS.type}>
+      <DetailRow label={REVIEW_TEXTS.type}>
         <span className="flex items-center gap-2">
           <TicketTypeIcon className="size-7" type={type} />
           {typeLabel}
         </span>
-      </Row>
-      <Row label={REVIEW_TEXTS.title}>{title}</Row>
+      </DetailRow>
+      <DetailRow label={REVIEW_TEXTS.title} preserveLines>
+        {title}
+      </DetailRow>
     </Section>
     <Section hint={REVIEW_TEXTS.detailsHint} title={REVIEW_TEXTS.details}>
       {rows.map(row => (
-        <Row key={row.key} label={row.label}>
+        <DetailRow key={row.key} label={row.label} preserveLines>
           {value(row)}
-        </Row>
+        </DetailRow>
       ))}
     </Section>
   </div>

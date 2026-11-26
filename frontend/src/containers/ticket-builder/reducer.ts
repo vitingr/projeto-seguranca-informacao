@@ -6,7 +6,10 @@ import type { BuilderAction, BuilderState } from './types'
 
 export const initialState: BuilderState = {
   pendingType: null,
+  sendError: null,
+  sending: false,
   step: 'tipo',
+  ticket: null,
   type: null,
   typeError: false
 }
@@ -47,11 +50,37 @@ export const builderReducer = (
       // AC-3.6: the container only sends this when the form is valid.
       return state.step === 'detalhes' ? { ...state, step: 'revisao' } : state
     case 'goToStep': {
-      // Only steps already done can be revisited (spec section 7).
+      // Only steps already done can be revisited (spec section 7), never
+      // while sending or after the ticket was created (AC-5.1, AC-5.3).
+      if (state.sending) return state
       const target = ORDER.indexOf(action.step as (typeof ORDER)[number])
       const current = ORDER.indexOf(state.step as (typeof ORDER)[number])
       if (target < 0 || current < 0 || target >= current) return state
-      return { ...state, pendingType: null, step: action.step }
+      return { ...state, pendingType: null, sendError: null, step: action.step }
     }
+    case 'sendStarted':
+      // AC-5.1: one request at a time, only from the review.
+      return state.step === 'revisao' && !state.sending
+        ? { ...state, sendError: null, sending: true }
+        : state
+    case 'sendSucceeded':
+      // AC-5.2: the confirmation only exists for a created ticket.
+      return state.sending
+        ? {
+            ...state,
+            sendError: null,
+            sending: false,
+            step: 'confirmacao',
+            ticket: action.ticket
+          }
+        : state
+    case 'sendFailed':
+      // US-6: stay on the review with the data kept.
+      return state.sending
+        ? { ...state, sendError: action.message, sending: false }
+        : state
+    case 'restart':
+      // AC-5.4: back to the first step with nothing filled in.
+      return initialState
   }
 }

@@ -32,20 +32,27 @@ export const STEPS = [
 }[]
 
 export const BUILDER_MESSAGES = {
+  /** AC-5.2, announced to screen readers. */
+  created: (id: number) => `Ticket #${id} criado.`,
   noType: 'Escolha um tipo de ticket.',
+  sending: 'Enviando ticket.',
   /** AC-2.4: the inline confirmation, never a browser dialog. */
   typeChange: (next: string, current: string) =>
     `Trocar para "${next}" descarta os campos preenchidos de "${current}".`
 } as const
 
 export const BUILDER_TEXTS = {
+  backToUsers: 'Voltar para usuários',
   cancel: 'Cancelar',
   confirmTypeChange: 'Trocar e descartar',
+  createAnother: 'Criar outro ticket',
   detailsIntro: (type: string) =>
     `${type}: preencha os campos. Os marcados com * são obrigatórios.`,
   keepType: 'Manter o tipo atual',
   reviewIntro:
     'Confira o pedido antes de enviar. Para corrigir algum campo, use "Editar".',
+  send: 'Enviar ticket',
+  sending: 'Enviando…',
   /** AC-3.7. */
   sessionNote:
     'Sua sessão expira após um período sem atividade. Envie o ticket antes de sair da página.',
@@ -62,6 +69,10 @@ export const TIPS = {
     'Use o nome do sistema como a equipe o conhece.',
     'Peça o menor nível de acesso que resolve.',
     'Explique para que você precisa do acesso.'
+  ],
+  confirmacao: [
+    'Guarde o número do ticket para falar com a equipe sobre ele.',
+    'Para outro pedido, use "Criar outro ticket".'
   ],
   bug: [
     'Diga o que esperava e o que aconteceu.',
@@ -82,4 +93,7 @@ export const TIPS = {
     'Cada tipo pede só os campos de que a equipe precisa.',
     'Na dúvida, use "Outro".'
   ]
-} as const satisfies Record<'revisao' | 'tipo' | TicketType, readonly string[]>
+} as const satisfies Record<
+  'confirmacao' | 'revisao' | 'tipo' | TicketType,
+  readonly string[]
+>

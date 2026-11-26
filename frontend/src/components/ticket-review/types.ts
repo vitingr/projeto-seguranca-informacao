@@ -2,11 +2,6 @@ import type { ReactNode } from 'react'
 
 import type { TicketType } from '@/domain/tickets/types'
 
-export interface ReviewRowProps {
-  children: ReactNode
-  label: string
-}
-
 export interface ReviewSectionProps {
   children: ReactNode
   hint: string

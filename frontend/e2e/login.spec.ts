@@ -37,7 +37,7 @@ test.describe('login page', () => {
     await expect(page).toHaveURL('/login')
   })
 
-  test('admin logs in: token fetched before and after, lands on /admin', async ({
+  test('admin logs in: token fetched before and after, lands on /administradores', async ({
     page
   }) => {
     const admin = seedAdmin()
@@ -45,7 +45,7 @@ test.describe('login page', () => {
     const consoleLines: string[] = []
     page.on('console', message => consoleLines.push(message.text()))
 
-    await loginAs(page, admin, '/admin')
+    await loginAs(page, admin, '/administradores')
 
     // GET /api/csrf before the POST and again after it (002 D-4).
     expect(calls.slice(0, 3)).toEqual([
@@ -75,27 +75,22 @@ test.describe('login page', () => {
 
   test('next is followed only for an allowed route', async ({ page }) => {
     const admin = seedAdmin()
-    await loginAs(
-      page,
-      admin,
-      '/cadastrar-usuarios',
-      '?next=%2Fcadastrar-usuarios'
-    )
+    await loginAs(page, admin, '/cadastro', '?next=%2Fcadastro')
   })
 
   test('next cannot redirect elsewhere', async ({ page }) => {
     const admin = seedAdmin()
-    await loginAs(page, admin, '/admin', '?next=%2F%2Fevil.example')
+    await loginAs(page, admin, '/administradores', '?next=%2F%2Fevil.example')
   })
 
   test('a logged-in user is sent away from /login', async ({ page }) => {
-    await loginAs(page, seedAdmin(), '/admin')
+    await loginAs(page, seedAdmin(), '/administradores')
     await page.goto('/login')
-    await expect(page).toHaveURL('/admin')
+    await expect(page).toHaveURL('/administradores')
   })
 
   test('the expired-session notice', async ({ page }) => {
-    await page.goto('/login?next=%2Fadmin&sessao=expirada')
+    await page.goto('/login?next=%2Fadministradores&sessao=expirada')
     await expect(page.getByTestId('form-error')).toHaveText(
       'Sua sessão expirou. Entre novamente.'
     )

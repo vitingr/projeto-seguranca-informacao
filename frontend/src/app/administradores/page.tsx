@@ -6,9 +6,9 @@ export const metadata: Metadata = { title: 'Área do administrador' }
 
 const Page = () => (
   <RoleArea
-    description="Esta área é exclusiva para administradores."
+    description="Página de acesso restrito aos usuários administradores"
     endpoint="/api/administradores"
-    route="/admin"
+    route="/administradores"
     title="Área do administrador"
   />
 )

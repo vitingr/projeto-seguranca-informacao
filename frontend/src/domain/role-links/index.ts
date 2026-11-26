@@ -6,8 +6,8 @@ export const ROLE_LINKS: Record<
   { href: ProtectedRoute; label: string }[]
 > = {
   admin: [
-    { href: '/admin', label: 'Área do administrador' },
-    { href: '/cadastrar-usuarios', label: 'Cadastrar usuários' }
+    { href: '/administradores', label: 'Área do administrador' },
+    { href: '/cadastro', label: 'Cadastrar usuários' }
   ],
-  comum: [{ href: '/minha-conta', label: 'Minha conta' }]
+  comum: [{ href: '/usuarios', label: 'Minha conta' }]
 } as const

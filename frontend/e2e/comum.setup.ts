@@ -7,7 +7,7 @@ import { loginAs } from './support/login'
 // the seed admin (P-4). Each run leaves one e2e.* user; the backend README
 // explains how to delete them.
 setup('create the comum test user', async ({ page }) => {
-  await loginAs(page, seedAdmin(), '/admin')
+  await loginAs(page, seedAdmin(), '/administradores')
   const comum = comumUser()
   const created = await page.evaluate(
     async ([login, senha]) => {

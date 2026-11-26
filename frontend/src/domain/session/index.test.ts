@@ -14,19 +14,15 @@ describe('decideAccess: the page guard matrix', () => {
   })
 
   it.each<[ProtectedRoute, Session, string]>([
-    ['/admin', anonymous, 'login /login?next=%2Fadmin'],
-    ['/admin', as('comum'), 'forbidden'],
-    ['/admin', as('admin'), 'allowed'],
-    [
-      '/cadastrar-usuarios',
-      anonymous,
-      'login /login?next=%2Fcadastrar-usuarios'
-    ],
-    ['/cadastrar-usuarios', as('comum'), 'forbidden'],
-    ['/cadastrar-usuarios', as('admin'), 'allowed'],
-    ['/minha-conta', anonymous, 'login /login?next=%2Fminha-conta'],
-    ['/minha-conta', as('comum'), 'allowed'],
-    ['/minha-conta', as('admin'), 'forbidden']
+    ['/administradores', anonymous, 'login /login?next=%2Fadministradores'],
+    ['/administradores', as('comum'), 'forbidden'],
+    ['/administradores', as('admin'), 'allowed'],
+    ['/cadastro', anonymous, 'login /login?next=%2Fcadastro'],
+    ['/cadastro', as('comum'), 'forbidden'],
+    ['/cadastro', as('admin'), 'allowed'],
+    ['/usuarios', anonymous, 'login /login?next=%2Fusuarios'],
+    ['/usuarios', as('comum'), 'allowed'],
+    ['/usuarios', as('admin'), 'forbidden']
   ])('%s', (route, session, want) => {
     const access = decideAccess(session, route)
     expect(access.kind === 'login' ? `login ${access.url}` : access.kind).toBe(
@@ -35,9 +31,9 @@ describe('decideAccess: the page guard matrix', () => {
   })
 
   it('an expired session goes to login with the notice', () => {
-    expect(decideAccess({ kind: 'expired' }, '/admin')).toEqual({
+    expect(decideAccess({ kind: 'expired' }, '/administradores')).toEqual({
       kind: 'login',
-      url: '/login?next=%2Fadmin&sessao=expirada'
+      url: '/login?next=%2Fadministradores&sessao=expirada'
     })
   })
 })

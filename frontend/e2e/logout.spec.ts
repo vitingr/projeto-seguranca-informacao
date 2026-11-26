@@ -11,7 +11,7 @@ test('logout ends the session, and Back shows no protected content', async ({
   context,
   page
 }) => {
-  await loginAs(page, seedAdmin(), '/admin')
+  await loginAs(page, seedAdmin(), '/administradores')
   await expect(page.getByTestId('area')).toBeVisible()
 
   // Real clicks, so Chromium keeps the history entries (spike 3).
@@ -23,21 +23,21 @@ test('logout ends the session, and Back shows no protected content', async ({
   expect(await sessionCookies(context)).toEqual([])
   await expectNothingInBrowserStorage(page)
 
-  // Back to the /admin history entry: the page is checked again on the
+  // Back to the /administradores history entry: the page is checked again on the
   // server, so it goes to login instead of showing the area.
   await page.goBack()
-  await expect(page).toHaveURL('/login?next=%2Fadmin')
+  await expect(page).toHaveURL('/login?next=%2Fadministradores')
   await expect(page.getByTestId('area')).toHaveCount(0)
 
-  await page.goto('/admin')
-  await expect(page).toHaveURL('/login?next=%2Fadmin')
+  await page.goto('/administradores')
+  await expect(page).toHaveURL('/login?next=%2Fadministradores')
 })
 
 test('logout when the session already ended still logs out', async ({
   context,
   page
 }) => {
-  await loginAs(page, comumUser(), '/minha-conta')
+  await loginAs(page, comumUser(), '/usuarios')
 
   // Another tab ends the session first.
   const other = await context.newPage()

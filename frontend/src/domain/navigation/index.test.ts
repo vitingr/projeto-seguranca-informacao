@@ -6,8 +6,8 @@ import { landingFor, loginUrl, safeNext } from '.'
 
 describe('landingFor', () => {
   it.each<[Role, string]>([
-    ['admin', '/admin'],
-    ['comum', '/minha-conta']
+    ['admin', '/administradores'],
+    ['comum', '/usuarios']
   ])('%s → %s', (role, want) => {
     expect(landingFor(role)).toBe(want)
   })
@@ -15,28 +15,34 @@ describe('landingFor', () => {
 
 describe('safeNext', () => {
   it.each<[unknown, Role, string]>([
-    ['/admin', 'admin', '/admin'],
-    ['/cadastrar-usuarios', 'admin', '/cadastrar-usuarios'],
-    ['/minha-conta', 'comum', '/minha-conta'],
+    ['/administradores', 'admin', '/administradores'],
+    ['/cadastro', 'admin', '/cadastro'],
+    ['/usuarios', 'comum', '/usuarios'],
     // a route of another role
-    ['/admin', 'comum', '/minha-conta'],
-    ['/cadastrar-usuarios', 'comum', '/minha-conta'],
-    ['/minha-conta', 'admin', '/admin'],
+    ['/administradores', 'comum', '/usuarios'],
+    ['/cadastro', 'comum', '/usuarios'],
+    ['/usuarios', 'admin', '/administradores'],
+    // the old page paths no longer exist (spec AC-0.7)
+    ['/admin', 'admin', '/administradores'],
+    ['/cadastrar-usuarios', 'admin', '/administradores'],
+    ['/minha-conta', 'comum', '/usuarios'],
+    ['/admin', 'comum', '/usuarios'],
+    ['/minha-conta', 'admin', '/administradores'],
     // no open redirect
-    ['https://evil.example/admin', 'admin', '/admin'],
-    ['//evil.example', 'admin', '/admin'],
-    ['/\\evil.example', 'comum', '/minha-conta'],
-    ['/login', 'admin', '/admin'],
-    ['/', 'comum', '/minha-conta'],
-    ['/admin/', 'admin', '/admin'],
-    ['/admin?x=1', 'admin', '/admin'],
-    ['/ADMIN', 'admin', '/admin'],
-    ['toString', 'admin', '/admin'],
-    ['__proto__', 'comum', '/minha-conta'],
+    ['https://evil.example/administradores', 'admin', '/administradores'],
+    ['//evil.example', 'admin', '/administradores'],
+    ['/\\evil.example', 'comum', '/usuarios'],
+    ['/login', 'admin', '/administradores'],
+    ['/', 'comum', '/usuarios'],
+    ['/administradores/', 'admin', '/administradores'],
+    ['/administradores?x=1', 'admin', '/administradores'],
+    ['/ADMINISTRADORES', 'admin', '/administradores'],
+    ['toString', 'admin', '/administradores'],
+    ['__proto__', 'comum', '/usuarios'],
     // not a single string
-    [undefined, 'admin', '/admin'],
-    [['/admin', '/minha-conta'], 'admin', '/admin'],
-    ['', 'comum', '/minha-conta']
+    [undefined, 'admin', '/administradores'],
+    [['/administradores', '/usuarios'], 'admin', '/administradores'],
+    ['', 'comum', '/usuarios']
   ])('next=%j for %s → %s', (next, role, want) => {
     expect(safeNext(next, role)).toBe(want)
   })
@@ -44,12 +50,12 @@ describe('safeNext', () => {
 
 describe('loginUrl', () => {
   it('keeps the path to come back to', () => {
-    expect(loginUrl('/admin')).toBe('/login?next=%2Fadmin')
+    expect(loginUrl('/administradores')).toBe('/login?next=%2Fadministradores')
   })
 
   it('marks an expired session', () => {
-    expect(loginUrl('/minha-conta', { expired: true })).toBe(
-      '/login?next=%2Fminha-conta&sessao=expirada'
+    expect(loginUrl('/usuarios', { expired: true })).toBe(
+      '/login?next=%2Fusuarios&sessao=expirada'
     )
   })
 })

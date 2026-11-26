@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Cadastrar usuários' }
 
 // Admin only. The backend enforces it again on POST /api/cadastro.
 const Page = async () => {
-  const { allowed, user } = await requireRole('/cadastrar-usuarios')
+  const { allowed, user } = await requireRole('/cadastro')
   return (
     <>
       <AppHeader role={user.role} />

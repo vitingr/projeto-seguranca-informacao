@@ -214,3 +214,96 @@ func TestContractTicketResponseMatchesStruct(t *testing.T) {
 		t.Errorf("TicketResponse vs ticketResponse: %s", problem)
 	}
 }
+
+// TestDiffParameters checks the parameter comparison on a small inline
+// contract (plan 003 section 8: the contract test reads path and query
+// parameters for the first time).
+func TestDiffParameters(t *testing.T) {
+	t.Parallel()
+
+	const components = `"components": {"parameters": {
+		"TicketId": {"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "minimum": 1}},
+		"OtherId": {"name": "id", "in": "path", "required": true},
+		"StatusQuery": {"name": "status", "in": "query"},
+		"PaginaQuery": {"name": "pagina", "in": "query"},
+		"Csrf": {"name": "X-CSRF-Token", "in": "header", "required": true}
+	}}`
+	tests := []struct {
+		name   string
+		path   string
+		params string
+		query  []string
+		want   []string
+	}{
+		{"no parameters", "/x", ``, nil, nil},
+		{"id through TicketId", "/x/{id}", `{"$ref": "#/components/parameters/TicketId"}`, nil, nil},
+		{"id without TicketId", "/x/{id}", ``, nil, []string{`path parameter "id" is not declared`}},
+		{
+			"id inline instead of TicketId", "/x/{id}", `{"name": "id", "in": "path", "required": true}`, nil,
+			[]string{`path parameter "id" must be $ref "#/components/parameters/TicketId"`},
+		},
+		{
+			"id through another component", "/x/{id}", `{"$ref": "#/components/parameters/OtherId"}`, nil,
+			[]string{`path parameter "id" must be $ref "#/components/parameters/TicketId"`},
+		},
+		{
+			"path parameter not in the path", "/x", `{"$ref": "#/components/parameters/TicketId"}`, nil,
+			[]string{`path parameter "id" is not in the path`},
+		},
+		{
+			"optional path parameter", "/x/{slug}", `{"name": "slug", "in": "path"}`, nil,
+			[]string{`path parameter "slug" must be required`},
+		},
+		{
+			"query parameters match", "/x", `{"$ref": "#/components/parameters/StatusQuery"}, {"$ref": "#/components/parameters/PaginaQuery"}`,
+			[]string{"status", "pagina"},
+			nil,
+		},
+		{
+			"missing query parameter", "/x", `{"$ref": "#/components/parameters/StatusQuery"}`,
+			[]string{"status", "pagina"},
+			[]string{`query parameter "pagina" is not declared`},
+		},
+		{
+			"extra query parameter", "/x", `{"$ref": "#/components/parameters/StatusQuery"}, {"$ref": "#/components/parameters/PaginaQuery"}`,
+			[]string{"status"},
+			[]string{`query parameter "pagina" is not read by the route`},
+		},
+		{
+			"unresolved $ref", "/x", `{"$ref": "#/components/parameters/Nope"}`, nil,
+			[]string{`parameter $ref "#/components/parameters/Nope" does not resolve`},
+		},
+		{"header parameters are ignored", "/x/{id}", `{"$ref": "#/components/parameters/Csrf"}, {"$ref": "#/components/parameters/TicketId"}`, nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			doc := parseContract(t, `{"paths": {"`+tt.path+`": {"get": {"parameters": [`+tt.params+`]}}}, `+components+`}`)
+			ops, err := doc.operations()
+			if err != nil {
+				t.Fatal(err)
+			}
+			pattern := "GET " + tt.path
+			if got := diffParameters(doc, pattern, ops[pattern], tt.query); !slices.Equal(got, tt.want) {
+				t.Errorf("diffParameters() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPathWildcards(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string][]string{
+		"/api/tickets":      nil,
+		"/api/tickets/{id}": {"id"},
+		"/api/administradores/tickets/{id}/mensagens": {"id"},
+		"/files/{path...}": {"path"},
+		"/a/{x}/b/{y}":     {"x", "y"},
+	}
+	for path, want := range tests {
+		if got := pathWildcards(path); !slices.Equal(got, want) {
+			t.Errorf("pathWildcards(%q) = %q, want %q", path, got, want)
+		}
+	}
+}

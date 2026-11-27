@@ -4,6 +4,8 @@
 // backend/api/openapi.json in index.test.ts, since `domain` cannot import
 // the API contract in `lib`.
 
+import { z } from 'zod'
+
 import type {
   TicketField,
   TicketFieldKey,
@@ -100,6 +102,28 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   fechado: 'Fechado',
   resolvido: 'Resolvido'
 }
+
+/**
+ * The status changes an admin may choose from each status (spec 003 BR-3),
+ * the same table as the backend's `AllowedNextStatuses`. "Fechado" is final.
+ */
+export const ALLOWED_NEXT_STATUSES = {
+  aberto: ['em_andamento', 'fechado'],
+  em_andamento: ['resolvido', 'fechado'],
+  fechado: [],
+  resolvido: ['em_andamento', 'fechado']
+} as const satisfies Record<TicketStatus, readonly TicketStatus[]>
+
+/** The longest message of a thread, in code points (spec 003 BR-6). */
+export const MESSAGE_MAX = 2000
+
+/** The field messages of a thread reply (spec 003 AC-3.5, 001 section 4). */
+export const MESSAGE_PROBLEMS = {
+  control: 'Remova os caracteres de controle do texto.',
+  empty: 'Preencha este campo.',
+  invalidText: 'O texto tem caracteres inválidos. Digite-o novamente.',
+  tooLong: `Use no máximo ${MESSAGE_MAX} caracteres.`
+} as const
 
 /** Limits of spec section 4, in Unicode code points. */
 export const FIELD_LIMITS = {
@@ -271,6 +295,38 @@ export const trimField = (value: string): string =>
 
 /** Length in Unicode code points, as the backend counts it. */
 export const codePoints = (value: string): number => [...value].length
+
+/** A lone surrogate: the JavaScript form of text that is not valid UTF-8. */
+const LONE_SURROGATE = /\p{Surrogate}/u
+
+/** Go's unicode.IsControl except line feed, carriage return and tab. */
+const FORBIDDEN_CONTROL = new RegExp(
+  '[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]'
+)
+
+/**
+ * The message rule of the backend's `ValidateMessage` (spec 003 BR-6, the
+ * multi-line rule of 001): valid text, trimmed, 1 to 2000 code points, and
+ * no control character but line feed, carriage return and tab. `null` when
+ * the text is valid, otherwise the message to show under the field.
+ */
+export const checkMessage = (raw: string): null | string => {
+  if (LONE_SURROGATE.test(raw)) return MESSAGE_PROBLEMS.invalidText
+  const value = trimField(raw)
+  if (value === '') return MESSAGE_PROBLEMS.empty
+  if (FORBIDDEN_CONTROL.test(value)) return MESSAGE_PROBLEMS.control
+  if (codePoints(value) > MESSAGE_MAX) return MESSAGE_PROBLEMS.tooLong
+  return null
+}
+
+/** The reply text as zod checks it before sending; the result is trimmed. */
+export const messageSchema = z
+  .string()
+  .superRefine((raw, ctx) => {
+    const problem = checkMessage(raw)
+    if (problem) ctx.addIssue({ code: 'custom', message: problem })
+  })
+  .transform(trimField)
 
 /** The first `max` code points of `value`, never splitting a character. */
 const cutCodePoints = (value: string, max: number): string =>

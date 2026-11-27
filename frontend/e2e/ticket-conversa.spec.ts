@@ -10,11 +10,6 @@ import {
   reply
 } from './support/tracking'
 
-// The "Conversa" tab of the author's ticket page (spec 003 US-3, task T8.3):
-// both sides of the thread, the status lines, the position on open, the
-// explicit refresh and the empty thread. Entries are created through the
-// API, as the author and as the seed admin.
-
 const OTHER = (titulo: string) =>
   ({
     dados: {
@@ -32,7 +27,6 @@ const openConversa = async (page: Page, id: number) => {
 const thread = (page: Page) =>
   page.getByRole('list', { name: 'Conversa do ticket' })
 
-/** The thread region is scrolled to its end and fits the screen. */
 const expectLatestInView = async (page: Page) => {
   const region = page.getByTestId('thread-scroll')
   await expect
@@ -100,7 +94,6 @@ test('shows both sides and the status lines in date order (AC-3.1, AC-3.2)', asy
   await expect(items.nth(3)).toContainText('Estamos olhando agora.')
   await expect(items.nth(3).locator('[data-support-mark]')).toBeAttached()
   await expect(items.nth(4)).toHaveAttribute('data-side', 'own')
-  // The comum author never sees an admin login (S-13).
   await expect(thread(page)).not.toContainText(seedAdmin().login)
 })
 
@@ -111,7 +104,6 @@ test('opens on the latest entry, inside a bounded scroll region (AC-3.4a)', asyn
   const items = thread(page).locator(':scope > li')
   await expect(items).toHaveCount(15)
   await expectLatestInView(page)
-  // Older entries are reached by scrolling up inside the region.
   await expect(items.first()).not.toBeInViewport()
 })
 

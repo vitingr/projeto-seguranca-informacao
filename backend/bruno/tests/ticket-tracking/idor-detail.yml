@@ -12,13 +12,11 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        // Kept to compare with a ticket that does not exist (121, 122).
         const body = Object.assign({}, res.getBody());
         delete body.request_id;
         bru.setVar("idorAnswer", JSON.stringify({ status: res.getStatus(), body: body }));
     - type: tests
       code: |-
-        // Spec 003 S-2: B asks for A's ticket and gets the generic 404.
         test("status is 404", function () {
           expect(res.getStatus()).to.equal(404);
         });

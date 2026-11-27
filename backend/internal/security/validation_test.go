@@ -13,8 +13,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// sentinelPassword marks the password in request bodies, so tests can check
-// that it never leaks into errors or logs.
 const sentinelPassword = "Sentinel-Pa55word-7f3a"
 
 type loginBody struct {
@@ -31,7 +29,6 @@ func newJSONRequest(t *testing.T, contentType, body string) *http.Request {
 	return req
 }
 
-// padTo returns body followed by spaces up to n bytes.
 func padTo(body string, n int) string {
 	return body + strings.Repeat(" ", n-len(body))
 }
@@ -97,9 +94,6 @@ func TestDecodeJSON(t *testing.T) {
 	}
 }
 
-// TestDecodeJSONErrorsNeverQuoteTheBody guards the logs: an error from
-// DecodeJSON may be logged, so it must be one of the fixed messages and
-// never carry bytes or field names from the body.
 func TestDecodeJSONErrorsNeverQuoteTheBody(t *testing.T) {
 	t.Parallel()
 
@@ -202,13 +196,10 @@ func TestValidatePassword(t *testing.T) {
 		{"too short", strings.Repeat("a", 14), false},
 		{"too long", strings.Repeat("a", 129), false},
 		{"empty", "", false},
-		// 15 code points but 30 bytes: length counts code points.
 		{"multi-byte minimum", strings.Repeat("\u00e9", 15), true},
 		{"multi-byte too long", strings.Repeat("\u00e9", 129), false},
-		// "e" + combining acute (2 code points) composes to "\u00e9" (1) under NFKC.
 		{"composes below minimum", strings.Repeat("e\u0301", 14), false},
 		{"composes to the maximum", strings.Repeat("e\u0301", 128), true},
-		// The ligature "\ufb03" (1 code point) expands to "ffi" (3) under NFKC.
 		{"expands to the minimum", strings.Repeat("\ufb03", 5), true},
 		{"expands above maximum", strings.Repeat("\ufb03", 43), false},
 	}
@@ -285,21 +276,17 @@ func TestParseRole(t *testing.T) {
 	}
 }
 
-// registrationBody mirrors the registration request (login, senha, papel).
 type registrationBody struct {
 	Login string `json:"login"`
 	Senha string `json:"senha"`
 	Papel string `json:"papel"`
 }
 
-// decodeInto runs DecodeJSON on body with the JSON content type.
 func decodeInto(t *testing.T, s *Security, body string, dst any) error {
 	t.Helper()
 	return s.DecodeJSON(httptest.NewRecorder(), newJSONRequest(t, "application/json", body), dst)
 }
 
-// checkFixedRefusal checks that err is the fixed error of reason: it wraps
-// ErrInvalidInput (400) and quotes nothing from the body.
 func checkFixedRefusal(t *testing.T, err error, reason string) {
 	t.Helper()
 	if !errors.Is(err, domain.ErrInvalidInput) {
@@ -313,11 +300,6 @@ func checkFixedRefusal(t *testing.T, err error, reason string) {
 	}
 }
 
-// TestDecodeJSONKeySpelling covers plan P-11 for login and registration:
-// encoding/json alone matches keys in any case and keeps the last of
-// duplicate keys, so {"login":"a",…,"LOGIN":"b"} would be read as "b" here
-// and maybe as "a" by a proxy or a log. Every key must be one of the
-// struct's json names, spelled exactly, and none may repeat in any case.
 func TestDecodeJSONKeySpelling(t *testing.T) {
 	t.Parallel()
 
@@ -334,7 +316,6 @@ func TestDecodeJSONKeySpelling(t *testing.T) {
 		{"login twice", `{"login":"nobody",` + pw + `,"login":"admin"}`, reasonDuplicateKey},
 		{"login and LOGIN", `{"login":"nobody",` + pw + `,"LOGIN":"admin"}`, reasonDuplicateKey},
 		{"senha and Senha", `{"login":"admin","senha":"x","Senha":"` + sentinelPassword + `"}`, reasonDuplicateKey},
-		// Refused at its first key already, for the spelling.
 		{"LOGIN before login", `{"LOGIN":"admin","login":"nobody",` + pw + `}`, reasonMalformed},
 	}
 	for _, tt := range login {
@@ -368,7 +349,6 @@ func TestDecodeJSONKeySpelling(t *testing.T) {
 		})
 	}
 
-	// The documented keys, exactly spelled, still decode.
 	var dst registrationBody
 	if err := decodeInto(t, newTestSecurity(t, nil), `{"login":"maria",`+pw+`,"papel":"comum"}`, &dst); err != nil {
 		t.Fatalf("exact keys: %v", err)
@@ -378,13 +358,9 @@ func TestDecodeJSONKeySpelling(t *testing.T) {
 	}
 }
 
-// TestDecodeJSONRefusesInvalidUTF8 covers plan P-11 at the body level:
-// encoding/json alone would turn each invalid byte into U+FFFD and accept
-// the login or the password.
 func TestDecodeJSONRefusesInvalidUTF8(t *testing.T) {
 	t.Parallel()
 
-	// Built from bytes, so no tool can rewrite them as valid characters.
 	var (
 		invalidByte = string([]byte{0xff})
 		truncated   = string([]byte{0xc3})
@@ -414,7 +390,6 @@ func TestDecodeJSONRefusesInvalidUTF8(t *testing.T) {
 		})
 	}
 
-	// The same kinds of characters, written correctly, decode as typed.
 	var dst loginBody
 	if err := decodeInto(t, newTestSecurity(t, nil), `{"login":"joão","senha":"Sênha-çã-😀-`+sentinelPassword+`"}`, &dst); err != nil {
 		t.Fatalf("valid UTF-8 body: %v", err)
@@ -424,9 +399,6 @@ func TestDecodeJSONRefusesInvalidUTF8(t *testing.T) {
 	}
 }
 
-// TestDecodeJSONRefusesBodiesThatAreNotObjects: the key rule needs an
-// object, so a JSON null (which encoding/json reads into a struct as "no
-// fields") or an array is refused like any other wrong shape.
 func TestDecodeJSONRefusesBodiesThatAreNotObjects(t *testing.T) {
 	t.Parallel()
 
@@ -441,9 +413,6 @@ func TestDecodeJSONRefusesBodiesThatAreNotObjects(t *testing.T) {
 	}
 }
 
-// TestDecodeJSONKeysComeFromTheTags checks how the accepted keys are read
-// from the destination, and that a destination the rule cannot describe is
-// refused as a server error (not ErrInvalidInput), so it fails closed.
 func TestDecodeJSONKeysComeFromTheTags(t *testing.T) {
 	t.Parallel()
 

@@ -1,8 +1,5 @@
 import { Skeleton } from '@/components/ui/shadcn/skeleton'
 
-// A quiet skeleton of `/usuarios` while the profile and "Meus tickets" load
-// (spec 003 section 7, "Loading"): the title, the profile card and the rows
-// of the list.
 const Loading = () => (
   <main
     aria-busy="true"

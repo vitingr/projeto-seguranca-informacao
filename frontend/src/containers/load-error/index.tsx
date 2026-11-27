@@ -14,12 +14,6 @@ export const LOAD_ERROR_TEXTS = {
   retrying: 'Tentando…'
 } as const
 
-/**
- * A list or a ticket that could not be loaded (spec 003 AC-1.10, plan 6.8):
- * an inline alert in place of the content, and "Tentar novamente", which
- * renders the page again on the server (`router.refresh()`). Nothing from
- * an earlier answer is kept on screen.
- */
 export const LoadError = ({ message }: LoadErrorProps) => {
   const router = useRouter()
   const [pending, startTransition] = useTransition()

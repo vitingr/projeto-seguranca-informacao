@@ -12,9 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-6.7, BR-8: A sees the new status on the next load; the close
-        // (255) is the latest change, so ticketA1 is first again; 520
-        // changed nothing.
         test("ticketA1 is fechado and first, ticketA2 still aberto", function () {
           const items = res.getBody().items;
           expect(items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA1"), bru.getVar("ticketA2")]);

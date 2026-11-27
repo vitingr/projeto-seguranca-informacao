@@ -41,6 +41,5 @@ runtime:
           expect(session).to.include("Path=/");
           const pair = session.split(";")[0];
           expect(pair).to.not.equal(bru.getVar("anonCookie"));
-          // Saved for me-after-logout (D-17).
           bru.setVar("sessionCookie", pair);
         });

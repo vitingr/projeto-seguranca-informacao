@@ -11,7 +11,6 @@ export const HEADER_TEXTS = {
   updatedAt: 'Atualizado em'
 } as const
 
-/** A date with its instant in `dateTime`, or a dash for a broken value. */
 const When = ({ iso }: WhenProps) => {
   const text = formatDateTime(iso) ?? '—'
   return (
@@ -28,12 +27,6 @@ const HeaderFact = ({ children, label }: HeaderFactProps) => (
   </div>
 )
 
-/**
- * The header of a ticket page (spec 003 AC-2.1, AC-5.1): "#<id>", the title
- * as the page's `h1`, the status badge, the type and both dates; the admin
- * page adds "Usuário: <login>" and the status action. Every value is plain
- * text (S-10).
- */
 export const TicketHeader = ({
   actions,
   ticket,
@@ -43,8 +36,6 @@ export const TicketHeader = ({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="text-muted-foreground text-sm">{`#${ticket.id}`}</p>
-        {/* Focused by the page on open, never by the Tab key (tabIndex -1),
-            so it shows no ring; every control keeps its visible focus. */}
         <h1
           className="text-2xl font-semibold break-words outline-none"
           id={titleId}

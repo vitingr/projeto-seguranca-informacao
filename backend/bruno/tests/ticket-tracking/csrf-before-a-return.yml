@@ -15,7 +15,6 @@ runtime:
         bru.setVar("csrfToken", res.getBody().csrf_token);
     - type: tests
       code: |-
-        // A comes back after the support team worked the tickets (500-590).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

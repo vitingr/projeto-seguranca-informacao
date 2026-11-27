@@ -10,8 +10,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// messageMarker marks the text in request bodies, so tests can check that
-// no error quotes it.
 const messageMarker = "Texto-Secreto-41b9"
 
 func decodeMessage(t *testing.T, s *Security, contentType, body string) (string, error) {
@@ -65,7 +63,6 @@ func TestDecodeMessageRefuses(t *testing.T) {
 		body        string
 		reason      string
 	}{
-		// Server-owned and unknown keys (S-8).
 		{"author", ct, `{` + text + `,"author":1}`, reasonMalformed},
 		{"user_id", ct, `{` + text + `,"user_id":1}`, reasonMalformed},
 		{"created_at", ct, `{` + text + `,"created_at":"2020-01-01T00:00:00Z"}`, reasonMalformed},
@@ -75,13 +72,11 @@ func TestDecodeMessageRefuses(t *testing.T) {
 		{"kind", ct, `{` + text + `,"kind":"status_change"}`, reasonMalformed},
 		{"text in english", ct, `{"text":"` + messageMarker + `"}`, reasonMalformed},
 
-		// Key spelling.
 		{"Texto", ct, `{"Texto":"` + messageMarker + `"}`, reasonMalformed},
 		{"TEXTO", ct, `{"TEXTO":"` + messageMarker + `"}`, reasonMalformed},
 		{"duplicate texto", ct, `{` + text + `,"texto":"outro"}`, reasonDuplicateKey},
 		{"duplicate in another case", ct, `{` + text + `,"TEXTO":"outro"}`, reasonDuplicateKey},
 
-		// Missing or of the wrong type.
 		{"empty object", ct, `{}`, reasonNoText},
 		{"texto null", ct, `{"texto":null}`, reasonNoText},
 		{"texto number", ct, `{"texto":1}`, reasonMalformed},
@@ -92,7 +87,6 @@ func TestDecodeMessageRefuses(t *testing.T) {
 		{"body string", ct, `"` + messageMarker + `"`, reasonMalformed},
 		{"body array", ct, `[{` + text + `}]`, reasonMalformed},
 
-		// The envelope rules of DecodeJSON.
 		{"trailing data", ct, `{` + text + `}{"x":1}`, reasonTrailing},
 		{"invalid utf-8 in the text", ct, `{"texto":"Ol` + invalidByte + `á ` + messageMarker + `"}`, reasonInvalidUTF8},
 		{"invalid utf-8 in a key", ct, `{` + text + `,"` + invalidByte + `":1}`, reasonInvalidUTF8},
@@ -123,9 +117,6 @@ func TestDecodeMessageRefuses(t *testing.T) {
 	}
 }
 
-// TestDecodeMessageLargestValid sends the longest valid message with every
-// character an emoji written as a JSON escape pair (12 bytes each), the
-// most a client can spend per character: it fits the 64 KiB body limit.
 func TestDecodeMessageLargestValid(t *testing.T) {
 	t.Parallel()
 
@@ -176,8 +167,6 @@ func TestValidateMessage(t *testing.T) {
 	})
 }
 
-// TestValidateMessageErrorsNeverQuoteTheText checks the error of every
-// refusal class against the text itself (S-12).
 func TestValidateMessageErrorsNeverQuoteTheText(t *testing.T) {
 	t.Parallel()
 

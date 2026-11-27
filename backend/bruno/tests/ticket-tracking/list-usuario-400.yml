@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // S-3: a comum user cannot pick the author; the parameter is
-        // refused, never honored.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

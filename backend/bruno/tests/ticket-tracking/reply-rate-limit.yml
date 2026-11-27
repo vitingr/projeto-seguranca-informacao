@@ -21,8 +21,7 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        // Spends the quota: 30 replies, each answered 201 (spec 003 S-9).
-        // This request is then the 31st within the minute.
+        // 30 replies spend the quota; this is the 31st within the minute.
         const url = bru.interpolate("{{baseUrl}}/api/tickets/{{ticketRlm}}/mensagens");
         const statuses = [];
         for (let i = 1; i <= 30; i++) {

@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // BR-8, AC-4.3: the admin reply moved ticketA2 to the top.
         test("ticketA2 is first", function () {
           expect(res.getBody().items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA2"), bru.getVar("ticketA1")]);
         });

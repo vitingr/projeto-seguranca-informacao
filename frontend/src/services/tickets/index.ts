@@ -9,9 +9,6 @@ import { SESSION_COOKIE, createBackendGet } from '@/lib/backend'
 
 import { createTicketLoaders } from './loaders'
 
-// Server reads of ticket tracking for the pages (plan P-5); the logic and
-// its tests are in loaders.ts.
-
 const backendGet = createBackendGet(
   parseApiUrl({ raw: env.apiBaseUrl }),
   (...a) => fetch(...a)

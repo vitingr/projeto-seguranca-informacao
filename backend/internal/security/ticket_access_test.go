@@ -80,10 +80,8 @@ func TestCanAccessTicket(t *testing.T) {
 		{"admin on a ticket of another admin id", Principal{UserID: owner, Role: domain.RoleAdmin}, other, true},
 		{"comum author", Principal{UserID: owner, Role: domain.RoleComum}, owner, true},
 
-		// BR-1: for a comum user, every other ticket does not exist.
 		{"other comum user", Principal{UserID: other, Role: domain.RoleComum}, owner, false},
 
-		// Fail closed.
 		{"no principal", Principal{}, owner, false},
 		{"zero user id, comum", Principal{Role: domain.RoleComum}, owner, false},
 		{"zero user id, admin", Principal{Role: domain.RoleAdmin}, owner, false},
@@ -105,7 +103,6 @@ func TestCanAccessTicket(t *testing.T) {
 	}
 }
 
-// fakeTicketStore is a TicketOwnerStore over a map, counting its calls.
 type fakeTicketStore struct {
 	authors map[domain.TicketID]domain.UserID
 	err     error // returned for every id when set
@@ -124,9 +121,6 @@ func (f *fakeTicketStore) TicketAuthor(_ context.Context, id domain.TicketID) (d
 	return author, nil
 }
 
-// renderWithRequestID mimics the web renderer: the generic JSON body and a
-// new request id per answer, so tests can show two 404s are identical
-// except for that id.
 func renderWithRequestID() ErrorRenderer {
 	var seq atomic.Int64
 	return func(w http.ResponseWriter, _ *http.Request, status int) {
@@ -142,8 +136,7 @@ func renderWithRequestID() ErrorRenderer {
 	}
 }
 
-// Users and tickets of the TicketAccess tests: A wrote ticket 1, B wrote
-// ticket 2, and ticket 999 does not exist.
+// A wrote ticket 1, B wrote ticket 2, ticket 999 does not exist.
 const (
 	userA, userB, adminID       domain.UserID   = 10, 11, 1
 	ticketOfA, ticketOfB, noTkt domain.TicketID = 1, 2, 999
@@ -155,8 +148,6 @@ var (
 	principalAdmin = Principal{UserID: adminID, Role: domain.RoleAdmin}
 )
 
-// ticketRoute is one of the routes of spec 003 that take a ticket id: read
-// the ticket (R2), list its messages (R3) and reply (R4).
 type ticketRoute struct {
 	name, method, path string // path has "%s" where the id goes
 }
@@ -207,7 +198,6 @@ func newTicketAccessFixture(t *testing.T, mutate func(o *Options)) *ticketAccess
 	return f
 }
 
-// do sends one request as principal (nil for none) to the fixture's mux.
 func (f *ticketAccessFixture) do(route ticketRoute, id string, principal *Principal) *httptest.ResponseRecorder {
 	var body *strings.Reader
 	if route.method == http.MethodPost {
@@ -225,9 +215,6 @@ func (f *ticketAccessFixture) do(route ticketRoute, id string, principal *Princi
 	return rec
 }
 
-// normalized is an answer with its request id blanked: the status, every
-// header and the body bytes. It also checks the body is exactly
-// {error, message, request_id} and that request_id is the X-Request-Id.
 func normalized(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	id := rec.Header().Get("X-Request-Id")
@@ -287,10 +274,6 @@ func TestTicketAccessLetsTheAuthorAndAdminsThrough(t *testing.T) {
 	}
 }
 
-// TestTicketAccessIDOR is S-2: user A reading, listing the messages of and
-// replying to B's ticket gets the same 404 as for a ticket that does not
-// exist or an id that is not a number, byte for byte except the request
-// id, and no handler runs (so nothing is read or written).
 func TestTicketAccessIDOR(t *testing.T) {
 	t.Parallel()
 
@@ -323,8 +306,6 @@ func TestTicketAccessIDOR(t *testing.T) {
 				t.Errorf("handlers reached: %v, want none", f.reached)
 			}
 
-			// The same calls from B, the author, and from an admin pass:
-			// the 404 above came from the ownership rule only.
 			if rec := f.do(route, formatTicketID(ticketOfB), &principalB); rec.Code != http.StatusOK {
 				t.Errorf("B on B's ticket: status = %d, want 200", rec.Code)
 			}

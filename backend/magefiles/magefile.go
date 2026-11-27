@@ -25,8 +25,6 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-// Pinned versions of the tools run with "go run". Upgrade them on purpose,
-// checking that each one supports the go version in go.mod.
 const (
 	gooseModule   = "github.com/pressly/goose/v3/cmd/goose@v3.29.0"
 	govulnModule  = "golang.org/x/vuln/cmd/govulncheck@v1.9.0"
@@ -38,13 +36,8 @@ const (
 	keyFile    = "certs/server.key"
 )
 
-// golangciLintVersion is the golangci-lint version expected on the PATH. Keep
-// it in sync with GOLANGCI_LINT_VERSION in .github/workflows/backend.yml, at
-// the repository root, so local and CI lint results match.
 const golangciLintVersion = "2.14.0"
 
-// Contract files and the pinned npm package that lints them. Packages run with
-// npx are pinned to an exact version, never a range or a dist-tag.
 const (
 	contractFile  = "api/openapi.json"
 	redoclyConfig = "redocly.yaml"
@@ -70,15 +63,9 @@ func Test() error {
 	if err := sh.RunV("go", "tool", "cover", "-func=coverage.out"); err != nil {
 		return err
 	}
-	// The magefile helpers have their own tests behind the mage build tag,
-	// which "./..." does not include.
 	return sh.RunV("go", "test", "-race", "-tags", "mage", "./magefiles")
 }
 
-// TestIntegration runs the integration tests (named Test...Integration)
-// against the PostgreSQL started by "mage dockerUp", after "mage migrateUp".
-// TEST_DATABASE_URL is the DATABASE_URL built from .env, the same one the
-// migrations use.
 func TestIntegration() error {
 	env, err := hostEnv()
 	if err != nil {
@@ -98,8 +85,6 @@ func Lint() error {
 	return sh.RunV("golangci-lint", "run")
 }
 
-// checkGolangciLint fails when the golangci-lint on the PATH is missing or is
-// not the pinned version, so local results do not drift from CI.
 func checkGolangciLint() error {
 	out, err := sh.Output("golangci-lint", "version", "--short")
 	if err != nil {
@@ -115,8 +100,6 @@ func Vuln() error {
 	return sh.RunV("go", "run", govulnModule, "./...")
 }
 
-// ContractLint validates api/openapi.json as OpenAPI 3.1 with the pinned
-// Redocly CLI (config in redocly.yaml). Requires Node.js with npx.
 func ContractLint() error {
 	return sh.RunV("npx", "--yes", redoclyCLI, "lint", contractFile, "--config", redoclyConfig)
 }

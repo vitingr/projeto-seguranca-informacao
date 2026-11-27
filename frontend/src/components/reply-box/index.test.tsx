@@ -101,7 +101,6 @@ describe('ReplyBox (spec 003 AC-3.4, D-1)', () => {
     expect(html).not.toMatch(
       /lucide-(plus|mic|at-sign|paperclip)|Auto|to everyone|@/
     )
-    // Radius and shadows are checked by src/test/design-rules.test.ts.
     expect(html).toContain('rounded-sm')
   })
 })

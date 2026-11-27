@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // BR-4, BR-10: A's reply and exactly the three accepted changes, in
-        // order; no refused request wrote anything.
         test("holds the reply and the three changes", function () {
           const entries = res.getBody().entries;
           expect(entries.map((e) => e.kind)).to.deep.equal(["message", "status_change", "status_change", "status_change"]);

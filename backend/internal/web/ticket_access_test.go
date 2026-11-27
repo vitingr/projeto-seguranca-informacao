@@ -13,8 +13,6 @@ import (
 	"backend_si/internal/security"
 )
 
-// idorRoute is a comum route with a ticket id, as user B would call it on
-// user A's ticket (spec 003 S-2). %s is the ticket id in the path.
 type idorRoute struct {
 	name   string
 	method string
@@ -22,7 +20,6 @@ type idorRoute struct {
 	body   string
 }
 
-// idorRoutes are the comum routes that take a ticket id.
 var idorRoutes = []idorRoute{
 	{"R2 detail", http.MethodGet, "/api/tickets/%s", ""},
 	{"R3 thread", http.MethodGet, "/api/tickets/%s/mensagens", ""},
@@ -32,12 +29,8 @@ var idorRoutes = []idorRoute{
 	{"R4 reply with an invalid body", http.MethodPost, "/api/tickets/%s/mensagens", `{"texto":"Uma mensagem","id":1}`},
 }
 
-// missingIDs are ids that must answer like a ticket that does not exist:
-// one that was never created, and malformed ones (S-6).
 var missingIDs = []string{"999999", "0", "-1", "01", "1e3", "abc", "9223372036854775808", "%31"}
 
-// normalized is a response with the request id taken out of the headers
-// and the body, so two answers can be compared byte for byte.
 type normalized struct {
 	status  int
 	headers http.Header
@@ -63,11 +56,6 @@ func (n normalized) equal(o normalized) bool {
 	return true
 }
 
-// TestTicketIDOR is S-2 over HTTP with the real handlers: user B asking for
-// user A's ticket gets a 404 byte-identical (status, headers but the
-// request id, body) to a ticket that does not exist and to malformed ids;
-// the handler is never reached, nothing is written, and the denial is one
-// log line with B's id and the ticket id.
 func TestTicketIDOR(t *testing.T) {
 	t.Parallel()
 
@@ -119,10 +107,6 @@ func TestTicketIDOR(t *testing.T) {
 	}
 }
 
-// TestEveryTicketRouteChecksAccess walks the routes table: every pattern
-// with {id} must run TicketAccess before its handler, so a ticket that does
-// not exist, a malformed id and (for a comum route) someone else's ticket
-// never reach the handler (plan P-8).
 func TestEveryTicketRouteChecksAccess(t *testing.T) {
 	t.Parallel()
 

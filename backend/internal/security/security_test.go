@@ -33,7 +33,6 @@ func renderStatus(w http.ResponseWriter, _ *http.Request, status int) {
 	_, _ = io.WriteString(w, http.StatusText(status))
 }
 
-// newTestSecurityWith is newTestSecurity with options changed by mutate.
 func newTestSecurityWith(t *testing.T, mutate func(o *Options)) *Security {
 	t.Helper()
 	opts := Options{
@@ -231,7 +230,6 @@ func TestRespondErrorHidesDetails(t *testing.T) {
 	}
 }
 
-// newJSONLogger returns a JSON logger that writes to w.
 func newJSONLogger(w io.Writer) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(w, nil))
 }

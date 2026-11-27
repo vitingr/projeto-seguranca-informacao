@@ -7,7 +7,6 @@ import { requireRole } from '@/services/session'
 
 export const metadata: Metadata = { title: 'Cadastrar usuários' }
 
-// Admin only. The backend enforces it again on POST /api/cadastro.
 const Page = async () => {
   const { allowed, user } = await requireRole('/cadastro')
   return (

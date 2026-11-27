@@ -21,10 +21,6 @@ func (rt route) pattern() string {
 	return rt.method + " " + rt.path
 }
 
-// routeQuery lists, by pattern, the query parameters a route reads (spec
-// 003 section 4). A route that is not here reads none. The handlers refuse
-// any other parameter with 400, and the contract test compares this table
-// with the parameters of api/openapi.json.
 var routeQuery = map[string][]string{
 	"GET /api/tickets":                                {"status", "tipo", "pagina"},
 	"GET /api/tickets/{id}/mensagens":                 {"antes"},

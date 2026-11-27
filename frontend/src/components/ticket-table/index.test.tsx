@@ -100,7 +100,6 @@ describe('TicketTable (spec 003 AC-1.2, AC-4.2)', () => {
       scope: 'queue'
     })
     expect(html).not.toMatch(/<script|<img/)
-    // Two title links (table and list) and nothing else.
     expect(html.match(/<a /g)).toHaveLength(2)
     expect(html).not.toContain('href="javascript:')
   })

@@ -12,9 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The frontend pages moved to /usuarios, /administradores and
-        // /cadastro (spec 001-ticket-builder, AC-0.7). The backend never
-        // served page paths: the old ones get the generic 404.
         test("status is 404", function () {
           expect(res.getStatus()).to.equal(404);
         });

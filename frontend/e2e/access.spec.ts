@@ -26,8 +26,6 @@ const headerLinks = (page: Page) =>
   page.getByRole('navigation', { name: 'Principal' }).getByRole('link')
 
 test.describe('anonymous', () => {
-  // There is no public home (spec AC-0.6). Without a session cookie the
-  // server does not call the API, and neither does the browser.
   test('/ goes to the login page', async ({ page }) => {
     const calls = recordApiCalls(page)
     await page.goto('/')
@@ -106,8 +104,6 @@ test.describe('admin', () => {
   })
 })
 
-// The pages moved to the paths the assignment requires (spec AC-0.7): the
-// old paths are gone for everyone, with no redirect.
 test.describe('old page paths', () => {
   const OLD_PATHS = ['/minha-conta', '/admin', '/cadastrar-usuarios']
   const who = {

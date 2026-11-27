@@ -82,7 +82,6 @@ const schema = (name: string): Schema => {
   return s
 }
 
-/** The schema name a `$ref` points to. */
 const refName = (ref: string | undefined) =>
   (ref ?? '').replace(/^#\/components\/(schemas|responses)\//, '')
 
@@ -154,7 +153,6 @@ describe('ticket types match backend/api/openapi.json', () => {
     const data = schema(refName(request.properties?.dados?.$ref))
     const keys: readonly string[] = TICKET_DATA_FIELDS[type]
     expect(Object.keys(data.properties ?? {})).toEqual([...keys])
-    // Every key is required except the deploy notes.
     expect(data.required).toEqual(keys.filter(key => key !== 'observacoes'))
     expect(data.additionalProperties).toBe(false)
   })

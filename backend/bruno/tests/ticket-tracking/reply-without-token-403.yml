@@ -18,7 +18,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // S-5: a write without the CSRF token is refused.
         test("status is 403", function () {
           expect(res.getStatus()).to.equal(403);
           expect(res.getBody().error).to.equal("forbidden");

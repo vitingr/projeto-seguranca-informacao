@@ -33,8 +33,6 @@ func TestSyncGenerated(t *testing.T) {
 		"auth/Log in.yml":        "new login request",
 		"areas/folder.yml":       "areas folder",
 	}
-	// What bruno/ must hold after the sync: the hand-written files as they
-	// were, plus the imported request folders and nothing else.
 	synced := map[string]string{
 		"opencollection.yml":     "hand-written collection",
 		"environments/local.yml": "hand-written environment",
@@ -47,7 +45,7 @@ func TestSyncGenerated(t *testing.T) {
 	tests := []struct {
 		name    string
 		src     map[string]string
-		dst     map[string]string // nil: dst does not exist yet
+		dst     map[string]string
 		want    map[string]string
 		wantErr bool
 	}{
@@ -164,7 +162,6 @@ func TestBrunoPreflight(t *testing.T) {
 	stopped := httptest.NewTLSServer(http.NotFoundHandler())
 	stopped.Close()
 
-	// All httptest servers share the same self-signed certificate.
 	cert := filepath.Join(t.TempDir(), "server.crt")
 	writeTree(t, filepath.Dir(cert), map[string]string{
 		"server.crt": string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: healthy.Certificate().Raw})),
@@ -180,7 +177,7 @@ func TestBrunoPreflight(t *testing.T) {
 		base     string
 		cert     string
 		lookPath func(string) (string, error)
-		wantErr  string // substring of the error; empty: no error
+		wantErr  string
 	}{
 		{"API up", healthy.URL, cert, npxFound, ""},
 		{"trailing slash in the base URL", healthy.URL + "/", cert, npxFound, ""},
@@ -292,7 +289,6 @@ func TestBrunoSeedEnv(t *testing.T) {
 	}
 }
 
-// loginRule is the login rule of internal/security (^[a-z0-9._-]{3,64}$).
 var loginRule = regexp.MustCompile(`^[a-z0-9._-]{3,64}$`)
 
 func TestBrunoComumEnv(t *testing.T) {
@@ -336,17 +332,12 @@ func TestBrunoComumEnv(t *testing.T) {
 				t.Errorf("bru argument %q carries a credential", a)
 			}
 		}
-		// D-15: the root requests, then the access matrix.
 		if i := slices.Index(args, "run"); i < 0 || len(args) < i+3 || args[i+1] != brunoTests || args[i+2] != brunoMatrix {
 			t.Errorf("args = %v, want run %s %s", args, brunoTests, brunoMatrix)
 		}
-		// Spec 001-ticket-builder: the ticket requests run after the matrix,
-		// which registers the comum user they log in as.
 		if i := slices.Index(args, "run"); i < 0 || len(args) < i+4 || args[i+3] != brunoTickets {
 			t.Errorf("args = %v, want %s after %s", args, brunoTickets, brunoMatrix)
 		}
-		// Spec 003: the ticket tracking requests run last, after the ticket
-		// requests, with users of their own.
 		if i := slices.Index(args, "run"); i < 0 || len(args) < i+5 || args[i+4] != brunoTracking {
 			t.Errorf("args = %v, want %s after %s", args, brunoTracking, brunoTickets)
 		}

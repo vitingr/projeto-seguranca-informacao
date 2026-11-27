@@ -18,20 +18,8 @@ export const REPLY_TEXTS = {
   shortcutMac: '⌘+Enter para enviar'
 } as const
 
-/** Whether the text has anything to send (not empty, not only spaces). */
 export const hasText = (value: string) => trimField(value) !== ''
 
-/**
- * The reply box of a ticket thread, after `input-texto.mp4` (spec 003
- * section 7, "Reply box", D-1), the same for the author and the admins: the
- * text on top (two lines, growing to about eight, then scrolling inside),
- * a row inside the box with the "N / 2000" counter and the square send
- * button (muted and inactive while there is no text, solid dark with text,
- * busy while sending), and a light tray under it saying who reads the
- * reply and the keyboard shortcut. Enter adds a line; Ctrl/⌘+Enter sends.
- * Focus marks the whole box. On a closed ticket the box gives way to the
- * closed line (AC-3.8).
- */
 export const ReplyBox = ({
   closed = false,
   closedAction,

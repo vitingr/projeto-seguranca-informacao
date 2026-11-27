@@ -34,39 +34,24 @@ export const CONVERSATION_TEXTS = {
   stay: 'Continuar no ticket'
 } as const
 
-/** The fade-in of a new own message, only when motion is allowed. */
 export const NEW_ENTRY_CLASS = 'motion-safe:animate-enter-blur'
 
-/** "1 mensagem", "N mensagens" (status lines are not messages). */
 export const messageCountText = (count: number) =>
   count === 1 ? '1 mensagem' : `${count} mensagens`
 
-/** "Atualizado às 14:12", from the server's render time (D-4). */
 export const refreshedAtText = (iso: string) => {
   const clock = formatClock(iso)
   return clock ? `Atualizado às ${clock}` : 'Atualizado agora'
 }
 
-/** How close to the end still counts as "at the latest entry", in px. */
-const NEAR_END = 48
+const NEAR_END = 48 // px
 
 const noSubscription = () => () => {}
 
-/** macOS shows "⌘+Enter"; the server and other systems "Ctrl+Enter". */
 const readMac = () => /Mac|iPhone|iPad/.test(navigator.platform)
 
-/** One reply at a time: a second click while sending starts nothing. */
 const sendOnce = singleFlight(sendReply)
 
-/**
- * The "Conversa" panel (spec 003 AC-3.1 to AC-3.10, D-4, plan 6.5): a header
- * row with the message count and "Atualizado às HH:MM · Atualizar", a
- * hairline, the thread in a bounded scroll region that opens on its latest
- * entry, and the reply box pinned under it. Nothing refreshes by itself
- * (BR-9): "Atualizar" and a sent reply render the page again on the server.
- * The view stays at the end if the user was there, otherwise where it was;
- * after the user's own reply it goes to the end.
- */
 export const TicketConversation = ({
   children,
   messageCount,
@@ -85,15 +70,10 @@ export const TicketConversation = ({
   const [sending, setSending] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const mac = useSyncExternalStore(noSubscription, readMac, () => false)
-  // AC-3.9: a typed reply not sent warns before the page is left (the text
-  // lives only in this page, never in storage or the address, S-11).
   const { leave, leaving, stay, stayRef } = useLeaveGuard(
     reply !== undefined && !reply.closed && hasText(text)
   )
 
-  // The panel may start hidden (the "Detalhes" tab keeps it mounted), so the
-  // jump to the end runs whenever the region or its content changes size:
-  // when the tab opens, and when a refresh brings new entries.
   useEffect(() => {
     const element = scroller.current
     if (!element) return

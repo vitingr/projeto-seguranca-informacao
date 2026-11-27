@@ -7,10 +7,6 @@ import {
   registerComum
 } from './support/tracking'
 
-// "Meus tickets" on /usuarios (spec 003 US-1, task T7.4). Each test file
-// registers users of its own (001 T9.8 pattern), so the lists hold only
-// what this file created.
-
 const COMUM_TEXT = 'Página de acesso restrito aos usuários comuns'
 
 const section = (page: Page) => page.getByTestId('my-tickets')
@@ -74,7 +70,6 @@ test.describe('a user with no ticket', () => {
     await expect(section(page)).toContainText(
       'Você ainda não criou nenhum ticket.'
     )
-    // The one "Novo ticket" of the page is the next action.
     await expect(page.getByRole('link', { name: 'Novo ticket' })).toHaveCount(1)
     await page.getByRole('link', { name: 'Novo ticket' }).click()
     await expect(page).toHaveURL('/usuarios/tickets/novo')

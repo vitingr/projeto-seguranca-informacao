@@ -46,7 +46,6 @@ const setup = (routes: Record<string, Reply[]>, path = '/cadastro') => {
   return { calls: f.calls, client, csrf, navigations, sequence, tokens }
 }
 
-// The token must only ever live in memory (D-3): any storage access throws.
 const storageNames = ['localStorage', 'sessionStorage', 'indexedDB', 'document']
 beforeEach(() => {
   for (const name of storageNames) {
@@ -226,7 +225,6 @@ describe('logout', () => {
       expect(s.navigations).toEqual(['replace /login'])
       expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
       expect(s.calls[1]?.body).toBeUndefined()
-      // The token is gone: the next call fetches a new one.
       await s.csrf.get()
       expect(s.sequence()).toEqual([CSRF, LOGOUT, CSRF])
     }
@@ -311,7 +309,6 @@ describe('createTicket', () => {
       error: { code: 'too_many_requests', status: 429 },
       ok: false
     })
-    // A second reply would be "unexpected request": only one POST was sent.
     expect(s.sequence()).toEqual([CSRF, TICKETS])
     expect(s.navigations).toEqual([])
   })
@@ -361,7 +358,6 @@ describe('createTicket', () => {
     expect(s.navigations).toEqual([
       'go /login?next=%2Fusuarios%2Ftickets%2Fnovo&sessao=expirada'
     ])
-    // The token is gone: the next call fetches a new one.
     await s.csrf.get()
     expect(s.sequence()).toEqual([CSRF, TICKETS, CSRF])
   })

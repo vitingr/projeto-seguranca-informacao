@@ -25,8 +25,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Admins do not create tickets (spec 001-ticket-builder, S-6). The
-        // fresh CSRF token is sent, so the 403 comes from Authorize.
         test("status is 403", function () {
           expect(res.getStatus()).to.equal(403);
         });

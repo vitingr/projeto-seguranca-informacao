@@ -186,7 +186,6 @@ describe('sending (US-5, US-6)', () => {
       step: 'confirmacao',
       ticket
     })
-    // An answer with no request pending changes nothing.
     expect(run([{ ticket, type: 'sendSucceeded' }], onReview)).toBe(onReview)
   })
 
@@ -204,7 +203,6 @@ describe('sending (US-5, US-6)', () => {
       step: 'revisao',
       type: 'outro'
     })
-    // Sending again clears the message.
     expect(run([{ type: 'sendStarted' }], state).sendError).toBeNull()
   })
 

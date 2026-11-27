@@ -9,9 +9,6 @@ import {
   registerComum
 } from './support/tracking'
 
-// The ticket page of a comum user (spec 003 US-2, task T8.1): header, tabs
-// and "Detalhes", the not-found screen and the way back to the list.
-
 const NOT_FOUND = 'Ticket não encontrado.'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 const PAYLOAD = '<img src=x onerror=alert(1)> <script>alert(1)</script>'
@@ -147,14 +144,12 @@ test.describe('as the author', () => {
     await page.reload()
     await expect(conversa).toHaveAttribute('aria-selected', 'true')
 
-    // Arrow keys move between the tabs; Enter selects (WAI-ARIA tabs).
     await conversa.focus()
     await page.keyboard.press('ArrowLeft')
     await expect(page.getByRole('tab', { name: 'Detalhes' })).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(ticketPath(ids[0]))
 
-    // Back from the list returns to the tab that was open.
     await conversa.click()
     await expect(page).toHaveURL(`${ticketPath(ids[0])}?aba=conversa`)
     await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()

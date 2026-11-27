@@ -14,8 +14,6 @@ import { cadastroSchema } from './schemas'
 import type { CadastroInput, CadastroValues } from './types'
 
 export const CadastroForm = () => {
-  // Opt out of the React Compiler: with it, react-hook-form's reset() did
-  // not clear the inputs after a successful registration (E2E, task 8).
   'use no memo'
 
   const [error, setError] = useState<string | null>(null)
@@ -31,8 +29,6 @@ export const CadastroForm = () => {
     resolver: zodResolver(cadastroSchema)
   })
 
-  // react-hook-form recommends resetting after the submission has settled,
-  // not inside the submit handler (a reset there did not clear the inputs).
   useEffect(() => {
     if (success) reset(REGISTER_FORM_DEFAULT_VALUES)
   }, [success, reset])
@@ -42,7 +38,6 @@ export const CadastroForm = () => {
     setSuccess(null)
     const result = await api.register(values)
     if (result.ok) {
-      // The backend answers with the normalized (lowercase) login.
       setSuccess(
         `Usuário ${result.data.login ?? values.login} cadastrado como ${result.data.role}.`
       )

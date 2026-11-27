@@ -1,13 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// WCAG contrast of the theme tokens, for tests: the tokens are OKLCH, so
-// they are turned into linear sRGB (Björn Ottosson's OKLab matrices) and
-// then into relative luminance.
-
 const GLOBALS = join(process.cwd(), 'src', 'styles', 'globals.css')
 
-/** The value of a `--name: oklch(L C H);` token in globals.css. */
 export const themeToken = (name: string): string => {
   const css = readFileSync(GLOBALS, 'utf8')
   const match = new RegExp(`--${name}:\\s*(oklch\\([^)]*\\))`).exec(css)
@@ -37,7 +32,6 @@ const luminance = (oklch: string): number => {
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 }
 
-/** The WCAG contrast ratio of two `oklch()` colors (1 to 21). */
 export const contrastRatio = (first: string, second: string): number => {
   const [light, dark] = [luminance(first), luminance(second)].sort(
     (x, y) => y - x

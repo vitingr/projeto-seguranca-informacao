@@ -47,7 +47,6 @@ const render = (props: Partial<Parameters<typeof Thread>[0]> = {}) =>
     <Thread entries={OWN} now={NOW} openedAt={OPENED} view="own" {...props} />
   )
 
-/** The `li` of each entry, in order, as [side or event, its html]. */
 const items = (html: string) =>
   [
     ...html.matchAll(

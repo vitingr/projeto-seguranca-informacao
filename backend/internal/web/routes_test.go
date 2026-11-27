@@ -45,7 +45,6 @@ func (nopStore) Delete(context.Context, []byte) error { return nil }
 
 func (nopStore) DeleteExpired(context.Context, time.Time) (int64, error) { return 0, nil }
 
-// failingCreateStore is a nopStore whose Create fails.
 type failingCreateStore struct{ nopStore }
 
 var errCreateSession = errors.New("create session failed")
@@ -57,14 +56,11 @@ func newTestApp(t *testing.T) (*handlers, http.Handler) {
 	return newTestAppWithLog(t, io.Discard)
 }
 
-// newTestAppWithLog is newTestApp with the log written to logOut.
 func newTestAppWithLog(t *testing.T, logOut io.Writer) (*handlers, http.Handler) {
 	t.Helper()
 	return newTestAppWith(t, logOut, nopStore{})
 }
 
-// newTestAppWith is newTestApp with the log written to logOut and the
-// given session store.
 func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore) (*handlers, http.Handler) {
 	t.Helper()
 	logger := slog.New(NewLogHandler(slog.NewJSONHandler(logOut, nil)))
@@ -253,9 +249,6 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 	}
 }
 
-// The frontend pages moved to the paths the assignment requires (spec
-// 001-ticket-builder, AC-0.7). The backend never served page paths, so the
-// old ones fall through to the catch-all and get the generic 404.
 func TestOldPagePathsAnswer404(t *testing.T) {
 	t.Parallel()
 
@@ -291,8 +284,6 @@ func TestOldPagePathsAnswer404(t *testing.T) {
 	}
 }
 
-// TestTooManyRequestsBody pins the 429 body of spec AC-6.7 and S-12: the
-// generic three keys, the too_many_requests code and the Portuguese text.
 func TestTooManyRequestsBody(t *testing.T) {
 	t.Parallel()
 
@@ -346,8 +337,6 @@ func TestCSRFEndpointTellsHeaderName(t *testing.T) {
 	}
 }
 
-// TestOnlyCSRFEndpointCreatesSessions is D-8: without a session cookie, no
-// route but GET /api/csrf sets one.
 func TestOnlyCSRFEndpointCreatesSessions(t *testing.T) {
 	t.Parallel()
 
@@ -413,8 +402,6 @@ func TestWriteErrorNeverLeaksDetails(t *testing.T) {
 					t.Errorf("campo inesperado na resposta de erro: %q", k)
 				}
 			}
-			// Every mapped status has its own Portuguese message (003 D-5);
-			// only unmapped ones fall back to the generic 500 text.
 			mapped := status != http.StatusInternalServerError && status != http.StatusTeapot
 			if mapped && body["message"] == generic {
 				t.Errorf("status %d uses the generic 500 message", status)
@@ -431,9 +418,6 @@ func TestNewHandlerRequiresDeps(t *testing.T) {
 	}
 }
 
-// TestLoginNeverLogsBodyOrPassword checks that neither the request body nor
-// the password reaches the log, for rejected bodies and for a valid body
-// that fails later and goes through RespondError.
 func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 	t.Parallel()
 
@@ -442,10 +426,8 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 		name        string
 		contentType string
 		body        string
-		wantStatus  int // from the login handler itself
+		wantStatus  int
 	}{
-		// The fakeAuth accepts it and the store fails to create the
-		// session, so the error is logged by RespondError.
 		{"valid body", "application/json", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusInternalServerError},
 		{"wrong content type", "text/plain", `{"login":"admin","senha":"` + sentinel + `"}`, http.StatusBadRequest},
 		{"unknown field", "application/json", `{"login":"admin","senha":"x","` + sentinel + `":1}`, http.StatusBadRequest},
@@ -465,7 +447,6 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 				return req
 			}
 
-			// The handler directly, without the CSRF check.
 			rr := httptest.NewRecorder()
 			h.login(rr, newReq())
 			if rr.Code != tt.wantStatus {
@@ -475,7 +456,6 @@ func TestLoginNeverLogsBodyOrPassword(t *testing.T) {
 				t.Fatal("RespondError did not log; the test would not cover it")
 			}
 
-			// The full chain, including the access log.
 			app.ServeHTTP(httptest.NewRecorder(), newReq())
 
 			if strings.Contains(logs.String(), sentinel) {

@@ -5,10 +5,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
-      # The unit tests check the frontend types against the contract.
       - "backend/api/openapi.json"
-      # The e2e job runs the flows against the backend stack, so backend
-      # code, migrations and dependencies can break it too.
       - "backend/internal/**"
       - "backend/cmd/**"
       - "backend/migrations/**"
@@ -32,20 +29,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Same versions as backend.yml; pnpm comes from "packageManager" in
-  # frontend/package.json through corepack (no third-party action).
   GO_VERSION: "1.27.x"
   NODE_VERSION: "24"
   NEXT_TELEMETRY_DISABLED: "1"
-  # Required by src/config/env, which next.config.ts loads; the docker
-  # compose stack of the e2e job listens on https://localhost.
   API_BASE_URL: "https://localhost"
 
 defaults:
   run:
     working-directory: frontend
 
-# Actions pinned by commit SHA, the same ones as backend.yml.
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -69,9 +61,6 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-  # Playwright against the full backend stack (app + PostgreSQL), started
-  # the same way as the e2e job of backend.yml. Playwright starts pnpm dev
-  # itself (webServer) because CI is set.
   e2e:
     runs-on: ubuntu-latest
     needs: [checks]

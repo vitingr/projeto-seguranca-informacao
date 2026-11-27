@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        // The rate limit test needs its own user, so its quota is not shared
-        // with the requests above. The seed admin registers it.
         bru.setVar("csrfToken", res.getBody().csrf_token);
     - type: tests
       code: |-

@@ -4,7 +4,6 @@ import { AVATAR_GRID, avatarFor } from '@/domain/avatar'
 
 import type { AvatarProps } from './types'
 
-/** One class pair per tint of `domain/avatar`, from the theme tokens. */
 export const AVATAR_TINT_CLASSES = [
   'bg-avatar-1 text-avatar-1-foreground',
   'bg-avatar-2 text-avatar-2-foreground',
@@ -16,12 +15,6 @@ export const AVATAR_TINT_CLASSES = [
   'bg-avatar-8 text-avatar-8-foreground'
 ] as const
 
-/**
- * The generated avatar (spec AC-7.2, plan 5.6): the initials of the login
- * on a round tile of one of the theme's tints, over a faint mirrored grid
- * of squares. Inline SVG and text only: no image, no link and no request,
- * so it fits the CSP. Decorative: the login is the text next to it.
- */
 export const Avatar = ({ className, login }: AvatarProps) => {
   const { cells, initials, tint } = avatarFor(login)
   return (
@@ -39,7 +32,6 @@ export const Avatar = ({ className, login }: AvatarProps) => {
         fill="currentColor"
         focusable="false"
         shapeRendering="crispEdges"
-        // The grid fills the tile; the circle crops its corners.
         viewBox={`0 0 ${AVATAR_GRID} ${AVATAR_GRID}`}
       >
         {cells.map((filled, index) =>

@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 AC-5.3: the admin reads the thread with the logins; it
-        // holds the comum user's reply of 214.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

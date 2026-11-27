@@ -14,8 +14,6 @@ const (
 	adminPassword = "a long enough admin password"
 )
 
-// newAuthWithAdmin returns an Auth whose repository holds one admin, created
-// through CreateFirstAdmin with the real hasher, and the spy around it.
 func newAuthWithAdmin(t *testing.T) (*Auth, *memUsers, *spyHasher) {
 	t.Helper()
 	sec := newSecurity(t)
@@ -76,7 +74,6 @@ func TestAuthenticate(t *testing.T) {
 			auth, _, spy := newAuthWithAdmin(t)
 			u, err := auth.Authenticate(t.Context(), tt.login, tt.password)
 
-			// D-13: one Argon2id verification in every case.
 			if n := len(spy.verifies()); n != 1 {
 				t.Errorf("VerifyPassword called %d times, want 1", n)
 			}
@@ -102,9 +99,6 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
-// TestAuthenticateUnknownUserLooksLikeWrongPassword is the D-13 criterion:
-// both cases verify exactly once (the unknown user against the dummy hash)
-// and return the same error.
 func TestAuthenticateUnknownUserLooksLikeWrongPassword(t *testing.T) {
 	t.Parallel()
 
@@ -128,9 +122,6 @@ func TestAuthenticateUnknownUserLooksLikeWrongPassword(t *testing.T) {
 	}
 }
 
-// TestAuthenticateServerFailures checks that failures other than bad
-// credentials are not reported as 401: they must not wrap
-// ErrInvalidCredentials.
 func TestAuthenticateServerFailures(t *testing.T) {
 	t.Parallel()
 

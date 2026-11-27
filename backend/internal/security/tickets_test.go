@@ -12,7 +12,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// rep returns s repeated n times.
 func rep(s string, n int) string { return strings.Repeat(s, n) }
 
 type fieldCase struct {
@@ -161,8 +160,6 @@ func TestHTTPSURL(t *testing.T) {
 	})
 }
 
-// marker is in every value of the ticket tests, so they can check that no
-// error ever carries a field value (S-7).
 const marker = "marcador7f3a"
 
 func strPtr(s string) *string { return &s }
@@ -257,19 +254,16 @@ func TestValidateTicketRefuses(t *testing.T) {
 		draft  domain.TicketDraft
 		reason string // field name or rule reason expected in the error
 	}{
-		// Type.
 		{"unknown type", with(other, func(d *domain.TicketDraft) { d.Type = "incidente" }), "unknown type"},
 		{"empty type", with(other, func(d *domain.TicketDraft) { d.Type = "" }), "unknown type"},
 		{"type in upper case", with(other, func(d *domain.TicketDraft) { d.Type = "OUTRO" }), "unknown type"},
 
-		// A field of another type.
 		{"acesso with descricao", with(access, func(d *domain.TicketDraft) { d.Description = "Descrição " + marker }), "descricao: not a field"},
 		{"bug with titulo", with(bug, func(d *domain.TicketDraft) { d.Title = "Título " + marker }), "titulo: not a field"},
 		{"bug with empty notes", with(bug, func(d *domain.TicketDraft) { d.Notes = strPtr("") }), "observacoes: not a field"},
 		{"deploy with sistema", with(deploy, func(d *domain.TicketDraft) { d.System = "Portal " + marker }), "sistema: not a field"},
 		{"outro with severidade", with(other, func(d *domain.TicketDraft) { d.Severity = "baixa" }), "severidade: not a field"},
 
-		// acesso.
 		{"acesso sistema missing", with(access, func(d *domain.TicketDraft) { d.System = "" }), "sistema: empty"},
 		{"acesso sistema spaces only", with(access, func(d *domain.TicketDraft) { d.System = "   " }), "sistema: empty"},
 		{"acesso sistema too short", with(access, func(d *domain.TicketDraft) { d.System = "é" }), "sistema: too short"},
@@ -284,7 +278,6 @@ func TestValidateTicketRefuses(t *testing.T) {
 		{"acesso justificativa too long", with(access, func(d *domain.TicketDraft) { d.Justification = rep("a", 2001) }), "justificativa: too long"},
 		{"acesso justificativa NUL", with(access, func(d *domain.TicketDraft) { d.Justification = "Preciso\x00 " + marker }), "justificativa: control"},
 
-		// bug.
 		{"bug sistema missing", with(bug, func(d *domain.TicketDraft) { d.System = "" }), "sistema: empty"},
 		{"bug descricao too short", with(bug, func(d *domain.TicketDraft) { d.Description = "curta" }), "descricao: too short"},
 		{"bug descricao invalid utf-8", with(bug, func(d *domain.TicketDraft) { d.Description = "Não \xff carrega " + marker }), "descricao: invalid utf-8"},
@@ -295,7 +288,6 @@ func TestValidateTicketRefuses(t *testing.T) {
 		{"bug severidade accented label", with(bug, func(d *domain.TicketDraft) { d.Severity = "média" }), "severidade: not one of"},
 		{"bug severidade wrong case", with(bug, func(d *domain.TicketDraft) { d.Severity = "Alta" }), "severidade: not one of"},
 
-		// deploy.
 		{"deploy projeto missing", with(deploy, func(d *domain.TicketDraft) { d.Project = "" }), "projeto: empty"},
 		{"deploy projeto tab", with(deploy, func(d *domain.TicketDraft) { d.Project = "api\t" + marker }), "projeto: control"},
 		{"deploy projeto too long", with(deploy, func(d *domain.TicketDraft) { d.Project = rep("a", 121) }), "projeto: too long"},
@@ -311,7 +303,6 @@ func TestValidateTicketRefuses(t *testing.T) {
 		{"deploy observacoes too long", with(deploy, func(d *domain.TicketDraft) { d.Notes = strPtr(rep("a", 2001)) }), "observacoes: too long"},
 		{"deploy observacoes NUL", with(deploy, func(d *domain.TicketDraft) { d.Notes = strPtr("Depois\x00 " + marker) }), "observacoes: control"},
 
-		// outro.
 		{"outro titulo missing", with(other, func(d *domain.TicketDraft) { d.Title = "" }), "titulo: empty"},
 		{"outro titulo too short", with(other, func(d *domain.TicketDraft) { d.Title = " a " }), "titulo: too short"},
 		{"outro titulo too long", with(other, func(d *domain.TicketDraft) { d.Title = rep("é", 121) }), "titulo: too long"},
@@ -378,8 +369,6 @@ func TestDecodeTicketAccepts(t *testing.T) {
 			"outro", `{"dados":{"descricao":"Como peço uma VPN?","titulo":"Dúvida"},"tipo":"outro"}`,
 			domain.TicketDraft{Type: "outro", Title: "Dúvida", Description: "Como peço uma VPN?"},
 		},
-		// Left to ValidateTicket (422): missing keys decode as empty, and an
-		// unknown or missing tipo decodes with no field.
 		{
 			"missing required key", `{"tipo":"outro","dados":{"titulo":"Dúvida"}}`,
 			domain.TicketDraft{Type: "outro", Title: "Dúvida"},
@@ -417,14 +406,12 @@ func TestDecodeTicketRefuses(t *testing.T) {
 		body        string
 		reason      string
 	}{
-		// Keys of another type, unknown keys.
 		{"field of another type", ct, `{` + access + `,"descricao":"` + marker + `"}}`, reasonMalformed},
 		{"notes in a bug", ct, `{"tipo":"bug","dados":{"observacoes":"` + marker + `"}}`, reasonMalformed},
 		{"unknown field in dados", ct, `{` + access + `,"` + marker + `":"x"}}`, reasonMalformed},
 		{"unknown field outside", ct, `{` + access + `},"` + marker + `":"x"}`, reasonMalformed},
 		{"type key in english", ct, `{"type":"outro","dados":{"titulo":"` + marker + `"}}`, reasonMalformed},
 
-		// Server-owned keys (S-4, S-5), outside and inside dados.
 		{"author outside", ct, `{` + access + `},"author":"` + marker + `"}`, reasonMalformed},
 		{"user_id outside", ct, `{` + access + `},"user_id":1}`, reasonMalformed},
 		{"author_id outside", ct, `{` + access + `},"author_id":1}`, reasonMalformed},
@@ -438,7 +425,6 @@ func TestDecodeTicketRefuses(t *testing.T) {
 		{"created_at inside", ct, `{` + access + `,"created_at":"2020-01-01T00:00:00Z"}}`, reasonMalformed},
 		{"updated_at inside", ct, `{` + access + `,"updated_at":"2020-01-01T00:00:00Z"}}`, reasonMalformed},
 
-		// dados missing or not an object.
 		{"dados missing", ct, `{"tipo":"outro"}`, reasonNoData},
 		{"dados null", ct, `{"tipo":"outro","dados":null}`, reasonNoData},
 		{"dados array", ct, `{"tipo":"outro","dados":["` + marker + `"]}`, reasonMalformed},
@@ -446,7 +432,6 @@ func TestDecodeTicketRefuses(t *testing.T) {
 		{"dados array with unknown tipo", ct, `{"tipo":"incidente","dados":["` + marker + `"]}`, reasonMalformed},
 		{"dados number with unknown tipo", ct, `{"tipo":"incidente","dados":1}`, reasonMalformed},
 
-		// Wrong JSON types.
 		{"tipo number", ct, `{"tipo":1,"dados":{}}`, reasonMalformed},
 		{"sistema number", ct, `{"tipo":"acesso","dados":{"sistema":1}}`, reasonMalformed},
 		{"sistema object", ct, `{"tipo":"acesso","dados":{"sistema":{"x":"` + marker + `"}}}`, reasonMalformed},
@@ -454,7 +439,6 @@ func TestDecodeTicketRefuses(t *testing.T) {
 		{"severidade bool", ct, `{"tipo":"bug","dados":{"severidade":true}}`, reasonMalformed},
 		{"outer array", ct, `[` + valid + `]`, reasonMalformed},
 
-		// The envelope rules of DecodeJSON.
 		{"trailing data", ct, valid + `{"x":"` + marker + `"}`, reasonTrailing},
 		{"wrong content type", "text/plain", valid, reasonContentType},
 		{"no content type", "", valid, reasonContentType},
@@ -481,14 +465,10 @@ func TestDecodeTicketRefuses(t *testing.T) {
 	}
 }
 
-// TestDecodeTicketRefusesInvalidUTF8 covers spec section 4 ("text that is
-// not valid UTF-8 is rejected") at the body level: encoding/json alone
-// would replace each invalid byte with U+FFFD and accept the ticket.
 func TestDecodeTicketRefusesInvalidUTF8(t *testing.T) {
 	t.Parallel()
 
 	s := newTestSecurity(t, io.Discard)
-	// Built from bytes, so no tool can rewrite them as valid characters.
 	var (
 		invalidByte = string([]byte{0xff})
 		truncated   = string([]byte{0xc3})
@@ -523,16 +503,11 @@ func TestDecodeTicketRefusesInvalidUTF8(t *testing.T) {
 		})
 	}
 
-	// The same characters, written correctly, decode.
 	if _, err := decodeTicket(t, s, "application/json", `{"tipo":"outro","dados":{"titulo":"Dúvida 😀","descricao":"Como peço uma VPN?"}}`); err != nil {
 		t.Errorf("valid UTF-8 body: %v", err)
 	}
 }
 
-// TestDecodeTicketLargestValid sends the largest valid ticket (a bug: two
-// 2000-character fields and a 120-character one) with every character an
-// emoji written as a JSON escape pair, 12 bytes each, the most a client can
-// spend per character. It must fit the 64 KiB body limit and validate.
 func TestDecodeTicketLargestValid(t *testing.T) {
 	t.Parallel()
 
@@ -558,10 +533,6 @@ func TestDecodeTicketLargestValid(t *testing.T) {
 	}
 }
 
-// TestDecodeTicketKeySpelling covers plan P-10: encoding/json alone matches
-// keys in any case and keeps the last duplicate, so a server-owned key could
-// get in as "AUTHOR", and {"tipo":…,"TIPO":…} would silently switch types.
-// Keys must be spelled exactly, and none may repeat, even in another case.
 func TestDecodeTicketKeySpelling(t *testing.T) {
 	t.Parallel()
 
@@ -575,7 +546,6 @@ func TestDecodeTicketKeySpelling(t *testing.T) {
 		body   string
 		reason string
 	}{
-		// Server-owned keys in another case, outside and inside dados.
 		{"AUTHOR outside", `{"tipo":"acesso",` + data + `,"AUTHOR":"` + marker + `"}`, reasonMalformed},
 		{"Status outside", `{"tipo":"acesso",` + data + `,"Status":"resolvido"}`, reasonMalformed},
 		{"User_Id outside", `{"tipo":"acesso",` + data + `,"User_Id":1}`, reasonMalformed},
@@ -586,16 +556,13 @@ func TestDecodeTicketKeySpelling(t *testing.T) {
 		{"User_Id inside", `{"tipo":"acesso","dados":{` + fields + `,"User_Id":1}}`, reasonMalformed},
 		{"ID inside", `{"tipo":"acesso","dados":{` + fields + `,"ID":1}}`, reasonMalformed},
 
-		// Documented keys in another case.
 		{"Tipo", `{"Tipo":"acesso",` + data + `}`, reasonMalformed},
 		{"DADOS", `{"tipo":"acesso","DADOS":{` + fields + `}}`, reasonMalformed},
 		{"Sistema", `{"tipo":"acesso","dados":{"Sistema":"` + marker + `","nivel_acesso":"leitura","justificativa":"` + marker + `"}}`, reasonMalformed},
 		{"NIVEL_ACESSO", `{"tipo":"acesso","dados":{"sistema":"` + marker + `","NIVEL_ACESSO":"leitura","justificativa":"` + marker + `"}}`, reasonMalformed},
 		{"Observacoes", `{"tipo":"deploy","dados":{"projeto":"api","repositorio":"https://git.example.com/a","ambiente":"dev","Observacoes":"` + marker + `"}}`, reasonMalformed},
 
-		// Duplicate keys, exact or in another case.
 		{"tipo and TIPO", `{"tipo":"acesso",` + data + `,"TIPO":"outro"}`, reasonDuplicateKey},
-		// Refused at its first key already, for the spelling.
 		{"TIPO before tipo", `{"TIPO":"outro","tipo":"acesso",` + data + `}`, reasonMalformed},
 		{"tipo twice", `{"tipo":"outro","tipo":"acesso",` + data + `}`, reasonDuplicateKey},
 		{"dados twice", `{"tipo":"acesso",` + data + `,"dados":{"sistema":"x"}}`, reasonDuplicateKey},

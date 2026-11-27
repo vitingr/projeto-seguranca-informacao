@@ -15,8 +15,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Ends the strict-keys requests signed out, so the access matrix
-        // starts with an anonymous session, as before.
         test("status is 204", function () {
           expect(res.getStatus()).to.equal(204);
         });

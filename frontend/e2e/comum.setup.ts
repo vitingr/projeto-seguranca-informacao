@@ -3,9 +3,6 @@ import { expect, test as setup } from '@playwright/test'
 import { comumUser, seedAdmin } from './support/env'
 import { loginAs } from './support/login'
 
-// Creates this run's comum user through the browser and the /api proxy, as
-// the seed admin (P-4). Each run leaves one e2e.* user; the backend README
-// explains how to delete them.
 setup('create the comum test user', async ({ page }) => {
   await loginAs(page, seedAdmin(), '/administradores')
   const comum = comumUser()

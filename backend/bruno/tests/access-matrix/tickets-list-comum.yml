@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-1, AC-1.4: the comum user reads "Meus tickets", which
-        // holds the ticket created in 25 and nothing about authors (S-13).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

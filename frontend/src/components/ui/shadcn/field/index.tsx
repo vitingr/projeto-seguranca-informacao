@@ -34,7 +34,6 @@ export const Field = ({
   )
 }
 
-/** A form-level message (error or success) announced to screen readers. */
 export const FormMessage = ({ children, tone }: FormMessageProps) => (
   <p
     className={cn(

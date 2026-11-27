@@ -13,12 +13,6 @@ import {
 
 import type { ChoiceOptionRowProps, ChoiceSelectProps } from './types'
 
-/**
- * The text of an option in the menu, as the menu rows of
- * `design/references/input-texto.mp4`: the label, and a muted description
- * under it. A risky option ("Produção", "Crítica") has its label in
- * discreet red, like "Full access" in the video.
- */
 export const ChoiceOptionRow = ({ option }: ChoiceOptionRowProps) => (
   <span className="flex flex-col gap-0.5">
     <SelectItemText
@@ -32,11 +26,6 @@ export const ChoiceOptionRow = ({ option }: ChoiceOptionRowProps) => (
   </span>
 )
 
-/**
- * A fixed-choice field as a Select (spec Q-17, replaces plan P-2): the
- * trigger shows the chosen label, and the menu lists each option with its
- * description and a check on the selected one.
- */
 export const ChoiceSelect = ({
   'aria-describedby': describedBy,
   'aria-invalid': invalid,

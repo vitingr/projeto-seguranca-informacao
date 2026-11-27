@@ -22,8 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-6.3, BR-7: the status the admin saw (aberto) is not the
-        // ticket's any more (resolvido), so nothing changes.
         test("status is 409", function () {
           expect(res.getStatus()).to.equal(409);
         });

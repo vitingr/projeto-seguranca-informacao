@@ -14,8 +14,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// wrapTwice wraps err in two layers of %w, like a repository error that
-// crosses the service and reaches a handler.
 func wrapTwice(err error) error {
 	return fmt.Errorf("service: op: %w", fmt.Errorf("repository: op: %w", err))
 }
@@ -34,7 +32,6 @@ func TestRespondErrorMapsDomainErrors(t *testing.T) {
 		{"conflict", wrapTwice(domain.ErrConflict), http.StatusConflict, "WARN"},
 		{"invalid credentials", wrapTwice(domain.ErrInvalidCredentials), http.StatusInternalServerError, "ERROR"},
 		{"deadline exceeded", wrapTwice(context.DeadlineExceeded), http.StatusInternalServerError, "ERROR"},
-		// Same text as domain.ErrConflict, different identity.
 		{"plain error with a domain text", errors.New("conflict"), http.StatusInternalServerError, "ERROR"},
 		{"nil", nil, http.StatusInternalServerError, "ERROR"},
 	}
@@ -71,8 +68,6 @@ func TestRespondErrorMapsDomainErrors(t *testing.T) {
 	}
 }
 
-// TestRespondErrorNeverLogsTheBody passes DecodeJSON errors to RespondError:
-// the password in the body must not reach the log.
 func TestRespondErrorNeverLogsTheBody(t *testing.T) {
 	t.Parallel()
 

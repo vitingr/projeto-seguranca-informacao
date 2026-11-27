@@ -23,7 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Unknown fields are rejected by DecodeJSON before authentication.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

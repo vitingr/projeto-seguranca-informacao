@@ -7,12 +7,6 @@ import type { TicketType } from '@/domain/tickets/types'
 
 import type { TicketTypePickerProps } from './types'
 
-/**
- * The four ticket types as a single-choice group of bordered cards. Arrow
- * keys move and select (radio group), Space selects, and Enter selects the
- * focused card too (spec AC-2.5). Each card has the type icon in a tile;
- * the selected card has a dark border, a dark tile and a check mark.
- */
 export const TicketTypePicker = ({
   error,
   labelledBy,
@@ -33,7 +27,6 @@ export const TicketTypePicker = ({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* `null` keeps the group controlled while no type is selected. */}
       <RadioGroup<null | TicketType>
         onValueChange={type => {
           if (type) onValueChange(type)
@@ -54,9 +47,6 @@ export const TicketTypePicker = ({
               data-testid={`ticket-type-${option.code}`}
               key={option.code}
             >
-              {/* The card is the visible control: it shows the focus ring,
-                  the dark border and the check; the radio stays in the
-                  accessibility tree and keeps the keyboard behavior. */}
               <RadioGroupItem
                 aria-describedby={descriptionId}
                 aria-labelledby={labelId}

@@ -5,11 +5,7 @@ import { requireEnv } from './env'
 
 const backendDir = path.join(__dirname, '..', '..', '..', 'backend')
 
-/**
- * Changes a user's role directly in the database (the backend has no API
- * for it), like 003 D-12. The SQL goes on stdin and the values are psql
- * variables (:'role', :'login'), quoted by psql, never concatenated.
- */
+// Values are psql variables, quoted by psql, never concatenated into the SQL
 export const setRole = (login: string, role: 'admin' | 'comum') => {
   const output = execFileSync(
     'docker',

@@ -19,13 +19,6 @@ export const QUEUE_TEXTS = {
   title: 'Fila de tickets'
 } as const
 
-/**
- * "Fila de tickets" on `/administradores` (spec 003 US-4): every user's
- * tickets, most recently updated first, with the summary by status, the
- * filters by status, type and user, the table with "Usuário" and the pages.
- * It renders only inside the admin area, after the role check, so a comum
- * user never makes these requests.
- */
 export const TicketQueue = async ({ searchParams }: TicketQueueProps) => {
   const query = readListQuery(searchParams, 'queue')
   const [queue, authors] = await Promise.all([

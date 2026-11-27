@@ -1,10 +1,5 @@
 import { Skeleton } from '@/components/ui/shadcn/skeleton'
 
-/**
- * A quiet skeleton of a ticket page while it loads (spec 003 section 7,
- * "Loading"): the way back, the header, the tabs and the rows. Shared by
- * the author's and the admin's ticket pages.
- */
 export const TicketPageSkeleton = () => (
   <main
     aria-busy="true"

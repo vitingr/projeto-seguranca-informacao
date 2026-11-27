@@ -9,12 +9,6 @@ import { Button } from '@/components/ui/shadcn/button'
 
 import type { MobileMenuProps } from './types'
 
-/**
- * The role links and the role name on screens below `md`, behind a "Menu"
- * button, so the header fits on one line from 360 px. The panel is a plain
- * disclosure: it closes on Escape (focus back on the button), on a link
- * click and on any route change.
- */
 export const MobileMenu = ({ links, roleName }: MobileMenuProps) => {
   const panelId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -22,7 +16,6 @@ export const MobileMenu = ({ links, roleName }: MobileMenuProps) => {
   const [open, setOpen] = useState<boolean>(false)
   const [openedAt, setOpenedAt] = useState<string>(pathname)
 
-  // A route change (Back included) closes the panel.
   if (open && openedAt !== pathname) {
     setOpen(false)
   }

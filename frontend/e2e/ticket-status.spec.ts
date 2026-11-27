@@ -10,10 +10,6 @@ import {
   reply
 } from './support/tracking'
 
-// The admin's status action (spec 003 US-6, task T10.3): the allowed
-// transitions only, the inline close confirmation, a change made meanwhile,
-// the closed ticket on both sides and the order of both lists.
-
 const OTHER = (titulo: string) =>
   ({
     dados: {
@@ -31,7 +27,6 @@ const statusLines = (page: Page) =>
     .getByRole('list', { name: 'Conversa do ticket' })
     .locator('li[data-event="status_change"]')
 
-/** Opens the menu, reads the names of its rows and closes it again. */
 const menuRows = async (page: Page) => {
   await trigger(page).click()
   await expect(page.getByRole('menu')).toBeVisible()
@@ -95,7 +90,6 @@ test('moves through every allowed status, with a status line each (AC-6.1, AC-6.
     expect(await menuRows(page)).toEqual(next)
   }
 
-  // "Fechado" asks inline first; "Cancelar" changes nothing.
   await choose(page, 'Fechado')
   const confirmation = page.getByTestId('close-confirmation')
   await expect(confirmation).toContainText(
@@ -114,7 +108,6 @@ test('moves through every allowed status, with a status line each (AC-6.1, AC-6.
   await expect(page.getByRole('textbox', { name: 'Mensagem' })).toHaveCount(0)
   expect(dialogs).toEqual([])
 
-  // The author sees the new status and no reply box, and has no action.
   await asUser(browser, author, '/usuarios', async authorPage => {
     await authorPage.goto(`/usuarios/tickets/${path}?aba=conversa`)
     await expect(authorPage.getByTestId('ticket-header')).toContainText(
@@ -155,7 +148,6 @@ test('a status change and a reply move the ticket to the top of both lists; a re
   const firstRow = (target: Page, list: string) =>
     target.getByTestId(list).locator('tbody tr').first()
 
-  // Another ticket of the author changes last, so ours is not on top.
   await asUser(browser, author, '/usuarios', async authorPage => {
     await reply(authorPage, 'own', stale, 'Oi')
   })
@@ -179,7 +171,6 @@ test('a status change and a reply move the ticket to the top of both lists; a re
       'data-ticket-id',
       String(stale)
     )
-    // The reply did not change the status.
     await expect(firstRow(authorPage, 'my-tickets')).toContainText(
       'Em andamento'
     )

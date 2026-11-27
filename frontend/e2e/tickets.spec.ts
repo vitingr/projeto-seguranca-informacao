@@ -6,8 +6,6 @@ import { comumUser, generateComumCredentials, seedAdmin } from './support/env'
 import { loginAs, recordApiCalls, submitLogin } from './support/login'
 import { expectNothingInBrowserStorage } from './support/storage'
 
-// The ticket builder (spec 001-ticket-builder) at /usuarios/tickets/novo.
-
 const BUILDER = '/usuarios/tickets/novo'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
@@ -88,7 +86,6 @@ test.describe('type step', () => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByText('Escolha um tipo de ticket.')).toBeVisible()
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
-    // The focus goes to the group (AC-3.5).
     await expect(typeGroup(page).getByRole('radio').first()).toBeFocused()
   })
 
@@ -121,7 +118,6 @@ test.describe('type step', () => {
   test('a selected type continues to the details step (AC-2.3)', async ({
     page
   }) => {
-    // A click anywhere on the card selects it.
     await typeGroup(page).getByText('Outro', { exact: true }).click()
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Detalhes')).toBeFocused()
@@ -132,9 +128,6 @@ test.describe('type step', () => {
     ).toHaveText(['TipoEscolha do pedido(concluída)'])
   })
 })
-
-// The details step (task T9.6). No ticket is sent here, so the shared comum
-// user stays far from the rate limit.
 
 const goToDetails = async (page: Page, typeLabel: string) => {
   await typeGroup(page).getByText(typeLabel, { exact: true }).click()
@@ -194,7 +187,6 @@ test.describe('details step', () => {
     await expect(
       page.getByRole('combobox', { name: 'Ambiente' })
     ).toHaveAttribute('aria-required', 'true')
-    // Required: a red asterisk, read as "obrigatório"; optional: "(opcional)".
     await expect(
       page.locator('label', { hasText: 'Nome do projeto' })
     ).toHaveText('Nome do projeto*(obrigatório)')
@@ -218,7 +210,6 @@ test.describe('details step', () => {
     await goToDetails(page, 'Suporte em bug')
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Detalhes')).toBeVisible()
-    // The first invalid field, in screen order, gets the focus.
     await expect(page.getByLabel('Sistema afetado')).toBeFocused()
     await expect(page.getByText('Preencha este campo.')).toHaveCount(3)
     await expect(page.getByText('Escolha uma opção.')).toHaveCount(1)
@@ -265,7 +256,6 @@ test.describe('details step', () => {
   test('the counter and the preview follow what is typed', async ({ page }) => {
     await goToDetails(page, 'Outro')
     await page.getByLabel('Título').fill('Liberar porta')
-    // Code points, as the server counts them: the emoji is one.
     await page.getByLabel('Descrição').fill('ação 🚀')
     await expect(page.getByTestId(/-descricao-counter$/)).toHaveText('6 / 2000')
     const preview = page.getByRole('region', { name: 'Prévia' })
@@ -302,7 +292,6 @@ test.describe('details step', () => {
       await VALID[typeLabel](page)
       await page.getByRole('button', { name: 'Continuar' }).click()
       await expect(stepHeading(page, 'Revisão')).toBeFocused()
-      // Back to the form, every value is kept (AC-4.2).
       await page.getByRole('button', { name: 'Editar' }).click()
       await expect(stepHeading(page, 'Detalhes')).toBeFocused()
       await expect(
@@ -331,13 +320,11 @@ test.describe('details step', () => {
       typeGroup(page).getByRole('radio', { name: 'Outro' })
     ).toHaveAttribute('aria-checked', 'true')
 
-    // Keep: nothing is lost.
     await confirm.getByRole('button', { name: 'Manter o tipo atual' }).click()
     await expect(confirm).toHaveCount(0)
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
 
-    // Change: the new type starts empty.
     await page.getByRole('button', { name: 'Voltar' }).click()
     await typeGroup(page).getByText('Suporte em bug', { exact: true }).click()
     await page
@@ -363,12 +350,8 @@ test.describe('details step', () => {
   })
 })
 
-// The review step (task T9.7).
-
 const reviewCard = (page: Page) => page.getByRole('region', { name: 'Revisão' })
 
-// The value next to a label. For "Outro", "Título" is only the ticket title
-// of the "Pedido" group: the field is not repeated in "Detalhes" (T9.8b).
 const reviewValue = (page: Page, label: string) =>
   reviewCard(page)
     .locator('dt', { hasText: new RegExp(`^${label}$`) })
@@ -394,7 +377,6 @@ test.describe('review step', () => {
     await expect(reviewValue(page, 'Título')).toHaveText(
       'Deploy de api-pagamentos em Produção'
     )
-    // Trimmed, as the server stores it (BR-4).
     await expect(reviewValue(page, 'Nome do projeto')).toHaveText(
       'api-pagamentos'
     )
@@ -418,12 +400,10 @@ test.describe('review step', () => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Revisão')).toBeFocused()
 
-    // One "Título" row: the title is not repeated in "Detalhes" (T9.8b).
     await expect(reviewValue(page, 'Título')).toHaveCount(1)
     await expect(reviewValue(page, 'Título')).toHaveText(title)
     await expect(reviewValue(page, 'Descrição')).toHaveText(description)
     await expect(reviewCard(page).locator('img, script, strong')).toHaveCount(0)
-    // The preview shows the same title as text too.
     await expect(
       page.getByRole('region', { name: 'Prévia' }).getByText(title)
     ).toBeVisible()
@@ -451,11 +431,6 @@ test.describe('review step', () => {
     )
   })
 })
-
-// Sending and the confirmation (task T9.8). Real tickets are created by a
-// user of their own, registered here, so the shared comum user never gets
-// near the limit of 10 per minute (S-12, plan risk table). The error
-// answers are simulated in the browser and create nothing.
 
 const registerComum = async (browser: Browser) => {
   const user = generateComumCredentials(randomBytes)
@@ -497,8 +472,6 @@ const toReview = async (page: Page, typeLabel: string) => {
 const posts = (calls: string[]) =>
   calls.filter(call => call === 'POST /api/tickets')
 
-// The send progress (task T9.8a, AC-5.5 to AC-5.10).
-
 const progress = (page: Page) => page.getByTestId('send-progress')
 
 const stepStates = (page: Page) =>
@@ -534,7 +507,6 @@ const CREATED = {
   status: 201
 }
 
-/** Holds the POST until `release()`, then answers a fake 201. */
 const holdCreation = async (page: Page) => {
   let release = () => {}
   const gate = new Promise<void>(done => {
@@ -575,7 +547,6 @@ test.describe('sending a ticket', () => {
           .locator('xpath=following-sibling::dd[1]')
       await expect(value('Número')).toHaveText(/^#\d+$/)
       await expect(value('Tipo')).toHaveText(typeLabel)
-      // The title is shown once, also for "Outro" (T9.8b).
       await expect(value('Título')).toHaveCount(1)
       await expect(value('Título')).toHaveText(TITLES[typeLabel])
       await expect(value('Status')).toHaveText('Aberto')
@@ -585,7 +556,6 @@ test.describe('sending a ticket', () => {
       await expect(page.getByRole('status').last()).toHaveText(
         /^Ticket #\d+ criado\.$/
       )
-      // No step can be revisited after sending.
       await expect(
         page
           .getByRole('navigation', { name: 'Etapas do ticket' })
@@ -628,8 +598,6 @@ test.describe('sending a ticket', () => {
     await expect(page).toHaveURL('/usuarios')
   })
 
-  // Spec 003 AC-1.11: the confirmation opens the new ticket, and the list
-  // holds it at the top.
   test('"Ver ticket" opens the new ticket; the list shows it first', async ({
     page
   }) => {
@@ -710,13 +678,11 @@ test.describe('errors when sending (US-6)', () => {
         'role',
         'status'
       )
-      // The progress stops on "Registrando ticket" (AC-5.7).
       await expectStoppedProgress(page)
       await expect(stepHeading(page, 'Revisão')).toBeVisible()
       await expect(
         page.getByRole('button', { name: 'Enviar ticket' })
       ).toBeEnabled()
-      // The data is kept: back on the form, every value is there.
       await page.getByRole('button', { name: 'Editar' }).click()
       await expect(page.getByLabel('Título')).toHaveValue(
         'Liberar porta no firewall'
@@ -770,7 +736,6 @@ test.describe('errors when sending (US-6)', () => {
   test('an expired session goes to the login page (AC-6.2)', async ({
     page
   }) => {
-    // A real expiry: the session cookie is gone when the user sends.
     await toReview(page, 'Outro')
     await page.context().clearCookies()
     await page.getByRole('button', { name: 'Enviar ticket' }).click()
@@ -802,7 +767,6 @@ test('an admin cannot create a ticket, even calling the API (S-6)', async ({
   expect(status).toBe(403)
 })
 
-// The answers here are simulated, so nothing is created.
 test.describe('send progress', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, comumUser(), '/usuarios')
@@ -816,12 +780,9 @@ test.describe('send progress', () => {
     const clicked = Date.now()
     await page.getByRole('button', { name: 'Enviar ticket' }).click()
 
-    // The POST left at once, before any answer.
     await expect.poll(() => hold.seen.length).toBe(1)
     expect(hold.seen[0] - clicked).toBeLessThan(1000)
 
-    // While pending: fields checked, "Registrando ticket" in progress, no
-    // confirmation step and no confirmation.
     await expect(progress(page)).toHaveAttribute('data-phase', 'registering')
     expect(await stepStates(page)).toEqual([
       ['Validando campos', 'done'],
@@ -831,12 +792,10 @@ test.describe('send progress', () => {
     await expect(stepHeading(page, 'Ticket criado')).toHaveCount(0)
     await expect(progress(page)).toContainText('Enviando ticket')
     await expect(page.getByRole('status').last()).toHaveText('Enviando ticket.')
-    // Chips with the type and the field names, never the values.
     const chips = progress(page).locator('ul li')
     await expect(chips).toHaveText(['Outro', 'Título', 'Descrição'])
     await expect(progress(page)).not.toContainText('Liberar porta')
 
-    // The answer arrives: the confirmation shows with no fixed wait.
     const released = Date.now()
     hold.release()
     await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
@@ -889,9 +848,6 @@ test.describe('send progress', () => {
   })
 })
 
-// The steps in the browser history and the leave warning (task T9.9). The
-// one send is answered in the browser, so nothing is created.
-
 const atStep = (step?: string) =>
   new RegExp(`${BUILDER}${step ? `\\?etapa=${step}` : ''}$`)
 
@@ -922,7 +878,6 @@ test.describe('step history and leaving (T9.9)', () => {
     await VALID.Outro(page)
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Revisão')).toBeFocused()
-    // Only the step is in the URL, never a typed value.
     await expect(page).toHaveURL(atStep('revisao'))
 
     await page.goBack()
@@ -932,7 +887,6 @@ test.describe('step history and leaving (T9.9)', () => {
       'Liberar porta no firewall'
     )
 
-    // Forward does not skip the check of "Continuar".
     await page.goForward()
     await expect(page).toHaveURL(atStep('detalhes'))
     await expect(stepHeading(page, 'Detalhes')).toBeVisible()
@@ -957,7 +911,6 @@ test.describe('step history and leaving (T9.9)', () => {
     await expect(page).toHaveURL(atStep('detalhes'))
     await page.getByRole('button', { name: 'Voltar' }).click()
     await expect(page).toHaveURL(atStep())
-    // Forward again is undone, as above.
     await page.goForward()
     await expect(page).toHaveURL(atStep())
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
@@ -971,7 +924,6 @@ test.describe('step history and leaving (T9.9)', () => {
     expect(posts(calls)).toHaveLength(1)
 
     await page.reload()
-    // The typed data lived in the page only (BR-7): the builder starts over.
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
     await expect(page).toHaveURL(atStep())
     expect(posts(calls)).toHaveLength(1)
@@ -982,7 +934,6 @@ test.describe('step history and leaving (T9.9)', () => {
   }) => {
     const calls = recordApiCalls(page)
     await sendFakeTicket(page)
-    // Sent: no warning, and the steps of the sent ticket are skipped.
     await page.goBack()
     await expect(page).toHaveURL(/\/usuarios$/)
     expect(posts(calls)).toHaveLength(1)
@@ -1007,7 +958,6 @@ test.describe('step history and leaving (T9.9)', () => {
     await expect(leaveGuard(page)).toHaveCount(0)
     await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
 
-    // "Cancelar" goes through the same warning; leaving works.
     await page.getByRole('link', { name: 'Cancelar' }).click()
     await leaveGuard(page)
       .getByRole('button', { name: 'Sair sem enviar' })
@@ -1037,7 +987,6 @@ test.describe('step history and leaving (T9.9)', () => {
   })
 })
 
-// "Sair" ends the session, so it is warned like a link out (T9.12a, P-16).
 test.describe('logging out with an unsent ticket (T9.12a)', () => {
   const logoutButton = (page: Page) =>
     page.getByRole('button', { exact: true, name: 'Sair' })
@@ -1045,7 +994,6 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
   const logouts = (calls: string[]) =>
     calls.filter(call => call === 'POST /api/logout')
 
-  /** Every browser dialog the page opens, dismissed so nothing hangs. */
   const recordDialogs = (page: Page) => {
     const dialogs: string[] = []
     page.on('dialog', async prompt => {
@@ -1086,7 +1034,6 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
       })
       await expect(stay).toBeFocused()
 
-      // Staying keeps the session, the data, and gives the focus back.
       await stay.click()
       await expect(leaveGuard(page)).toHaveCount(0)
       await expect(logoutButton(page)).toBeFocused()
@@ -1097,7 +1044,6 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
       )
       expect(session).toBe(200)
 
-      // Leaving logs out as "Sair" always does.
       await logoutButton(page).click()
       expect(logouts(calls)).toHaveLength(0)
       await leaveGuard(page)

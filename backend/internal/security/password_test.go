@@ -12,13 +12,10 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Reference vectors from an independent Argon2id implementation (Node.js
-// 24 crypto.argon2Sync), salt "0123456789abcdef", m=65536, t=3, p=4, 32-byte
-// tag, computed over the NFKC form of the password.
+// Reference vectors from an independent Argon2id implementation (Node.js 24).
 const (
-	refPassword = "correct horse battery staple"
-	refHash     = "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$77UfmnZYT23WpPeUKhovauWm5OxRQv9nTf1dJ+tF5EY"
-	// NFKC form: "caf" + U+00E9 + " pa" + U+00DF + "word 123".
+	refPassword    = "correct horse battery staple"
+	refHash        = "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$77UfmnZYT23WpPeUKhovauWm5OxRQv9nTf1dJ+tF5EY"
 	refUnicodeHash = "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$no9HIRHOfcXvZ361fis8b0RUx3l1fxfwomsHab6mqbY"
 )
 
@@ -70,7 +67,6 @@ func TestVerifyPassword(t *testing.T) {
 		{"case matters", refHash, strings.ToUpper(refPassword), false},
 		{"empty password", refHash, "", false},
 		{"unicode vector, NFKC input", refUnicodeHash, "caf\u00e9 pa\u00dfword 123", true},
-		// Decomposed accent and full-width digits normalize to the same form.
 		{"unicode vector, equivalent input", refUnicodeHash, "cafe\u0301 pa\u00dfword \uff11\uff12\uff13", true},
 		{"unicode vector, different input", refUnicodeHash, "cafe pa\u00dfword 123", false},
 	}
@@ -89,10 +85,6 @@ func TestVerifyPassword(t *testing.T) {
 	}
 }
 
-// TestVerifyPasswordRejectsBadHashes covers malformed PHC strings and the
-// D-15 limits. Each case must fail with errBadHash, which is returned before
-// Argon2id runs: the oversized ones would otherwise allocate gigabytes or
-// run for minutes.
 func TestVerifyPasswordRejectsBadHashes(t *testing.T) {
 	t.Parallel()
 
@@ -176,9 +168,6 @@ func TestNewSizesHashSemaphore(t *testing.T) {
 	}
 }
 
-// TestHashWaitStopsWithContext fills the semaphore and checks that both
-// methods stop waiting when the context ends, with the context error and
-// not a credential error (D-19).
 func TestHashWaitStopsWithContext(t *testing.T) {
 	t.Parallel()
 
@@ -245,8 +234,6 @@ func TestHashWaitStopsWithContext(t *testing.T) {
 	}
 }
 
-// TestHashSemaphoreBoundsConcurrency starts more hashes than slots while one
-// slot is held by the test, and checks that they run only after it is freed.
 func TestHashSemaphoreBoundsConcurrency(t *testing.T) {
 	t.Parallel()
 

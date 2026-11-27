@@ -9,8 +9,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// TestAuthorize is the D-1 matrix: zero policy → 403, public → allow,
-// anonymous → 401, role in the policy → allow, any other role → 403.
 func TestAuthorize(t *testing.T) {
 	t.Parallel()
 
@@ -29,7 +27,6 @@ func TestAuthorize(t *testing.T) {
 	}
 	callers := map[string]*Principal{"anonymous": nil, "admin": admin, "comum": comum, "bad role": badRole, "no user": noUser}
 
-	// want[policy][caller] = status (200 = handler ran).
 	want := map[string]map[string]int{
 		"zero":         {"anonymous": 403, "admin": 403, "comum": 403, "bad role": 403, "no user": 403},
 		"empty roles":  {"anonymous": 403, "admin": 403, "comum": 403, "bad role": 403, "no user": 403},
@@ -68,9 +65,6 @@ func TestAuthorize(t *testing.T) {
 	}
 }
 
-// TestAuthorizeWithSession runs Authorize behind the real Session
-// middleware: a logged-in admin passes, the same cookie after logout gets
-// 401.
 func TestAuthorizeWithSession(t *testing.T) {
 	t.Parallel()
 

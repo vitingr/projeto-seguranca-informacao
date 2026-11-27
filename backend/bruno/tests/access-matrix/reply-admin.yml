@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 P-2: admins reply on /api/administradores/tickets/{id}.
         test("status is 403", function () {
           expect(res.getStatus()).to.equal(403);
         });

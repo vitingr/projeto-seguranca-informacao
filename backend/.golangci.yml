@@ -1,11 +1,8 @@
-# Configuração do golangci-lint (formato v2).
-# Documentação: https://golangci-lint.run/docs/configuration/file/
 version: "2"
 
 run:
   timeout: 5m
   tests: true
-  # Inclui o Magefile (arquivos com //go:build mage) na análise.
   build-tags:
     - mage
 
@@ -32,10 +29,6 @@ linters:
 
   settings:
     depguard:
-      # Regras de dependência entre pacotes:
-      #   web → service → repository → domain
-      #   security é transversal e só importa domain
-      #   nenhum pacote interno importa web
       rules:
         domain:
           files: ["**/internal/domain/**"]
@@ -93,7 +86,7 @@ linters:
     govet:
       enable-all: true
       disable:
-        - fieldalignment # micro-otimização; prejudica a legibilidade das structs
+        - fieldalignment
 
     gocritic:
       enabled-tags:
@@ -101,7 +94,7 @@ linters:
         - style
         - performance
       disabled-checks:
-        - hugeParam # structs de configuração são passadas por valor de propósito
+        - hugeParam
         - unnamedResult
         - whyNoLint
 
@@ -134,8 +127,6 @@ linters:
 
     misspell:
       locale: US
-      # Comentários estão em português; estas palavras são falsos positivos
-      # do dicionário em inglês.
       ignore-rules:
         - comando
         - controles
@@ -146,12 +137,7 @@ linters:
     presets:
       - std-error-handling
     rules:
-      # O Magefile executa ferramentas externas com argumentos montados no
-      # próprio código (sem entrada do usuário).
-      # G304: os caminhos de arquivo do Magefile são constantes do projeto.
-      # G702/G704: the only external value is BRUNO_BASE_URL, set by the
-      # developer for "mage brunoRun" and restricted to https on localhost or
-      # 127.0.0.1 by checkLocalBaseURL before it reaches npx or the HTTP check.
+      # Magefile arguments and paths are constants; BRUNO_BASE_URL is checked by checkLocalBaseURL.
       - path: magefiles/
         linters: [gosec]
         text: "G204|G304|G702|G704"

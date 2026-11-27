@@ -26,7 +26,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // A key the server owns (status) is an unknown key: 400, nothing stored (S-5).
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

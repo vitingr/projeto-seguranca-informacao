@@ -1,8 +1,3 @@
-// The address of "Meus tickets" and of the queue (spec 003 AC-1.6, AC-4.4):
-// only the fixed codes, the login of the user filter and the page number are
-// ever read from it or written to it (S-11). Anything unknown is "all", so
-// the backend never receives a value the page did not check.
-
 import { LOGIN_PATTERN } from '@/domain/credentials'
 import { TICKET_STATUS_LABELS, TICKET_TYPES } from '@/domain/tickets'
 import type { TicketStatus, TicketType } from '@/domain/tickets/types'
@@ -20,14 +15,13 @@ export const LIST_PATHS = {
   queue: '/administradores'
 } as const
 
-/** The highest page the backend accepts (`pagina`, 1 to 10 000). */
+// The highest page the backend accepts
 export const MAX_PAGE = 10_000
 
 const STATUS_CODES: readonly string[] = Object.keys(TICKET_STATUS_LABELS)
 const TYPE_CODES: readonly string[] = TICKET_TYPES.map(type => type.code)
 const PAGE = /^[1-9]\d{0,4}$/
 
-/** One value per key: a repeated or missing key is no value. */
 const single = (params: SearchParams, key: string): null | string => {
   const value = params[key]
   return typeof value === 'string' && value !== '' ? value : null
@@ -45,7 +39,6 @@ const isLogin = (value: null | string): value is string =>
 const isPage = (value: number) =>
   Number.isInteger(value) && value >= 1 && value <= MAX_PAGE
 
-/** The list query of an address; unknown values become "all" or page 1. */
 export const readListQuery = (
   params: SearchParams,
   scope: ListScope
@@ -64,11 +57,6 @@ export const readListQuery = (
   }
 }
 
-/**
- * The address of a list after `change`. Changing a filter goes back to the
- * first page (AC-1.5). Page 1 and "all" are left out; a value that breaks
- * its rule is never written.
- */
 export const listQueryHref = (
   query: ListQuery,
   change: ListQueryChange = {}
@@ -95,18 +83,12 @@ export const listQueryHref = (
     : `${LIST_PATHS[query.scope]}?${search}`
 }
 
-/** The tabs of a ticket page, in screen order (spec 003 AC-2.1). */
 export const TICKET_TABS = ['detalhes', 'conversa'] as const
 
-/** The tab of an `aba` value (AC-2.3); anything else is "Detalhes". */
 export const readTicketTab = (aba: unknown): TicketTab =>
   aba === 'conversa' ? 'conversa' : 'detalhes'
 
-/**
- * The way back from a ticket page to its list (`?de=`, AC-2.5, AC-5.5):
- * only a same-origin path of the scope's list is accepted, and it is
- * rebuilt from its known keys; anything else is the bare list.
- */
+// Only a same-origin list path is accepted, rebuilt from its known keys.
 export const backToListHref = (de: unknown, scope: ListScope): string => {
   const list = LIST_PATHS[scope]
   if (typeof de !== 'string' || !de.startsWith(`${list}?`)) return list

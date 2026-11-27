@@ -20,8 +20,6 @@ import {
 import type { TicketInput } from './types'
 import type { TicketStatus } from './types'
 
-// Invisible characters are built from their code points, so the source
-// shows which one each test uses.
 const NBSP = String.fromCodePoint(0xa0)
 const NEXT_LINE = String.fromCodePoint(0x85)
 const LINE_SEPARATOR = String.fromCodePoint(0x2028)
@@ -127,7 +125,6 @@ describe('trimField and codePoints', () => {
     ['\n\r\v\f Grafana', 'Grafana'],
     [`${NBSP}Grafana${IDEOGRAPHIC_SPACE}`, 'Grafana'],
     [`${NEXT_LINE}Grafana${LINE_SEPARATOR}`, 'Grafana'],
-    // U+FEFF is not whitespace for the backend (Go's unicode.IsSpace).
     [`${BOM}Grafana`, `${BOM}Grafana`],
     ['Portal  do aluno', 'Portal  do aluno']
   ])('trimField(%j) → %j', (raw, want) => {
@@ -140,8 +137,7 @@ describe('trimField and codePoints', () => {
   })
 })
 
-// The BR-3 vectors of backend/internal/service/tickets_test.go
-// (titleVectors), so both sides build the same title.
+// Same vectors as backend/internal/service/tickets_test.go (titleVectors)
 const rep = (value: string, n: number) => value.repeat(n)
 
 const access = (sistema: string): TicketInput => ({
@@ -252,8 +248,7 @@ describe('ticketTitle (BR-3)', () => {
   })
 })
 
-// Copied from the Go table of backend/internal/security/ticket_status_test.go
-// (spec 003 BR-3): every from × to pair and whether it is allowed.
+// Same table as backend/internal/security/ticket_status_test.go
 const transitionVectors: [TicketStatus, TicketStatus, boolean][] = [
   ['aberto', 'aberto', false],
   ['aberto', 'em_andamento', true],

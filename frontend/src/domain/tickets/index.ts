@@ -1,9 +1,3 @@
-// Ticket types, the fields of each type and the title rule (spec 001-ticket-
-// builder, section 4 and BR-3). Codes are the values on the wire; labels and
-// descriptions are what the user sees. The codes are checked against
-// backend/api/openapi.json in index.test.ts, since `domain` cannot import
-// the API contract in `lib`.
-
 import { z } from 'zod'
 
 import type {
@@ -56,7 +50,6 @@ export const ACCESS_LEVELS = [
   }
 ] as const
 
-/** The help texts of spec section 4. "Crítica" is the risky option. */
 export const SEVERITIES = [
   { code: 'baixa', description: 'Incômodo, há alternativa.', label: 'Baixa' },
   {
@@ -77,7 +70,6 @@ export const SEVERITIES = [
   }
 ] as const
 
-/** "Produção" is the risky option. */
 export const ENVIRONMENTS = [
   {
     code: 'dev',
@@ -104,10 +96,6 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   resolvido: 'Resolvido'
 }
 
-/**
- * The status changes an admin may choose from each status (spec 003 BR-3),
- * the same table as the backend's `AllowedNextStatuses`. "Fechado" is final.
- */
 export const ALLOWED_NEXT_STATUSES = {
   aberto: ['em_andamento', 'fechado'],
   em_andamento: ['resolvido', 'fechado'],
@@ -115,10 +103,8 @@ export const ALLOWED_NEXT_STATUSES = {
   resolvido: ['em_andamento', 'fechado']
 } as const satisfies Record<TicketStatus, readonly TicketStatus[]>
 
-/** The longest message of a thread, in code points (spec 003 BR-6). */
 export const MESSAGE_MAX = 2000
 
-/** The field messages of a thread reply (spec 003 AC-3.5, 001 section 4). */
 export const MESSAGE_PROBLEMS = {
   control: 'Remova os caracteres de controle do texto.',
   empty: 'Preencha este campo.',
@@ -126,7 +112,7 @@ export const MESSAGE_PROBLEMS = {
   tooLong: `Use no máximo ${MESSAGE_MAX} caracteres.`
 } as const
 
-/** Limits of spec section 4, in Unicode code points. */
+// In Unicode code points
 export const FIELD_LIMITS = {
   long: { max: 2000, min: 10 },
   optional: { max: 2000, min: 0 },
@@ -134,15 +120,8 @@ export const FIELD_LIMITS = {
   url: { max: 300, min: 1 }
 } as const
 
-/** The title limit of BR-3, the same as the server and the database. */
 export const TITLE_MAX = 120
 
-/**
- * The form of each type, in the request key order of `dados` (the screen
- * may group short fields first). `hint` is help text (under the long
- * fields, or a format rule); `placeholder` is a short example inside the
- * empty control.
- */
 export const TICKET_FIELDS = {
   acesso: [
     {
@@ -259,28 +238,21 @@ export const TICKET_FIELDS = {
   ]
 } as const satisfies { [Type in TicketType]: readonly TicketField[] }
 
-/** The label of a ticket type code. */
 export const ticketTypeLabel = (type: TicketType): string =>
   TICKET_TYPES.find(option => option.code === type)?.label ?? type
 
-/** The label of a fixed-choice code of a field, or the code itself. */
 export const choiceLabel = (field: TicketField, code: string): string =>
   field.options?.find(option => option.code === code)?.label ?? code
 
-/** The fields of a type, as a plain list (for loops over any type). */
 export const fieldsOf = (type: TicketType): readonly TicketField[] =>
   TICKET_FIELDS[type]
 
-/** The field of a type with this key. */
 export const fieldOf = (
   type: TicketType,
   key: TicketFieldKey
 ): TicketField | undefined => fieldsOf(type).find(field => field.key === key)
 
-/**
- * Whitespace as the backend trims it (Go's unicode.IsSpace). It differs from
- * JavaScript's `trim()`: U+0085 is whitespace here and U+FEFF is not.
- */
+// Go's unicode.IsSpace, not JS trim(): U+0085 is whitespace, U+FEFF is not
 const SPACE =
   '\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000'
 
@@ -290,27 +262,17 @@ const TRAILING_SPACE = new RegExp(`[${SPACE}]+$`)
 export const trimEndField = (value: string): string =>
   value.replace(TRAILING_SPACE, '')
 
-/** Trims a field value the way the backend does before validating. */
 export const trimField = (value: string): string =>
   trimEndField(value.replace(LEADING_SPACE, ''))
 
-/** Length in Unicode code points, as the backend counts it. */
 export const codePoints = (value: string): number => [...value].length
 
-/** What an optional field left empty shows (spec 001 AC-4.1, 003 AC-2.2). */
 export const NOT_INFORMED = 'Não informado'
 
-/** Kinds shown first, side by side, on the builder and in the details. */
 const COMPACT_KINDS: readonly string[] = ['choice', 'short', 'url']
 
-/** The field whose value is the ticket title itself ("Outro", BR-3). */
 const TITLE_FIELDS: Partial<Record<TicketType, string>> = { outro: 'titulo' }
 
-/**
- * Every field of a type in screen order (short fields, URLs and choices
- * first, then the long ones), with its label, the label of a fixed choice,
- * and `null` for an optional field left empty (`""`, `null` or absent).
- */
 export const ticketFieldRows = (
   type: TicketType,
   data: Readonly<Record<string, null | string | undefined>>
@@ -335,32 +297,19 @@ export const ticketFieldRows = (
   })
 }
 
-/**
- * The rows of the "Detalhes" group of a ticket (the builder review, 001
- * AC-4.1, and the ticket page, 003 AC-2.2): the field that is the ticket
- * title ("Título" of "Outro") is left out, since the "Pedido" group already
- * shows it as the title.
- */
 export const ticketDetailRows = (
   type: TicketType,
   data: Readonly<Record<string, null | string | undefined>>
 ): TicketDetailRow[] =>
   ticketFieldRows(type, data).filter(row => row.key !== TITLE_FIELDS[type])
 
-/** A lone surrogate: the JavaScript form of text that is not valid UTF-8. */
 const LONE_SURROGATE = /\p{Surrogate}/u
 
-/** Go's unicode.IsControl except line feed, carriage return and tab. */
+// Go's unicode.IsControl except line feed, carriage return and tab
 const FORBIDDEN_CONTROL = new RegExp(
   '[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]'
 )
 
-/**
- * The message rule of the backend's `ValidateMessage` (spec 003 BR-6, the
- * multi-line rule of 001): valid text, trimmed, 1 to 2000 code points, and
- * no control character but line feed, carriage return and tab. `null` when
- * the text is valid, otherwise the message to show under the field.
- */
 export const checkMessage = (raw: string): null | string => {
   if (LONE_SURROGATE.test(raw)) return MESSAGE_PROBLEMS.invalidText
   const value = trimField(raw)
@@ -370,7 +319,6 @@ export const checkMessage = (raw: string): null | string => {
   return null
 }
 
-/** The reply text as zod checks it before sending; the result is trimmed. */
 export const messageSchema = z
   .string()
   .superRefine((raw, ctx) => {
@@ -379,17 +327,9 @@ export const messageSchema = z
   })
   .transform(trimField)
 
-/** The first `max` code points of `value`, never splitting a character. */
 const cutCodePoints = (value: string, max: number): string =>
   [...value].slice(0, max).join('')
 
-/**
- * The title the server gives a ticket (BR-3): "Outro" keeps the typed title;
- * the other types get "Acesso a <sistema>", "Bug em <sistema afetado>" or
- * "Deploy de <projeto> em <ambiente>" (environment label), cut to 120 code
- * points, with whitespace left at the end by the cut removed. Field values
- * are trimmed first, as the server does.
- */
 export const ticketTitle = (ticket: TicketInput): string => {
   const title = (() => {
     switch (ticket.tipo) {

@@ -73,7 +73,6 @@ describe('TicketReview', () => {
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;')
-    // In the title row and in the field row.
     expect(html.split(escaped)).toHaveLength(3)
   })
 })

@@ -38,7 +38,6 @@ func TestCreateFirstAdmin(t *testing.T) {
 		t.Errorf("stored hash does not verify: %v", err)
 	}
 
-	// Running the seed again fails with a conflict and does not duplicate.
 	for _, login := range []string{"admin.root", "ADMIN.ROOT"} {
 		if _, err := users.CreateFirstAdmin(t.Context(), login, adminPassword); !errors.Is(err, domain.ErrConflict) {
 			t.Errorf("second CreateFirstAdmin(%q) = %v, want ErrConflict", login, err)
@@ -111,7 +110,6 @@ func TestCreateFailures(t *testing.T) {
 	}
 }
 
-// spyRepo wraps memUsers and records the stored users.
 type spyRepo struct {
 	*memUsers
 	creates []domain.User
@@ -211,7 +209,6 @@ func TestRegisterConflict(t *testing.T) {
 		t.Fatalf("first Register() = %v", err)
 	}
 
-	// D-10: a login that differs only in case is the same login.
 	for _, login := range []string{"maria.silva", "Maria.Silva"} {
 		in.Login = login
 		if _, err := users.Register(t.Context(), in); !errors.Is(err, domain.ErrConflict) {

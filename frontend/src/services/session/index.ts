@@ -20,16 +20,10 @@ const backendGet = createBackendGet(
 
 const sessionCookie = async () => (await cookies()).get(SESSION_COOKIE)?.value
 
-/** The current session, checked once per request (React cache). */
 export const getSession = cache(async (): Promise<Session> =>
   loadSession(await sessionCookie(), backendGet)
 )
 
-/**
- * Guard for a protected page: redirects to login when there is no valid
- * session, and tells the page whether the role is allowed. Call it in each
- * page, not in a layout (layouts do not re-render on navigation).
- */
 export const requireRole = async (
   route: ProtectedRoute,
   path: string = route
@@ -39,7 +33,6 @@ export const requireRole = async (
   return { allowed: access.kind === 'allowed', user: access.user }
 }
 
-/** Loads a role area; redirects to login if the session ended meanwhile. */
 export const requireArea = async (path: AreaPath, route: ProtectedRoute) => {
   const cookie = await sessionCookie()
   if (!isSessionValue(cookie)) {

@@ -22,11 +22,8 @@ const (
 	flowPassword = "the right long password"
 )
 
-// comumLogin is a user with the comum role and the same password.
 const comumLogin = "maria"
 
-// credAuth accepts flowLogin (admin, ID 1) and comumLogin (comum, ID 2),
-// both with flowPassword.
 type credAuth struct{}
 
 func (credAuth) Authenticate(_ context.Context, login, password string) (domain.User, error) {
@@ -41,11 +38,10 @@ func (credAuth) Authenticate(_ context.Context, login, password string) (domain.
 	return domain.User{}, fmt.Errorf("fake: %w", domain.ErrInvalidCredentials)
 }
 
-// flowApp is the full NewHandler chain with working sessions.
 type flowApp struct {
 	app      http.Handler
 	sessions *memSessions
-	tickets  *memTicketRepo // the tickets stored through the real service.Tickets
+	tickets  *memTicketRepo
 }
 
 func newFlowApp(t *testing.T) flowApp {
@@ -53,19 +49,15 @@ func newFlowApp(t *testing.T) flowApp {
 	return newFlowAppWith(t, flowConfig{})
 }
 
-// newFlowAppWithLog is newFlowApp with the log written to logOut.
 func newFlowAppWithLog(t *testing.T, logOut io.Writer) flowApp {
 	t.Helper()
 	return newFlowAppWith(t, flowConfig{logOut: logOut})
 }
 
-// flowConfig customizes newFlowAppWith. The zero value discards the log,
-// uses the default Argon2 parameters and the fakeUsers service.
 type flowConfig struct {
 	logOut io.Writer
 	argon2 security.Argon2Params
-	// users builds the registration service from the app's Security.
-	users func(sec *security.Security) UserService
+	users  func(sec *security.Security) UserService
 }
 
 func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
@@ -104,7 +96,6 @@ func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
 	return flowApp{app: app, sessions: store, tickets: tickets}
 }
 
-// send runs one request; cookie may be nil.
 func (f flowApp) send(t *testing.T, method, path, body string, cookie *http.Cookie, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
@@ -122,7 +113,6 @@ func (f flowApp) send(t *testing.T, method, path, body string, cookie *http.Cook
 	return rr
 }
 
-// csrf runs GET /api/csrf and returns the session cookie and the token.
 func (f flowApp) csrf(t *testing.T, cookie *http.Cookie) (*http.Cookie, string) {
 	t.Helper()
 	rr := f.send(t, http.MethodGet, "/api/csrf", "", cookie, nil)
@@ -175,7 +165,6 @@ func TestLoginFlow(t *testing.T) {
 		t.Errorf("%d sessions stored, want 1 (the anonymous one is deleted)", n)
 	}
 
-	// D-4: the CSRF token changes at login; the old one is refused.
 	_, newToken := f.csrf(t, authCookie)
 	if newToken == "" || newToken == token {
 		t.Errorf("token after login = %q, want a new token", newToken)
@@ -186,7 +175,6 @@ func TestLoginFlow(t *testing.T) {
 		t.Errorf("old CSRF token after login: status = %d, want 403", rr.Code)
 	}
 
-	// The anonymous cookie no longer has a session.
 	rr = f.send(t, http.MethodPost, "/api/login", loginBody(flowLogin, flowPassword), anon,
 		map[string]string{security.CSRFHeaderName: token})
 	if rr.Code != http.StatusForbidden {
@@ -267,14 +255,11 @@ func TestLoginRejections(t *testing.T) {
 			messages[tt.name] = body.Message
 		})
 	}
-	// Same message for an unknown user and a wrong password.
 	if messages["wrong password"] != messages["unknown user"] {
 		t.Errorf("401 messages differ: %q / %q", messages["wrong password"], messages["unknown user"])
 	}
 }
 
-// loginAs runs csrf → login and returns the authenticated cookie and the
-// new CSRF token (D-4).
 func (f flowApp) loginAs(t *testing.T, login string) (*http.Cookie, string) {
 	t.Helper()
 	anon, token := f.csrf(t, nil)
@@ -303,9 +288,6 @@ func TestMeReturnsTheCaller(t *testing.T) {
 	}
 }
 
-// TestMeReturnsTheLoginAndRegistrationDate covers spec Q-16 and AC-7.3:
-// GET /api/me also answers the session user's login and registration time
-// (in UTC), for both roles, and no other field.
 func TestMeReturnsTheLoginAndRegistrationDate(t *testing.T) {
 	t.Parallel()
 
@@ -351,8 +333,6 @@ func TestMeReturnsTheLoginAndRegistrationDate(t *testing.T) {
 	}
 }
 
-// TestLogout covers the logout criterion: 204, the session row is deleted,
-// the cookie is expired, and the old cookie then gets 401.
 func TestLogout(t *testing.T) {
 	t.Parallel()
 
@@ -394,9 +374,6 @@ func TestLogoutNeedsTokenAndSession(t *testing.T) {
 	}
 }
 
-// TestRoleChangeAppliesOnNextRequest covers 003 D-12: the role is read on
-// every request, so a change takes effect with the same cookie and no new
-// login.
 func TestRoleChangeAppliesOnNextRequest(t *testing.T) {
 	t.Parallel()
 

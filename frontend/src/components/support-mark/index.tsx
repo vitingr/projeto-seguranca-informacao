@@ -3,11 +3,6 @@ import { HeadsetIcon } from 'lucide-react'
 
 import type { SupportMarkProps } from './types'
 
-/**
- * The one mark of the support team in a thread (spec 003 section 7): a
- * small neutral square tile with a headset, in front of every admin message
- * the comum user sees. Decorative: the name next to it says "Suporte".
- */
 export const SupportMark = ({ className }: SupportMarkProps) => (
   <span
     className={cn(

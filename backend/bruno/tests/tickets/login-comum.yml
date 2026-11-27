@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The comum user registered by the access matrix.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
           expect(res.getBody().role).to.equal("comum");

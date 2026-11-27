@@ -14,13 +14,8 @@ import (
 	"backend_si/internal/service"
 )
 
-// cadastroPassword is long enough for the password policy and easy to spot
-// in a log.
 const cadastroPassword = "Cadastro-Sentinel-Pa55word" //nolint:gosec // test fixture, not a real credential
 
-// memUserRepo is an in-memory service.UserRepository with the UNIQUE login
-// constraint of the users table. IDs start at 100, far from the session
-// users (1 and 2).
 type memUserRepo struct {
 	mu     sync.Mutex
 	byName map[string]domain.User
@@ -59,10 +54,8 @@ func (m *memUserRepo) count() int {
 	return len(m.byName)
 }
 
-// testArgon2 keeps the real hasher fast in tests.
 var testArgon2 = security.Argon2Params{Memory: 64, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32}
 
-// newCadastroApp is the full chain with the real service.Users over repo.
 func newCadastroApp(t *testing.T, logOut *bytes.Buffer, repo *memUserRepo) flowApp {
 	t.Helper()
 	return newFlowAppWith(t, flowConfig{
@@ -82,7 +75,6 @@ func cadastroBody(login, senha, papel string) string {
 	return string(b)
 }
 
-// auditLine returns the "user registered" log line, or "" if there is none.
 func auditLine(logged string) string {
 	for line := range strings.Lines(logged) {
 		if strings.Contains(line, `"msg":"user registered"`) {
@@ -109,7 +101,6 @@ func TestCadastroCreatesUser(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	// D-10: the response carries the normalized login.
 	if got.UserID < 100 || got.Login != "maria.silva" || got.Role != domain.RoleComum {
 		t.Errorf("body = %+v, want a new user maria.silva with role comum", got)
 	}
@@ -125,7 +116,6 @@ func TestCadastroCreatesUser(t *testing.T) {
 		t.Errorf("stored user = %+v, want an Argon2id hash and role comum", stored)
 	}
 
-	// D-11: the audit line has the IDs and the role, never the credentials.
 	audit := auditLine(logBuf.String())
 	if audit == "" {
 		t.Fatalf("no audit line in the log:\n%s", logBuf.String())
@@ -152,7 +142,7 @@ func TestCadastroRejections(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		existing    string // registered before the request, when set
+		existing    string
 		body        string
 		wantStatus  int
 		wantError   string

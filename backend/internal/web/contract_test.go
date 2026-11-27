@@ -16,22 +16,15 @@ import (
 	"backend_si/internal/security"
 )
 
-// contractPath is the API contract, relative to this package.
 const contractPath = "../../api/openapi.json"
 
-// errorSchemaRef is the schema every error response must use.
 const errorSchemaRef = "#/components/schemas/ErrorResponse"
 
-// csrfExample is the Bruno variable the CSRF header example must reference.
 const csrfExample = "{{csrfToken}}"
 
-// bodylessOperations are the state-changing operations that take no request
-// body, so they are exempt from the requestBody check.
 var bodylessOperations = map[string]bool{
 	"POST /api/logout": true,
 }
-
-// --- the subset of OpenAPI 3.1 this test reads -------------------------------
 
 type openAPI struct {
 	Paths      map[string]map[string]json.RawMessage `json:"paths"`
@@ -82,7 +75,6 @@ type schema struct {
 	Required   []string                   `json:"required"`
 }
 
-// httpMethods are the path item keys that hold operations.
 var httpMethods = map[string]string{
 	"get": http.MethodGet, "put": http.MethodPut, "post": http.MethodPost,
 	"delete": http.MethodDelete, "options": http.MethodOptions,
@@ -107,15 +99,13 @@ func parseContract(t *testing.T, data string) *openAPI {
 	return &doc
 }
 
-// operations returns the contract operations keyed by "METHOD /path", the
-// same format as route.pattern().
 func (doc *openAPI) operations() (map[string]operation, error) {
 	ops := map[string]operation{}
 	for path, item := range doc.Paths {
 		for key, raw := range item {
 			method, ok := httpMethods[key]
 			if !ok {
-				continue // path-level fields such as "parameters"
+				continue
 			}
 			var op operation
 			if err := json.Unmarshal(raw, &op); err != nil {
@@ -146,10 +136,6 @@ func (doc *openAPI) response(r response) (response, bool) {
 	return resolved, ok
 }
 
-// --- comparisons --------------------------------------------------------------
-
-// routePolicies returns the route table keyed by pattern, without the 404
-// catch-all, which is not part of the contract (constitution §3).
 func routePolicies(routes []route) map[string]security.Policy {
 	out := map[string]security.Policy{}
 	for _, rt := range routes {
@@ -161,7 +147,6 @@ func routePolicies(routes []route) map[string]security.Policy {
 	return out
 }
 
-// diffRoutes reports the patterns that exist on only one side.
 func diffRoutes(table map[string]security.Policy, contract map[string]operation) []string {
 	var problems []string
 	for pattern := range table {
@@ -178,8 +163,6 @@ func diffRoutes(table map[string]security.Policy, contract map[string]operation)
 	return problems
 }
 
-// diffPolicy compares a route policy with the operation's x-policy: "public"
-// or a list of roles, compared as a set.
 func diffPolicy(p security.Policy, raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return "x-policy is missing"
@@ -210,9 +193,6 @@ func diffPolicy(p security.Policy, raw json.RawMessage) string {
 	return ""
 }
 
-// checkStateChanging requires the CSRF header on every state-changing
-// operation and a JSON request body with an example, except for the
-// operations listed in bodylessOperations.
 func checkStateChanging(doc *openAPI, pattern string, op operation) []string {
 	method, _, _ := strings.Cut(pattern, " ")
 	if method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions {
@@ -253,8 +233,6 @@ func checkStateChanging(doc *openAPI, pattern string, op operation) []string {
 	return problems
 }
 
-// checkErrorResponses requires the minimum error responses and that every
-// declared error response uses the ErrorResponse schema.
 func checkErrorResponses(doc *openAPI, pattern string, op operation, p security.Policy) []string {
 	required := map[int]bool{http.StatusInternalServerError: true}
 	if op.RequestBody != nil {
@@ -265,7 +243,7 @@ func checkErrorResponses(doc *openAPI, pattern string, op operation, p security.
 		required[http.StatusForbidden] = true
 	}
 	if method, _, _ := strings.Cut(pattern, " "); method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
-		required[http.StatusForbidden] = true // CSRF
+		required[http.StatusForbidden] = true
 	}
 
 	var problems []string
@@ -292,13 +270,10 @@ func checkErrorResponses(doc *openAPI, pattern string, op operation, p security.
 	return problems
 }
 
-// sharedPathParameters are the path wildcards that every operation must
-// declare through the same component, so one definition holds the rule.
 var sharedPathParameters = map[string]string{
 	"id": "#/components/parameters/TicketId",
 }
 
-// pathWildcards returns the names of the {name} segments of a route path.
 func pathWildcards(path string) []string {
 	var names []string
 	for segment := range strings.SplitSeq(path, "/") {
@@ -310,11 +285,6 @@ func pathWildcards(path string) []string {
 	return names
 }
 
-// diffParameters compares the path and query parameters of an operation
-// with the route: every wildcard of the path is a required path parameter
-// (through its shared component, if it has one), and the query parameters
-// are exactly the names the routes table declares. Header parameters are
-// checked by checkStateChanging.
 func diffParameters(doc *openAPI, pattern string, op operation, query []string) []string {
 	_, path, _ := strings.Cut(pattern, " ")
 	wildcards := pathWildcards(path)
@@ -361,11 +331,8 @@ func diffParameters(doc *openAPI, pattern string, op operation, query []string) 
 	return problems
 }
 
-// diffSchema compares a schema with the JSON tags of a struct: property
-// names must match, and required properties are the fields without
-// omitempty.
 func diffSchema(s schema, typ reflect.Type) []string {
-	fields := map[string]bool{} // JSON name -> required
+	fields := map[string]bool{}
 	for i := range typ.NumField() {
 		tag := typ.Field(i).Tag.Get("json")
 		if tag == "" || tag == "-" {
@@ -394,8 +361,6 @@ func diffSchema(s schema, typ reflect.Type) []string {
 	return problems
 }
 
-// --- the contract against the code ---------------------------------------------
-
 func TestContractMatchesRoutes(t *testing.T) {
 	t.Parallel()
 
@@ -413,7 +378,7 @@ func TestContractMatchesRoutes(t *testing.T) {
 	for pattern, policy := range table {
 		op, ok := ops[pattern]
 		if !ok {
-			continue // already reported by diffRoutes
+			continue
 		}
 		t.Run(pattern, func(t *testing.T) {
 			t.Parallel()
@@ -467,8 +432,6 @@ func TestContractSchemasMatchStructs(t *testing.T) {
 		})
 	}
 }
-
-// --- the comparisons themselves, on synthetic inputs ---------------------------
 
 func TestDiffRoutes(t *testing.T) {
 	t.Parallel()
@@ -554,8 +517,6 @@ func TestDiffPolicy(t *testing.T) {
 	}
 }
 
-// syntheticContract wraps one operation at path /x (or /api/logout, to test
-// bodylessOperations) with the shared components the checks resolve.
 func syntheticContract(t *testing.T, path, method, op string) (*openAPI, operation) {
 	t.Helper()
 	doc := parseContract(t, `{
@@ -587,7 +548,7 @@ func TestCheckStateChanging(t *testing.T) {
 		path   string
 		method string
 		op     string
-		want   int // number of problems
+		want   int
 	}{
 		{"GET needs nothing", "/x", "get", `{}`, 0},
 		{"POST with header and body", "/x", "post", `{` + csrf + `, ` + body + `}`, 0},
@@ -628,7 +589,7 @@ func TestCheckErrorResponses(t *testing.T) {
 		method string
 		policy security.Policy
 		op     string
-		want   int // number of problems
+		want   int
 	}{
 		{"public GET with 500", "get", security.Public(), `{"responses": {"200": {}, "500": ` + e + `}}`, 0},
 		{"public GET without 500", "get", security.Public(), `{"responses": {"200": {}}}`, 1},
@@ -664,7 +625,7 @@ func TestDiffSchema(t *testing.T) {
 	tests := []struct {
 		name   string
 		schema string
-		want   int // number of problems
+		want   int
 	}{
 		{"matches", `{"properties": {"id": {}, "name": {}}, "required": ["id"]}`, 0},
 		{"missing property", `{"properties": {"id": {}}, "required": ["id"]}`, 1},

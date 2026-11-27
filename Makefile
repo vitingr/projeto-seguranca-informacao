@@ -1,18 +1,10 @@
-# Entry point for both projects. Every target only delegates: the frontend
-# commands live in frontend/package.json (run with pnpm) and the backend ones
-# in backend/magefiles (run with "go tool mage"). Run "make" to list them.
-
 SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
-# Each recipe runs in one shell, so "set -e" stops it at the first failure.
 .ONESHELL:
-# Prerequisites run one at a time, left to right (infra-up before migrate).
 .NOTPARALLEL:
 .DEFAULT_GOAL := help
 MAKEFLAGS += --no-builtin-rules --no-print-directory --warn-undefined-variables
 
-# GNU make for Windows only honors SHELL := bash when it is started from Git
-# Bash; from PowerShell or cmd it silently runs the recipes in cmd.exe.
 ifdef OS
 ifeq ($(OS),Windows_NT)
 ifndef MSYSTEM
@@ -24,10 +16,6 @@ endif
 PNPM := pnpm --dir frontend
 MAGE := go -C backend tool mage
 
-# The process environment wins over frontend/.env.local in Next, and the
-# Playwright webServer inherits it, so the e2e target points the frontend at
-# the docker compose stack. API_URL (the /api proxy) is set too, in case
-# .env.local sets it.
 E2E_API_BASE_URL := https://localhost
 
 .PHONY: help \
@@ -65,8 +53,6 @@ dev: check-frontend-env ## Run backend and frontend together (Ctrl+C stops both)
 	@set -m
 	$(MAKE) dev-backend & backend=$$!
 	$(MAKE) dev-frontend & frontend=$$!
-	# Stop a whole process tree: taskkill on Windows (Git Bash), the job's
-	# process group elsewhere (set -m gives each job its own group).
 	stop() {
 	  for pid in "$$@"; do
 	    kill -0 "$$pid" 2>/dev/null || continue
@@ -79,7 +65,6 @@ dev: check-frontend-env ## Run backend and frontend together (Ctrl+C stops both)
 	}
 	trap 'stop $$backend $$frontend' EXIT
 	trap 'exit 130' INT TERM
-	# When either side exits, the EXIT trap stops the other one.
 	while kill -0 $$backend 2>/dev/null && kill -0 $$frontend 2>/dev/null; do sleep 1; done
 	if ! kill -0 $$backend 2>/dev/null; then name=backend; pid=$$backend; else name=frontend; pid=$$frontend; fi
 	status=0; wait $$pid || status=$$?
@@ -155,7 +140,6 @@ check-backend: ## go tool mage ci (fmt, lint, vuln, test)
 
 check-frontend: lint-frontend typecheck-frontend test-frontend ## pnpm lint, typegen, tsc and pnpm test
 
-# Next loads src/config/env through next.config.ts, which needs API_BASE_URL.
 check-frontend-env:
 	@if [ -n "$${API_BASE_URL:-}" ]; then exit 0; fi
 	if [ -f frontend/.env.local ] &&

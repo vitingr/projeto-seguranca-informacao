@@ -1,7 +1,3 @@
-// Guard for the hard design rules of spec 001 section 7: radius `sm` only,
-// no shadows, no gradients and no `tracking-*` classes. It scans every
-// source file, including comments, so a forbidden class cannot slip in
-// through a copied component.
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +6,6 @@ import { describe, expect, it } from 'vitest'
 const RULES = [
   {
     name: 'shadow class',
-    // `--shadow-*` tokens are preceded by a dash and are not classes.
     pattern:
       /(?<![\w-])(?:drop-|inset-|text-)?shadow-(?!none(?![\w-]))[\w[\]()/.,%-]+/g
   },
@@ -29,8 +24,6 @@ const RULES = [
   },
   {
     name: 'radius other than sm',
-    // Any `rounded` class, with or without a side, except `-sm`, `-none`
-    // and `-full` (focus rings and avatars).
     pattern:
       /(?<![\w-])rounded(?:-(?:tl|tr|br|bl|ss|se|es|ee|t|r|b|l|s|e))?(?:-(?!(?:sm|none|full)(?![\w-]))[\w[\]()/.,%-]+)?(?![\w-])/g
   }
@@ -38,7 +31,6 @@ const RULES = [
 
 const ALLOWED_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:sm|none|full)$/
 
-/** Every forbidden class or declaration in `source`, as "rule: match". */
 const violations = (source: string) =>
   RULES.flatMap(({ name, pattern }) =>
     [...source.matchAll(pattern)]
@@ -114,8 +106,6 @@ describe('source files', () => {
   })
 })
 
-// The pointer cursor is for enabled buttons only: a disabled button, native
-// or `aria-disabled`, keeps the default cursor (or its own utility class).
 describe('pointer cursor', () => {
   const css = readFileSync(
     fileURLToPath(new URL('../styles/globals.css', import.meta.url)),
@@ -124,7 +114,6 @@ describe('pointer cursor', () => {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replaceAll('"', "'")
 
-  /** The bodies of every `@layer <name> { … }` block of the stylesheet. */
   const layerBodies = (name: string) => {
     const bodies: string[] = []
     let start = css.indexOf(`@layer ${name} {`)
@@ -144,7 +133,6 @@ describe('pointer cursor', () => {
     return bodies
   }
 
-  /** Every selector of the rules in `source` that set `cursor: pointer`. */
   const pointerSelectors = (source: string) =>
     [...source.matchAll(/([^{};]+)\{[^{}]*cursor\s*:\s*pointer/g)].flatMap(
       match => match[1].split(',').map(selector => selector.trim())

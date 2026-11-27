@@ -7,19 +7,12 @@ export const FIELD_MARKERS = {
   required: '(obrigatório)'
 } as const
 
-/** The ids of the parts of a field, for controls rendered elsewhere. */
 export const fieldIds = (id: string) => ({
   error: `${id}-error`,
   hint: `${id}-hint`,
   label: `${id}-label`
 })
 
-/**
- * A labelled field as in `design/references/tela-criacao-tickets.png`: a
- * small medium-weight label, a red asterisk on required fields (announced
- * as "obrigatório") or a muted "(opcional)", the control, and the error
- * under it, tied to the control (spec AC-3.1, section 7 "Error").
- */
 export const FormField = ({
   children,
   className,
@@ -77,7 +70,6 @@ export const FormField = ({
   )
 }
 
-/** A single-line input with the look of the reference (`h-9`, thin border). */
 export const FormInput = ({ className, ...props }: FormInputProps) => (
   <input
     className={cn(

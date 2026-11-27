@@ -34,8 +34,6 @@ export const LoginForm = ({ expired, next }: LoginFormProps) => {
     setError(null)
     const result = await api.login(values)
     if (result.ok) {
-      // Client navigation keeps the new CSRF token in memory; the target is
-      // one of the user's own routes (safeNext), never a URL from the query.
       setNavigating(true)
       router.replace(safeNext(next, result.data.role))
       return

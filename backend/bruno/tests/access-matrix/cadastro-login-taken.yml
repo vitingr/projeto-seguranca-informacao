@@ -23,7 +23,6 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        // The same login in upper case is the same login (D-10).
         bru.setVar("comumLoginUpper", bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}").toUpperCase());
     - type: tests
       code: |-

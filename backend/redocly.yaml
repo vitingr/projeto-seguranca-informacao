@@ -1,17 +1,8 @@
-# Redocly CLI configuration used by "mage contractLint" (see README).
 extends:
   - recommended
 
 rules:
-  # Authentication and roles are described by the x-policy extension, not by
-  # securitySchemes, so this rule has nothing to check.
-  security-defined: off
-  # The API is not published, so there is no license to declare.
+  security-defined: off # auth is described by x-policy
   info-license: off
-  # https://localhost is the only environment by design: it becomes the Bruno
-  # "local" environment.
-  no-server-example.com: off
-  # GET /healthz and GET /api/csrf take no input, so they have no 4xx
-  # responses. The minimum error responses per operation are enforced by the
-  # contract test in internal/web instead.
-  operation-4xx-response: off
+  no-server-example.com: off # https://localhost is the only server
+  operation-4xx-response: off # /healthz and /api/csrf have no 4xx

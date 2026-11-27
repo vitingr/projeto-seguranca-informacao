@@ -11,15 +11,7 @@ import {
 } from './schemas'
 import type { FieldProblem, TicketFormValues } from './types'
 
-// The boundary vectors of backend/internal/security/tickets_test.go (task
-// T3.1: TestSingleLine, TestMultiLine, TestMultiLineOptional, TestHTTPSURL;
-// T3.2: TestValidateTicketAccepts/Refuses), so the form accepts and refuses
-// what the backend does (S-2). Text that is not valid UTF-8 cannot exist in
-// a JavaScript string; its counterpart is a lone surrogate.
-
 const rep = (value: string, n: number) => value.repeat(n)
-// Invisible characters are built from their code points, so the source
-// shows which one each test uses.
 const BAD_TEXT = String.fromCharCode(0xd800)
 const NBSP = String.fromCodePoint(0xa0)
 const LINE_SEPARATOR = String.fromCodePoint(0x2028)
@@ -152,7 +144,6 @@ describe('checkHttpsUrl (up to 300)', () => {
   })
 })
 
-/** The message under each field, or `{}` when the form is valid. */
 const fieldErrors = (
   type: keyof typeof ticketSchemas,
   values: TicketFormValues

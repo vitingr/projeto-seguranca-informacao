@@ -21,9 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-2: B cannot reply on A's ticket; the answer is the one
-        // of a ticket that does not exist (120). The admin checks in the
-        // thread that nothing was stored.
         test("same answer as a missing ticket", function () {
           const body = Object.assign({}, res.getBody());
           delete body.request_id;

@@ -1,9 +1,3 @@
-// Parsers of the ticket tracking answers (spec 003), from the backend JSON
-// to domain types. They fail closed (S-13, AC-1.10): a missing or extra
-// key, an unknown code or `kind`, a malformed date, a `data` that is not
-// the key set of its type, or an admin field in a `comum` answer makes the
-// whole answer `null`, never a partly shown one.
-
 import { LOGIN_PATTERN } from '@/domain/credentials'
 import type {
   StatusChange,
@@ -45,7 +39,6 @@ const RFC3339 =
 const isRecord = (value: unknown): value is Fields =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** Exactly these keys, in any order. */
 const hasKeys = (value: Fields, keys: readonly string[]) => {
   const own = Object.keys(value)
   return (
@@ -76,14 +69,12 @@ const isType = oneOf(TICKET_TYPES)
 const isStatus = oneOf(TICKET_STATUSES)
 const isSide = oneOf(ENTRY_SIDES)
 
-/** The fixed-choice fields of `data` and their codes. */
 const CHOICES: Record<string, (value: unknown) => boolean> = {
   ambiente: oneOf(ENVIRONMENTS),
   nivel_acesso: oneOf(ACCESS_LEVELS),
   severidade: oneOf(SEVERITIES)
 }
 
-/** Fields that may be `null` when left empty. */
 const OPTIONAL = new Set(['observacoes'])
 
 const parseData = (
@@ -169,13 +160,10 @@ const parseListPage = (body: unknown, scope: Scope): null | TicketListPage => {
   }
 }
 
-/** GET /api/tickets (`TicketPage`). */
 export const parseTicketPage = (body: unknown) => parseListPage(body, 'own')
 
-/** GET /api/administradores/tickets (`QueuePage`). */
 export const parseQueuePage = (body: unknown) => parseListPage(body, 'queue')
 
-/** GET /api/administradores/tickets/autores (`AuthorList`). */
 export const parseAuthorList = (body: unknown): null | string[] => {
   if (!isRecord(body) || !hasKeys(body, AUTHOR_LIST_FIELDS)) return null
   const { logins } = body
@@ -194,10 +182,8 @@ const parseDetail = (body: unknown, scope: Scope): null | TicketDetail => {
   return fields ? { ...summary, data: fields } : null
 }
 
-/** GET /api/tickets/{id} (`TicketDetail`). */
 export const parseTicketDetail = (body: unknown) => parseDetail(body, 'own')
 
-/** GET /api/administradores/tickets/{id} (`AdminTicketDetail`). */
 export const parseAdminTicketDetail = (body: unknown) =>
   parseDetail(body, 'queue')
 
@@ -252,18 +238,14 @@ const parseThread = (body: unknown, scope: Scope): null | ThreadPage => {
   return { entries: parsed as ThreadEntry[], hasMore: has_more }
 }
 
-/** GET /api/tickets/{id}/mensagens (`ThreadPage`). */
 export const parseThreadPage = (body: unknown) => parseThread(body, 'own')
 
-/** GET /api/administradores/tickets/{id}/mensagens (`AdminThreadPage`). */
 export const parseAdminThreadPage = (body: unknown) =>
   parseThread(body, 'queue')
 
-/** POST …/mensagens → 201 (`ThreadEntry` / `AdminThreadEntry`). */
 export const parseThreadEntry = (body: unknown, scope: Scope) =>
   parseEntry(body, scope)
 
-/** PATCH /api/administradores/tickets/{id}/status (`StatusChangeResponse`). */
 export const parseStatusChange = (body: unknown): null | StatusChange => {
   if (!isRecord(body) || !hasKeys(body, STATUS_CHANGE_RESPONSE_FIELDS)) {
     return null

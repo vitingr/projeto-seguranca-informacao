@@ -7,9 +7,6 @@ import { RadioGroup as RadioGroupPrimitive } from '@base-ui/react/radio-group'
 
 import type { RadioGroupItemProps, RadioGroupProps } from './types'
 
-// shadcn radio-group (base-nova), adapted to the design rules: no dark
-// variants. The dot keeps `rounded-full`.
-
 function RadioGroup<Value>({ className, ...props }: RadioGroupProps<Value>) {
   return (
     <RadioGroupPrimitive<Value>

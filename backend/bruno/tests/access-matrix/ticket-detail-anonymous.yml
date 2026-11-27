@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-1: Authorize answers before TicketAccess reads any
-        // ticket, so any id gets 401.
         test("status is 401", function () {
           expect(res.getStatus()).to.equal(401);
         });

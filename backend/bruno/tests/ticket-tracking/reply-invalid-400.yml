@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // S-8: a key the server owns is an unknown key.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
           expect(res.getBody().error).to.equal("bad_request");

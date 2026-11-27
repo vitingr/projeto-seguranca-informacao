@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-1.5: the filters combine (status AND type).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

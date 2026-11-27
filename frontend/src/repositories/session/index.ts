@@ -23,8 +23,6 @@ const parseMe = (body: unknown): CurrentUser | null => {
     return null
   }
   if (!ROLES.includes(role as Role)) return null
-  // The profile fields only describe the user (US-7): a missing or
-  // malformed one is left out, never trusted, and decides no access.
   return {
     role: role as Role,
     userId,
@@ -35,11 +33,6 @@ const parseMe = (body: unknown): CurrentUser | null => {
   }
 }
 
-/**
- * No (well-formed) cookie → anonymous, without calling the API. Otherwise
- * GET /api/me: 401 → expired, 200 → user. Anything else throws (fail closed:
- * the page shows an error, never its content).
- */
 export const loadSession = async (
   cookie: string | undefined,
   get: BackendGet
@@ -54,11 +47,6 @@ export const loadSession = async (
   return { kind: 'user', user }
 }
 
-/**
- * The backend stays the authority: even after /api/me allowed the role,
- * the area endpoint can answer 403 (the role changed in between) or 401
- * (the session ended in between).
- */
 export const loadArea = async (
   path: AreaPath,
   route: ProtectedRoute,

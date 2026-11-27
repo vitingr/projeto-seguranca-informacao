@@ -14,7 +14,6 @@ import (
 	"backend_si/internal/security"
 )
 
-// Generic messages of the error bodies (json.go).
 const (
 	msgBadRequest = "A requisição não pôde ser processada."
 	msgNotFound   = "Recurso não encontrado."
@@ -26,16 +25,12 @@ var (
 	pageKeys    = []string{"items", "page", "page_size", "pages", "total"}
 )
 
-// setStatus moves a stored ticket to status without an entry, to build
-// list fixtures.
 func (m *memTracking) setStatus(id domain.TicketID, status domain.TicketStatus) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.tickets[m.find(id)].Status = status
 }
 
-// seedLists stores 25 tickets of maria (user A) and 4 of joao (user B), of
-// every type and status, and returns the ids of each.
 func seedLists(a trackingApp) (maria, joao []domain.TicketID) {
 	types := []domain.TicketType{domain.TicketTypeAccess, domain.TicketTypeBug, domain.TicketTypeDeploy, domain.TicketTypeOther}
 	statuses := []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
@@ -51,7 +46,6 @@ func seedLists(a trackingApp) (maria, joao []domain.TicketID) {
 	return maria, joao
 }
 
-// itemIDs returns the ids of the items of a page answer.
 func itemIDs(t *testing.T, body map[string]any) []domain.TicketID {
 	t.Helper()
 	items, ok := body["items"].([]any)
@@ -65,9 +59,6 @@ func itemIDs(t *testing.T, body map[string]any) []domain.TicketID {
 	return ids
 }
 
-// TestListOwnTickets covers AC-1.3, AC-1.4, AC-1.7 and S-13, S-14 on R1:
-// only the session user's tickets, newest update first, 20 per page, the
-// exact keys, and a page past the end with the real totals (plan P-9).
 func TestListOwnTickets(t *testing.T) {
 	t.Parallel()
 
@@ -99,8 +90,6 @@ func TestListOwnTickets(t *testing.T) {
 		}
 	}
 
-	// Newest update first: the ids of maria in reverse, after a reply moved
-	// the oldest one to the top (BR-8).
 	if _, err := a.store.AddMessage(t.Context(), maria[0], trackMariaID, "Alguma novidade?"); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +108,6 @@ func TestListOwnTickets(t *testing.T) {
 		t.Errorf("page past the end = %v, want no items, total 25, pages 2, page 3", body)
 	}
 
-	// joao (user B) sees only his own four, newest first.
 	cookieB, _ := a.loginAs(t, joaoLogin)
 	_, body = a.get(t, "/api/tickets", cookieB)
 	if got := itemIDs(t, body); !slices.Equal(got, reversed(joao)) {
@@ -127,15 +115,12 @@ func TestListOwnTickets(t *testing.T) {
 	}
 }
 
-// reversed returns a reversed copy of s.
 func reversed[S ~[]E, E any](s S) S {
 	out := slices.Clone(s)
 	slices.Reverse(out)
 	return out
 }
 
-// TestListOwnTicketsNeverHoldsOthers is S-3: with every filter and on every
-// page, A's list holds none of B's tickets, and only tickets that match.
 func TestListOwnTicketsNeverHoldsOthers(t *testing.T) {
 	t.Parallel()
 
@@ -177,8 +162,6 @@ func TestListOwnTicketsNeverHoldsOthers(t *testing.T) {
 	}
 }
 
-// TestListOwnTicketsFilters checks the totals of each filter alone and of
-// both combined (AC-1.5).
 func TestListOwnTicketsFilters(t *testing.T) {
 	t.Parallel()
 
@@ -186,17 +169,16 @@ func TestListOwnTicketsFilters(t *testing.T) {
 	seedLists(a)
 	cookie, _ := a.loginAs(t, comumLogin)
 
-	// 25 tickets: types cycle every ticket, statuses every 4 tickets.
 	tests := []struct {
 		query string
 		total float64
 	}{
 		{"", 25},
-		{"status=aberto", 8},          // tickets 1-4, 17-20
-		{"status=fechado", 4},         // tickets 13-16
-		{"tipo=acesso", 7},            // 1, 5, 9, 13, 17, 21, 25
-		{"tipo=outro", 6},             // 4, 8, 12, 16, 20, 24
-		{"status=aberto&tipo=bug", 2}, // 2, 18
+		{"status=aberto", 8},
+		{"status=fechado", 4},
+		{"tipo=acesso", 7},
+		{"tipo=outro", 6},
+		{"status=aberto&tipo=bug", 2},
 		{"tipo=deploy&status=fechado", 1},
 	}
 	for _, tt := range tests {
@@ -210,10 +192,6 @@ func TestListOwnTicketsFilters(t *testing.T) {
 	}
 }
 
-// TestListOwnTicketsRefusesQueries covers plan P-9 and S-3, S-6, S-12: every
-// malformed, unknown, repeated or empty parameter, and usuario on the own
-// list, is a 400 with the generic body; the log has a fixed reason and
-// never the query text.
 func TestListOwnTicketsRefusesQueries(t *testing.T) {
 	t.Parallel()
 
@@ -255,7 +233,6 @@ func TestListOwnTicketsRefusesQueries(t *testing.T) {
 	}
 }
 
-// TestListOwnTicketsServerError is the generic 500 when the store fails.
 func TestListOwnTicketsServerError(t *testing.T) {
 	t.Parallel()
 
@@ -272,9 +249,6 @@ func TestListOwnTicketsServerError(t *testing.T) {
 
 var detailKeys = []string{"created_at", "data", "id", "status", "title", "type", "updated_at"}
 
-// TestGetOwnTicket covers AC-2.1, AC-2.2 (data) and P-10 on R2: every
-// field of the type under its request key, exactly the keys of
-// security.TicketDataKeys, null for empty notes, no author data (S-13).
 func TestGetOwnTicket(t *testing.T) {
 	t.Parallel()
 
@@ -317,8 +291,6 @@ func TestGetOwnTicket(t *testing.T) {
 	}
 }
 
-// TestTicketDataCoversEveryKey checks that ticketData knows every request
-// key of every type: a fully filled ticket has no null value but the notes.
 func TestTicketDataCoversEveryKey(t *testing.T) {
 	t.Parallel()
 
@@ -341,8 +313,6 @@ func TestTicketDataCoversEveryKey(t *testing.T) {
 	}
 }
 
-// TestGetOwnTicketServerError is the generic 500 when the read fails after
-// TicketAccess let the request through.
 func TestGetOwnTicketServerError(t *testing.T) {
 	t.Parallel()
 
@@ -363,27 +333,24 @@ var (
 	queueKeys        = []string{"items", "page", "page_size", "pages", "status_counts", "total"}
 )
 
-// TestListQueue covers AC-4.2 to AC-4.5 on R5: every user's tickets with
-// the author's login, the filters alone and combined (usuario included),
-// and the status counts of the whole queue whatever the filters.
 func TestListQueue(t *testing.T) {
 	t.Parallel()
 
 	a := newTrackingApp(t, nil)
-	seedLists(a) // maria: aberto 8, em_andamento 8, resolvido 5, fechado 4; joao: aberto 4
+	seedLists(a)
 	cookie, _ := a.loginAs(t, flowLogin)
 	wantCounts := map[string]any{"aberto": 12.0, "em_andamento": 8.0, "resolvido": 5.0, "fechado": 4.0}
 
 	tests := []struct {
 		query  string
 		total  float64
-		author string // every item's author_login, when set
+		author string
 	}{
 		{"", 29, ""},
 		{"usuario=joao", 4, joaoLogin},
 		{"usuario=maria&tipo=bug&status=aberto", 2, comumLogin},
 		{"status=fechado", 4, comumLogin},
-		{"tipo=acesso", 11, ""}, // 7 of maria and the 4 of joao
+		{"tipo=acesso", 11, ""},
 		{"usuario=ana", 0, ""},
 		{"pagina=2", 29, ""},
 	}
@@ -422,8 +389,6 @@ func TestListQueue(t *testing.T) {
 	}
 }
 
-// TestListQueueRefusals covers S-4 and plan P-9 on R5: comum users get 403
-// before any read, and malformed queries 400.
 func TestListQueueRefusals(t *testing.T) {
 	t.Parallel()
 
@@ -447,9 +412,6 @@ func TestListQueueRefusals(t *testing.T) {
 	}
 }
 
-// TestListQueueAuthors covers AC-4.4 (Q-7) and P-18 on R6: the logins of
-// the users with tickets, alphabetical, nobody without tickets; any
-// parameter is a 400; the literal path never goes through TicketAccess.
 func TestListQueueAuthors(t *testing.T) {
 	t.Parallel()
 
@@ -489,9 +451,6 @@ func TestListQueueAuthors(t *testing.T) {
 	}
 }
 
-// TestGetAdminTicket covers AC-5.1, AC-5.2 (server) on R7: any author's
-// ticket with the author's login; a missing or malformed id is the same 404;
-// the ticket's own comum author gets 403 before any read (S-4).
 func TestGetAdminTicket(t *testing.T) {
 	t.Parallel()
 
@@ -536,8 +495,6 @@ func TestGetAdminTicket(t *testing.T) {
 	}
 }
 
-// TestListOwnTicketsEmpty is an empty list: items is [], never null, and
-// "Página 1 de 1".
 func TestListOwnTicketsEmpty(t *testing.T) {
 	t.Parallel()
 

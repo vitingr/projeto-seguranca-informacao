@@ -19,22 +19,18 @@ describe('safeNext', () => {
     ['/administradores', 'admin', '/administradores'],
     ['/cadastro', 'admin', '/cadastro'],
     ['/usuarios', 'comum', '/usuarios'],
-    // the ticket builder: comum only (spec AC-1.3)
     ['/usuarios/tickets/novo', 'comum', '/usuarios/tickets/novo'],
     ['/usuarios/tickets/novo', 'admin', '/administradores'],
     ['/usuarios/tickets/novo/', 'comum', '/usuarios'],
     ['/usuarios/tickets', 'comum', '/usuarios'],
-    // a route of another role
     ['/administradores', 'comum', '/usuarios'],
     ['/cadastro', 'comum', '/usuarios'],
     ['/usuarios', 'admin', '/administradores'],
-    // the old page paths no longer exist (spec AC-0.7)
     ['/admin', 'admin', '/administradores'],
     ['/cadastrar-usuarios', 'admin', '/administradores'],
     ['/minha-conta', 'comum', '/usuarios'],
     ['/admin', 'comum', '/usuarios'],
     ['/minha-conta', 'admin', '/administradores'],
-    // no open redirect
     ['https://evil.example/administradores', 'admin', '/administradores'],
     ['//evil.example', 'admin', '/administradores'],
     ['/\\evil.example', 'comum', '/usuarios'],
@@ -45,7 +41,6 @@ describe('safeNext', () => {
     ['/ADMINISTRADORES', 'admin', '/administradores'],
     ['toString', 'admin', '/administradores'],
     ['__proto__', 'comum', '/usuarios'],
-    // not a single string
     [undefined, 'admin', '/administradores'],
     [['/administradores', '/usuarios'], 'admin', '/administradores'],
     ['', 'comum', '/usuarios']
@@ -58,10 +53,8 @@ describe('safeNext: ticket pages (spec 003 S-15)', () => {
   it.each<[unknown, Role, string]>([
     ['/usuarios/tickets/12', 'comum', '/usuarios/tickets/12'],
     ['/administradores/tickets/12', 'admin', '/administradores/tickets/12'],
-    // the other role's ticket page
     ['/usuarios/tickets/12', 'admin', '/administradores'],
     ['/administradores/tickets/12', 'comum', '/usuarios'],
-    // malformed numbers and paths
     ['/usuarios/tickets/012', 'comum', '/usuarios'],
     ['/usuarios/tickets/abc', 'comum', '/usuarios'],
     ['/usuarios/tickets/12/../x', 'comum', '/usuarios'],

@@ -5,7 +5,6 @@ import { LeaveGuardBar, installLeaveGuard } from '.'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }))
 
-/** A window stand-in that records its listeners. */
 const fakeWindow = () => {
   const listeners = new Map<string, EventListener>()
   return {

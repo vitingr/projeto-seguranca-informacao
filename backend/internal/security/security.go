@@ -15,29 +15,18 @@ import (
 type Middleware func(http.Handler) http.Handler
 
 type Options struct {
-	Logger             *slog.Logger
-	Sessions           SessionStore
-	RenderError        ErrorRenderer
-	SessionIdleTimeout time.Duration
-	// SessionAbsoluteTimeout is the maximum lifetime of a session from its
-	// creation, whatever its activity (D-18). Required (>= idle timeout).
+	Logger                 *slog.Logger
+	Sessions               SessionStore
+	RenderError            ErrorRenderer
+	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 	Argon2                 Argon2Params
-	// MaxConcurrentHashes is the number of Argon2id computations that may
-	// run at once (D-19). Zero means runtime.GOMAXPROCS(0).
-	MaxConcurrentHashes int
-	// RequestTimeout is the context deadline of every request (D-21). It
-	// must be below the http.Server WriteTimeout so the error response is
-	// written before the connection is cut. Required (> 0).
-	RequestTimeout time.Duration
-	// Tickets tells the author of a ticket to TicketAccess (spec 003 S-2).
-	// Optional for New; without it TicketAccess answers 500 (fail closed).
-	Tickets TicketOwnerStore
-	Now     func() time.Time
+	MaxConcurrentHashes    int // 0 means runtime.GOMAXPROCS(0)
+	RequestTimeout         time.Duration
+	Tickets                TicketOwnerStore
+	Now                    func() time.Time
 }
 
-// TicketOwnerStore reads who wrote a ticket. TicketAuthor returns an error
-// wrapping domain.ErrNotFound when the ticket does not exist.
 type TicketOwnerStore interface {
 	TicketAuthor(ctx context.Context, id domain.TicketID) (domain.UserID, error)
 }
@@ -53,8 +42,6 @@ type Security struct {
 	hashSlots   chan struct{}
 	reqTimeout  time.Duration
 	now         func() time.Time
-	// crossOrigin is the Fetch Metadata check of CSRF (D-5), with no
-	// trusted origins and no bypass patterns.
 	crossOrigin *http.CrossOriginProtection
 }
 

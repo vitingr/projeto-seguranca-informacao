@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-1, AC-3.1: the author reads the thread of their ticket.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

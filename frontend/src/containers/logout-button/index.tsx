@@ -6,11 +6,6 @@ import { Button } from '@/components/ui/shadcn/button'
 import { messageFor } from '@/domain/messages'
 import { api } from '@/repositories/api'
 
-/**
- * Finds the "Sair" button, so a page with unsent data can warn before it
- * logs out (the ticket builder, AC-3.8). The button is disabled while the
- * logout runs, and stays so until the login page loads.
- */
 export const LOGOUT_SELECTOR = '[data-logout]'
 
 export const LogoutButton = () => {

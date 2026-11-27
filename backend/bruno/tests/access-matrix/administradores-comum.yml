@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The fresh CSRF token is sent on POSTs, so a 403 comes from Authorize
-        // (the Go test TestAccessMatrix checks the log reason).
         test("status is 403", function () {
           expect(res.getStatus()).to.equal(403);
         });

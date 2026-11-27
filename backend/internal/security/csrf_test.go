@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// csrfFixture is a Security with one anonymous session, as GET /api/csrf
-// creates it.
 type csrfFixture struct {
 	s     *Security
 	token string // session cookie
@@ -26,8 +24,6 @@ func newCSRFFixture(t *testing.T) csrfFixture {
 	return csrfFixture{s: s, token: sessionCookieFrom(t, rr).Value, csrf: csrf}
 }
 
-// do sends a request through Session and CSRF and reports whether the
-// handler ran and the status.
 func (f csrfFixture) do(t *testing.T, method string, withCookie bool, headers map[string]string) (bool, int) {
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), method, "https://api.example/api/login", http.NoBody)
@@ -48,8 +44,6 @@ func TestCSRFSafeMethodsPass(t *testing.T) {
 
 	f := newCSRFFixture(t)
 	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodOptions} {
-		// Even cross-site and without a session: safe methods must not
-		// change state.
 		called, _ := f.do(t, method, false, map[string]string{"Sec-Fetch-Site": "cross-site"})
 		if !called {
 			t.Errorf("%s was blocked", method)

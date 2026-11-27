@@ -6,10 +6,6 @@ import { generateComumCredentials, seedAdmin } from './support/env'
 import { type Credentials, loginAs, submitLogin } from './support/login'
 import { registerComum } from './support/tracking'
 
-// A guided demo of the assignment requirements, one describe per item, for
-// the class presentation (`pnpm demo` / `make demo`: headed, slowed down).
-// The seed admin only bootstraps: every comum user is created here.
-
 const ADMIN_TEXT = 'Página de acesso restrito aos usuários administradores'
 const COMUM_TEXT = 'Página de acesso restrito aos usuários comuns'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
@@ -24,7 +20,6 @@ interface Answer {
 const sessionCookie = async (context: BrowserContext) =>
   (await context.cookies()).find(c => c.name === '__Host-session')
 
-/** A request from the page, with the CSRF token unless `csrf` is false. */
 const apiCall = (
   page: Page,
   method: string,
@@ -50,7 +45,6 @@ const apiCall = (
     [method, url, body, csrf]
   )
 
-/** Only the generic error shape reaches the client. */
 const expectGenericError = (answer: Answer, status: number) => {
   expect(answer.status).toBe(status)
   expect(Object.keys(answer.body).sort()).toEqual(ERROR_KEYS)
@@ -221,7 +215,6 @@ test.describe('7. Proteção contra injeção (SQL e XSS)', () => {
     await loginAs(page, seedAdmin(), '/administradores')
     await page.goto('/cadastro')
 
-    // The form refuses it, and so does the server without the form.
     await fillCadastro(page, {
       login: script,
       papel: 'comum',
@@ -285,7 +278,6 @@ test.describe('9. Gerenciamento de sessão', () => {
 
   test('o valor do cookie muda depois do login', async ({ context, page }) => {
     await page.goto('/login')
-    // Asking for a CSRF token opens the anonymous session.
     await page.evaluate(() => fetch('/api/csrf'))
     const before = await sessionCookie(context)
     expect(before).toBeDefined()

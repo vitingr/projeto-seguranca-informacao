@@ -98,7 +98,6 @@ describe('SendProgress', () => {
       for (const name of animated) {
         expect(name).toMatch(/^motion-safe:animate-/)
       }
-      // Gradient classes are also refused by src/test/design-rules.test.ts.
       expect(html).not.toMatch(/gradient|shimmer/)
     }
   })

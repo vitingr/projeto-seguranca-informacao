@@ -1,4 +1,3 @@
-# Lista de permissão: só o necessário para compilar entra no contexto de build.
 *
 !go.mod
 !go.sum

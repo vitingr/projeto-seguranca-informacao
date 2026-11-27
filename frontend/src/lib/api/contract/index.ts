@@ -1,6 +1,3 @@
-// Types of the backend API, written by hand from backend/api/openapi.json.
-// index.test.ts checks them against the contract.
-
 import type {
   AdminTicketDetail,
   AdminTicketSummary,
@@ -52,10 +49,6 @@ export const USER_RESPONSE_FIELDS = [
   'created_at'
 ] as const satisfies readonly (keyof UserResponse)[]
 
-// Tickets (POST /api/tickets). Request keys are in Portuguese and response
-// keys in English, like the rest of the API (plan P-1). These are the codes
-// on the wire; the labels shown to the user live in the domain.
-
 export const TICKET_TYPES = ['acesso', 'bug', 'deploy', 'outro'] as const
 
 export const TICKET_STATUSES = [
@@ -76,7 +69,6 @@ export const CREATE_TICKET_REQUEST_FIELDS = [
   'dados'
 ] as const satisfies readonly (keyof CreateTicketRequest)[]
 
-/** The keys of `dados` for each `tipo`, in contract order. */
 export const TICKET_DATA_FIELDS = {
   acesso: ['sistema', 'nivel_acesso', 'justificativa'],
   bug: ['sistema', 'descricao', 'passos', 'severidade'],
@@ -95,13 +87,8 @@ export const TICKET_RESPONSE_FIELDS = [
   'updated_at'
 ] as const satisfies readonly (keyof TicketResponse)[]
 
-// Ticket tracking (spec 003): lists, details, the thread and its writes.
-// Keys are in contract order; index.test.ts compares them with the schemas.
-
-/** Rows per page of "Meus tickets" and of the queue (fixed by the server). */
 export const TICKET_PAGE_SIZE = 20
 
-/** Entries per page of a thread. */
 export const THREAD_PAGE_SIZE = 100
 
 export const ENTRY_KINDS = ['message', 'status_change'] as const
@@ -165,7 +152,6 @@ export const ADMIN_TICKET_DETAIL_FIELDS = [
   'data'
 ] as const satisfies readonly (keyof AdminTicketDetail)[]
 
-/** Every key an entry may have; `text` or `from`/`to` depend on `kind`. */
 export const THREAD_ENTRY_FIELDS = [
   'id',
   'kind',

@@ -1,5 +1,3 @@
-// `pnpm dev`: next dev over HTTPS with the backend development certificate
-// (backend/certs, created by "go tool mage cert"). See scripts/dev-args.mjs.
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'

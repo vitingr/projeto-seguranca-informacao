@@ -60,7 +60,6 @@ export const TICKET_PAGE_TEXTS = {
   updatedAt: 'Atualizado em'
 } as const
 
-/** The generic message of a failed load, with its code when known. */
 const loadErrorMessage = (requestId?: string) =>
   requestId ? `${MESSAGES.internal} (código: ${requestId})` : MESSAGES.network
 
@@ -74,12 +73,6 @@ const DetailsGroup = ({ children, hint, title }: DetailsGroupProps) => (
   </section>
 )
 
-/**
- * The "Detalhes" panel (spec 003 AC-2.2), in the grouped rows of
- * `settings.png`: "Pedido" (number, type, title, status, dates) and
- * "Detalhes" (every field of the type, as stored). Values are plain text with
- * their line breaks kept; an empty optional field shows "Não informado".
- */
 const TicketDetails = ({ ticket }: TicketDetailsProps) => (
   <div className="flex flex-col gap-6">
     <DetailsGroup
@@ -125,10 +118,6 @@ const TicketDetails = ({ ticket }: TicketDetailsProps) => (
   </div>
 )
 
-/**
- * The "Conversa" panel (spec 003 US-3): the thread as the server had it at
- * `now`, in the bounded panel with "Atualizado às · Atualizar".
- */
 const Conversation = ({ now, scope, thread, ticket }: ConversationProps) => {
   const author = ticket.authorLogin ?? ''
   const reply: ReplySettings =
@@ -170,7 +159,6 @@ const Conversation = ({ now, scope, thread, ticket }: ConversationProps) => {
   )
 }
 
-/** The link back to the list, with the filters the user had (AC-2.5). */
 const BackLink = ({ backHref, backLabel }: TicketNotFoundProps) => (
   <Link
     className={cn(
@@ -184,11 +172,6 @@ const BackLink = ({ backHref, backLabel }: TicketNotFoundProps) => (
   </Link>
 )
 
-/**
- * "Ticket não encontrado." (spec 003 AC-2.4, AC-5.2): the same screen for a
- * ticket of someone else, a missing one and a malformed number, with the way
- * back to the list.
- */
 export const TicketNotFound = ({
   backHref,
   backLabel
@@ -209,7 +192,6 @@ export const TicketNotFound = ({
   </main>
 )
 
-/** What differs between the author's page and the admin's (plan 6.4). */
 const SCOPES = {
   own: {
     backLabel: TICKET_PAGE_TEXTS.backToMine,
@@ -225,15 +207,6 @@ const SCOPES = {
   }
 } as const
 
-/**
- * `/usuarios/tickets/<id>` (spec 003 US-2) and `/administradores/tickets/<id>`
- * (US-5), plan 6.4: the role guard, then the ticket and its thread loaded in
- * parallel on the server. A ticket that is not the comum user's, a missing
- * one or a malformed id renders the segment's not-found screen (S-2); a
- * failed load, the inline error. The tab and the way back come from the
- * address, checked (`?aba=`, `?de=`). The admin page adds "Usuário:
- * <login>" to the header, the support view of the thread and `actions`.
- */
 export const TicketPageScreen = async ({
   actions,
   id,

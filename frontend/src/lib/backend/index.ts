@@ -1,13 +1,8 @@
-// Server-side calls to the backend, forwarding only the session cookie.
-// No Next imports here, so it can be unit-tested; services/session wires it
-// to cookies() and the real fetch.
-
 import type { BackendGet } from './types'
 
 export const SESSION_COOKIE = '__Host-session'
 
-// The backend issues crypto/rand.Text() tokens (base32). Anything else is
-// never forwarded, so a tampered cookie cannot inject header content.
+// Only base32 tokens are forwarded, so a tampered cookie cannot inject headers
 const SESSION_VALUE = /^[A-Z2-7]{26}$/
 
 export const isSessionValue = (value: string | undefined): value is string =>

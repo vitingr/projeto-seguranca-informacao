@@ -13,12 +13,11 @@ import (
 	"backend_si/internal/domain"
 )
 
-// memTickets is an in-memory TicketRepository that records what it stores.
 type memTickets struct {
 	mu      sync.Mutex
 	created []domain.Ticket
 	calls   int
-	err     error // returned by Create when set
+	err     error
 }
 
 var ticketTime = time.Date(2026, 11, 25, 14, 30, 0, 0, time.UTC)
@@ -49,8 +48,6 @@ func (m *memTickets) stored() []domain.Ticket {
 	return append([]domain.Ticket(nil), m.created...)
 }
 
-// stubValidator is a TicketValidator that returns a fixed answer and counts
-// its calls.
 type stubValidator struct {
 	ticket domain.Ticket
 	err    error
@@ -66,11 +63,6 @@ const author domain.UserID = 42
 
 var errStubInvalid = fmt.Errorf("security: validate ticket: sistema: too short: %w", domain.ErrInvalidInput)
 
-// titleVectors are the BR-3 title cases. The frontend ticketTitle (task
-// T9.1) runs the same vectors, so both sides build the same title. Lengths
-// are in code points: "Acesso a " has 9, "Bug em " 7, "Deploy de " 10 and
-// " em Produção" 12. After the cut, trailing whitespace (unicode.IsSpace)
-// is removed.
 var titleVectors = []struct {
 	name  string
 	draft domain.TicketDraft
@@ -225,15 +217,12 @@ func TestCreateTicket(t *testing.T) {
 		t.Errorf("ticket sent to the repository = %+v, want %+v", stored[0], want)
 	}
 
-	// The service returns what the repository stored, with its id and dates.
 	want.ID, want.CreatedAt, want.UpdatedAt = 1, ticketTime, ticketTime
 	if got != want {
 		t.Errorf("Create() = %+v, want %+v", got, want)
 	}
 }
 
-// TestCreateTicketIgnoresValidatorServerFields shows that author, status and
-// id come from the service, even if a validator returned other values.
 func TestCreateTicketIgnoresValidatorServerFields(t *testing.T) {
 	t.Parallel()
 
@@ -263,11 +252,11 @@ func TestCreateTicketFailures(t *testing.T) {
 		name         string
 		author       domain.UserID
 		draft        domain.TicketDraft
-		validator    *stubValidator // nil uses the real security validator
+		validator    *stubValidator
 		repoErr      error
-		want         error // checked with errors.Is
-		invalidInput bool  // whether the error must wrap ErrInvalidInput
-		repoCalled   bool  // whether the repository must have been called
+		want         error
+		invalidInput bool
+		repoCalled   bool
 	}{
 		{
 			name: "validator error", author: author,

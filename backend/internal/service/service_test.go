@@ -14,12 +14,11 @@ import (
 	"backend_si/internal/security"
 )
 
-// memUsers is an in-memory UserRepository.
 type memUsers struct {
 	mu     sync.Mutex
 	byName map[string]domain.User
 	nextID domain.UserID
-	err    error // returned by every call when set
+	err    error
 }
 
 func newMemUsers() *memUsers { return &memUsers{byName: map[string]domain.User{}} }
@@ -58,14 +57,13 @@ func (m *memUsers) count() int {
 	return len(m.byName)
 }
 
-// spyHasher wraps a real PasswordHasher and records the calls.
 type spyHasher struct {
 	PasswordHasher
 	mu           sync.Mutex
 	hashCalls    int
-	verifyHashes []string // the encoded hash of each VerifyPassword call
-	hashErr      error    // returned by HashPassword when set
-	verifyErr    error    // returned by VerifyPassword when set (after recording)
+	verifyHashes []string
+	hashErr      error
+	verifyErr    error
 }
 
 func (s *spyHasher) HashPassword(ctx context.Context, password string) (string, error) {

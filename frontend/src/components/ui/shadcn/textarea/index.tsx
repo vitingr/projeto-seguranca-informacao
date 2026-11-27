@@ -2,9 +2,6 @@ import { cn } from 'cn'
 
 import type { TextareaProps } from './types'
 
-// shadcn textarea (base-nova), adapted to the design rules: radius `sm`, no
-// dark variants.
-
 function Textarea({ className, ...props }: TextareaProps) {
   return (
     <textarea

@@ -15,7 +15,7 @@ import (
 
 const SessionCookieName = "__Host-session"
 
-// tokenLength is the length of rand.Text(): 26 base32 characters (128 bits).
+// 26 base32 characters (128 bits), the length of rand.Text()
 const tokenLength = 26
 
 type SessionStore interface {
@@ -27,10 +27,8 @@ type SessionStore interface {
 }
 
 type Principal struct {
-	UserID domain.UserID
-	Role   domain.Role
-	// Login and CreatedAt (the registration time) describe the user for
-	// GET /api/me; they play no part in any access decision.
+	UserID    domain.UserID
+	Role      domain.Role
 	Login     string
 	CreatedAt time.Time
 }
@@ -42,8 +40,6 @@ func PrincipalFrom(ctx context.Context) (Principal, bool) {
 	return p, ok && p.UserID != 0 && p.Role.Valid()
 }
 
-// sessionState is the session loaded for the current request (anonymous
-// or authenticated). Only the Session middleware puts it in the context.
 type sessionState struct {
 	tokenHash []byte
 	csrfToken string
@@ -90,8 +86,6 @@ func (s *Security) Session(next http.Handler) http.Handler {
 	})
 }
 
-// loadSession returns the valid session for tokenHash, touching it. ok is
-// false when there is no valid session.
 func (s *Security) loadSession(ctx context.Context, tokenHash []byte) (domain.Session, bool, error) {
 	sess, err := s.sessions.Get(ctx, tokenHash)
 	switch {
@@ -112,7 +106,6 @@ func (s *Security) loadSession(ctx context.Context, tokenHash []byte) (domain.Se
 	err = s.sessions.Touch(ctx, tokenHash, now, s.expiresAt(sess.CreatedAt, now))
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
-		// Deleted in between (a concurrent logout): anonymous.
 		return domain.Session{}, false, nil
 	case err != nil:
 		return domain.Session{}, false, fmt.Errorf("security: touch session: %w", err)
@@ -121,15 +114,12 @@ func (s *Security) loadSession(ctx context.Context, tokenHash []byte) (domain.Se
 	return sess, true, nil
 }
 
-// expired reports whether sess is past its idle or absolute timeout (D-18)
-// at now. ExpiresAt is checked too, so a stored expiry is never extended.
 func (s *Security) expired(sess domain.Session, now time.Time) bool {
 	return !now.Before(sess.LastSeenAt.Add(s.idleTimeout)) ||
 		!now.Before(sess.CreatedAt.Add(s.absTimeout)) ||
 		!now.Before(sess.ExpiresAt)
 }
 
-// expiresAt is min(now + idle, createdAt + absolute) (D-18).
 func (s *Security) expiresAt(createdAt, now time.Time) time.Time {
 	idle := now.Add(s.idleTimeout)
 	if abs := createdAt.Add(s.absTimeout); abs.Before(idle) {
@@ -159,10 +149,6 @@ func (s *Security) EndSession(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// CSRFToken returns the CSRF token of the request's session, delivered to
-// the frontend by GET /api/csrf. Without a session it creates an anonymous
-// one and sets its cookie; this is the only place that creates anonymous
-// sessions (D-8).
 func (s *Security) CSRFToken(w http.ResponseWriter, r *http.Request) (string, error) {
 	if st, ok := sessionFrom(r.Context()); ok {
 		return st.csrfToken, nil
@@ -174,9 +160,7 @@ func (s *Security) CSRFToken(w http.ResponseWriter, r *http.Request) (string, er
 	return csrf, nil
 }
 
-// newSession stores a new session for userID (zero = anonymous), sets its
-// cookie and returns its CSRF token. Both tokens come from crypto/rand
-// (D-11); only the SHA-256 of the session token is stored.
+// Only the SHA-256 of the session token is stored.
 func (s *Security) newSession(ctx context.Context, w http.ResponseWriter, userID domain.UserID) (string, error) {
 	token, csrf := rand.Text(), rand.Text()
 	now := s.now()
@@ -195,7 +179,6 @@ func (s *Security) newSession(ctx context.Context, w http.ResponseWriter, userID
 	return csrf, nil
 }
 
-// deleteCurrent deletes the request's session, if any.
 func (s *Security) deleteCurrent(ctx context.Context) error {
 	st, ok := sessionFrom(ctx)
 	if !ok {
@@ -207,9 +190,6 @@ func (s *Security) deleteCurrent(ctx context.Context) error {
 	return nil
 }
 
-// sessionCookie builds the session cookie. It has no Max-Age or Expires
-// (a browser-session cookie; the server enforces expiry, D-11); maxAge -1
-// expires it.
 func sessionCookie(token string, maxAge int) *http.Cookie {
 	return &http.Cookie{
 		Name:     SessionCookieName,
@@ -227,8 +207,6 @@ func hashToken(token string) []byte {
 	return sum[:]
 }
 
-// validToken reports whether v has the shape of a rand.Text() token, so a
-// malformed cookie never reaches the store.
 func validToken(v string) bool {
 	if len(v) != tokenLength {
 		return false
@@ -242,8 +220,6 @@ func validToken(v string) bool {
 	return true
 }
 
-// PurgeExpiredSessions deletes expired sessions every interval until ctx
-// ends (D-9). A failure is logged and the loop goes on.
 func (s *Security) PurgeExpiredSessions(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -263,7 +239,6 @@ func (s *Security) PurgeExpiredSessions(ctx context.Context, interval time.Durat
 	}
 }
 
-// internalError logs err and answers the generic 500.
 func (s *Security) internalError(w http.ResponseWriter, r *http.Request, err error) {
 	s.logger.ErrorContext(r.Context(), "security: internal error",
 		slog.Any("error", err),

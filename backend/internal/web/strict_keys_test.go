@@ -10,14 +10,6 @@ import (
 	"backend_si/internal/security"
 )
 
-// Plan P-11 (task T10.2) at the API level: POST /api/login and
-// POST /api/cadastro refuse, with 400 and before any other rule, a key
-// spelled in another case, a repeated key (exact or in another case) and a
-// body that is not valid UTF-8. encoding/json alone would read
-// {"login":"nobody",…,"LOGIN":"admin"} as "admin" (case-insensitive match,
-// last key wins), and would turn invalid bytes into U+FFFD.
-
-// Invalid UTF-8, built from bytes so no tool can rewrite them.
 var (
 	strictInvalidByte = string([]byte{0xff})
 	strictTruncated   = string([]byte{0xc3})
@@ -30,9 +22,6 @@ type strictCase struct {
 	body string
 }
 
-// strictLoginCases are login bodies that, read loosely, would authenticate
-// the admin with the right password (or reach the password check with
-// replaced bytes). Each must be a 400 that starts no session.
 func strictLoginCases() []strictCase {
 	pw := `"senha":"` + flowPassword + `"`
 	return []strictCase{
@@ -70,8 +59,6 @@ func TestLoginRefusesKeyVariantsDuplicatesAndInvalidUTF8(t *testing.T) {
 			if n := f.sessions.count(); n != 1 {
 				t.Errorf("%d sessions stored, want only the anonymous one", n)
 			}
-			// The anonymous session and its token still work: the login that
-			// follows, with the documented keys, succeeds as before (S-11).
 			rr = f.send(t, http.MethodPost, "/api/login", loginBody(flowLogin, flowPassword), anon,
 				map[string]string{security.CSRFHeaderName: token})
 			if rr.Code != http.StatusOK {
@@ -81,9 +68,6 @@ func TestLoginRefusesKeyVariantsDuplicatesAndInvalidUTF8(t *testing.T) {
 	}
 }
 
-// TestLoginWithMultiByteCharactersStillDecodes: valid UTF-8 beyond ASCII
-// reaches the credential check (a 401 here, as for any wrong password), so
-// the UTF-8 rule refuses only broken bytes.
 func TestLoginWithMultiByteCharactersStillDecodes(t *testing.T) {
 	t.Parallel()
 
@@ -96,9 +80,6 @@ func TestLoginWithMultiByteCharactersStillDecodes(t *testing.T) {
 	}
 }
 
-// strictCadastroCases are registration bodies that, read loosely, would
-// create a user (some of them an admin). Each must be a 400 that creates
-// nobody.
 func strictCadastroCases() []strictCase {
 	const login = `"login":"maria.silva"`
 	pw := `"senha":"` + cadastroPassword + `"`
@@ -144,7 +125,6 @@ func TestCadastroRefusesKeyVariantsDuplicatesAndInvalidUTF8(t *testing.T) {
 				t.Errorf("the log has the password:\n%s", logBuf.String())
 			}
 
-			// The same session registers with the documented keys, as before.
 			rr = f.send(t, http.MethodPost, "/api/cadastro", cadastroBody("maria.silva", cadastroPassword, "comum"), cookie, csrf)
 			if rr.Code != http.StatusCreated {
 				t.Errorf("exact registration after the refusal: status = %d, want 201 (%s)", rr.Code, rr.Body.String())
@@ -153,8 +133,6 @@ func TestCadastroRefusesKeyVariantsDuplicatesAndInvalidUTF8(t *testing.T) {
 	}
 }
 
-// TestCadastroWithMultiByteCharactersStillWorks: a password with accents
-// and an emoji registers (the login allowlist is ASCII by design).
 func TestCadastroWithMultiByteCharactersStillWorks(t *testing.T) {
 	t.Parallel()
 
@@ -172,8 +150,6 @@ func TestCadastroWithMultiByteCharactersStillWorks(t *testing.T) {
 	}
 }
 
-// checkBadRequest checks the generic 400: exactly the three keys of the
-// error body, the bad_request code, and nothing from the request in it.
 func checkBadRequest(t *testing.T, code int, body []byte) {
 	t.Helper()
 	if code != http.StatusBadRequest {

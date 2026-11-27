@@ -9,10 +9,6 @@ import {
   registerComum
 } from './support/tracking'
 
-// The queue on /administradores (spec 003 US-4, task T10.1). Two users of
-// this file create tickets; the queue also holds every other ticket of the
-// database, so the checks filter by these users.
-
 const ADMIN_TEXT = 'Página de acesso restrito aos usuários administradores'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
@@ -94,7 +90,6 @@ test.describe('as admin', () => {
       'Criado em',
       'Atualizado em'
     ])
-    // The most recent change of the database is ours: the closed ticket.
     await expect(rows(page).first()).toContainText(ana.login)
     await expect(rows(page).first()).toContainText('Fechado')
     await expect(queue(page).getByTestId('ticket-count')).toHaveText(

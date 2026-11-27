@@ -7,8 +7,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fromRoot('./src'),
-      // Next aliases `server-only` itself; outside Next it must resolve to
-      // the same empty module so server code can be unit-tested.
       'server-only': fromRoot(
         './node_modules/next/dist/compiled/server-only/empty.js'
       )
@@ -18,7 +16,6 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/**/*.test.ts',
-      // Components rendered to static markup with react-dom/server.
       'src/**/*.test.tsx',
       'scripts/**/*.test.mjs',
       'e2e/support/**/*.test.ts'

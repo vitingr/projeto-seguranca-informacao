@@ -23,9 +23,7 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The same key twice, the second in another case (plan P-11):
-        // encoding/json alone keeps the last one and would sign in as the
-        // seed admin, while a proxy or a log may read "nobody".
+        // encoding/json alone keeps the last key; a proxy or a log may read the first.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

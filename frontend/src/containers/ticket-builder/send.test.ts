@@ -73,7 +73,6 @@ describe('sendTicket', () => {
       message,
       type: 'sendFailed'
     })
-    // One call: the client never retries by itself.
     expect(createTicket).toHaveBeenCalledTimes(1)
   })
 

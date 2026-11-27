@@ -16,7 +16,6 @@ import (
 	"backend_si/internal/config"
 )
 
-// missingCerts returns a config whose certificate files do not exist.
 func missingCerts(t *testing.T, mode string) config.Config {
 	t.Helper()
 	dir := t.TempDir()
@@ -27,9 +26,6 @@ func missingCerts(t *testing.T, mode string) config.Config {
 	}
 }
 
-// TestProxyModeServesPlainHTTPWithoutCertificates: with APP_TLS_MODE=proxy
-// the server starts without certificate files, logs a warning, serves plain
-// HTTP and the healthcheck subcommand reaches it.
 func TestProxyModeServesPlainHTTPWithoutCertificates(t *testing.T) {
 	t.Parallel()
 
@@ -63,8 +59,6 @@ func TestProxyModeServesPlainHTTPWithoutCertificates(t *testing.T) {
 	}
 }
 
-// TestWithoutProxyModeCertificatesAreRequired: without APP_TLS_MODE, or with
-// any other value, the server still refuses to start without certificates.
 func TestWithoutProxyModeCertificatesAreRequired(t *testing.T) {
 	t.Parallel()
 

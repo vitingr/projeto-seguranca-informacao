@@ -28,18 +28,12 @@ const (
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 15 * time.Second
 	idleTimeout       = 60 * time.Second
-	// requestTimeout is the context deadline of every request (D-21). It
-	// is below writeTimeout so the JSON error is written before the
-	// connection is cut; the http.Server timeouts alone do not cancel the
-	// request context on HTTP/1.1.
-	requestTimeout = 10 * time.Second
-	maxHeaderBytes = 16 << 10
+	requestTimeout    = 10 * time.Second
+	maxHeaderBytes    = 16 << 10 // 16 KiB
 
 	healthcheckTimeout = 3 * time.Second
 )
 
-// The repository implements the stores security declares; it may not
-// import security (depguard), so the composition root checks it.
 var (
 	_ security.SessionStore     = (*repository.Sessions)(nil)
 	_ security.TicketOwnerStore = (*repository.Tickets)(nil)
@@ -86,9 +80,6 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout 
 	return err
 }
 
-// serveSecurityOptions are the security options of the server. tickets is
-// the owner store of TicketAccess (spec 003 S-2): without it every route
-// with a ticket id answers 500.
 func serveSecurityOptions(cfg config.Config, logger *slog.Logger, sessions security.SessionStore, tickets security.TicketOwnerStore) security.Options {
 	return security.Options{
 		Logger:                 logger,
@@ -146,13 +137,12 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		return err
 	}
 	handler, err := web.NewHandler(web.Deps{
-		Logger:        logger,
-		Security:      sec,
-		Auth:          auth,
-		Users:         service.NewUsers(users, sec, sec),
-		Tickets:       service.NewTicketsWithThread(tickets, repository.NewTicketEntries(db), sec),
-		TicketLimiter: ticketLimiter,
-		// Spec 003 S-9: replies of both sides share one limiter per user.
+		Logger:         logger,
+		Security:       sec,
+		Auth:           auth,
+		Users:          service.NewUsers(users, sec, sec),
+		Tickets:        service.NewTicketsWithThread(tickets, repository.NewTicketEntries(db), sec),
+		TicketLimiter:  ticketLimiter,
 		MessageLimiter: messageLimiter,
 		StatusLimiter:  statusLimiter,
 	})
@@ -160,10 +150,6 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		return err
 	}
 
-	// D-9: purge expired sessions every idle timeout. The deferred wait runs
-	// before db.Close, so the purge never uses a closed pool. Users with no
-	// ticket request inside the rate limit window leave the limiter's
-	// memory once per window.
 	purgeCtx, stopPurge := context.WithCancel(ctx)
 	var purge sync.WaitGroup
 	purge.Go(func() { sec.PurgeExpiredSessions(purgeCtx, cfg.SessionIdleTimeout) })
@@ -216,9 +202,6 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	return nil
 }
 
-// serverTLSConfig loads the server certificate. With APP_TLS_MODE=proxy it
-// loads nothing and returns nil: a proxy in front of the server terminates
-// TLS, and the server speaks plain HTTP to it.
 func serverTLSConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
 	if cfg.TLSMode == config.TLSModeProxy {
 		logger.Warn("APP_TLS_MODE=proxy: serving plain HTTP, TLS must be terminated by a proxy in front of the server")
@@ -227,8 +210,6 @@ func serverTLSConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error
 	return security.NewTLSConfig(cfg.TLSCertFile, cfg.TLSKeyFile)
 }
 
-// serveOn serves srv on ln over HTTPS, or over plain HTTP when srv has no
-// TLS config (APP_TLS_MODE=proxy).
 func serveOn(srv *http.Server, ln net.Listener, logger *slog.Logger) error {
 	if srv.TLSConfig == nil {
 		logger.Info("plain HTTP server listening behind a TLS terminating proxy", slog.String("addr", srv.Addr))

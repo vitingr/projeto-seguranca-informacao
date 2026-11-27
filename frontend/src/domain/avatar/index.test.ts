@@ -38,7 +38,6 @@ describe('avatarFor', () => {
   it('always gives the same initials, tint and figure for the same login', () => {
     const first = avatarFor('maria.silva')
     expect(avatarFor('maria.silva')).toEqual(first)
-    // The login is compared as the backend stores it.
     expect(avatarFor(' MARIA.SILVA ')).toEqual(first)
   })
 
@@ -59,7 +58,6 @@ describe('avatarFor', () => {
     for (let index = 0; index < 400; index += 1) {
       counts[avatarFor(`user${index}.test`).tint] += 1
     }
-    // 50 per tint on average; none is left out or takes most of them.
     for (const count of counts) {
       expect(count).toBeGreaterThan(25)
       expect(count).toBeLessThan(80)

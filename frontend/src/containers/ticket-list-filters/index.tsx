@@ -19,7 +19,6 @@ export const FILTER_TEXTS = {
   user: 'Usuário'
 } as const
 
-/** The code of "Todos": not a type code and never a valid login. */
 export const ALL = '*'
 
 const TYPE_CODES: readonly string[] = TICKET_TYPES.map(type => type.code)
@@ -33,11 +32,6 @@ const TYPE_OPTIONS: readonly ChoiceOption[] = [
   }))
 ]
 
-/**
- * The address after choosing `code` in a Select filter, back on page 1
- * (AC-1.5), or `null` when the code is not one the filter offers, so an
- * unknown value never reaches the address (AC-1.6).
- */
 export const filterHref = (
   query: ListQuery,
   filter: SelectFilter,
@@ -57,13 +51,6 @@ export const filterHref = (
     : null
 }
 
-/**
- * The filter row of a list (plan 6.3, P-13): the status links, then the
- * type Select (and the user Select in the queue) over `choice-select`. A
- * choice navigates with `router.push` inside a transition; while the new
- * page loads, the list under the row is marked busy and the filters stay
- * usable.
- */
 export const TicketListFilters = ({
   children,
   logins,

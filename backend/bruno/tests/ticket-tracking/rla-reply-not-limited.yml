@@ -21,8 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // S-9: the status requests did not use the reply quota, and B's
-        // ticket is still aberto (603 was refused).
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
         });

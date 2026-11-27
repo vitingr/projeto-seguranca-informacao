@@ -4,8 +4,6 @@ import { avatarInitials } from '../src/domain/avatar'
 import { comumUser, seedAdmin } from './support/env'
 import { loginAs } from './support/login'
 
-// The profile on /usuarios (spec US-7, task T9.12).
-
 const COMUM_TEXT = 'Página de acesso restrito aos usuários comuns'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
@@ -44,7 +42,6 @@ test.describe('profile on /usuarios as comum', () => {
     await expect(avatar).toHaveAttribute('aria-hidden', 'true')
     await expect(avatar).toHaveText(avatarInitials(login))
     await expect(avatar.locator('svg rect').first()).toBeAttached()
-    // The login is the text read next to the decorative avatar.
     await expect(identity(page).getByText(login, { exact: true })).toBeVisible()
     await expect(identity(page)).toContainText('Usuário comum')
 

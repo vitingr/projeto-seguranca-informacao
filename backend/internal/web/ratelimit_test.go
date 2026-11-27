@@ -11,8 +11,7 @@ import (
 	"backend_si/internal/security"
 )
 
-// newTicketLimiter is the production limiter of ticket creation: 10
-// requests per user in any 60-second window.
+// 10 requests per user in any 60-second window.
 func newTicketLimiter(t *testing.T, sec *security.Security) *security.RateLimiter {
 	t.Helper()
 	l, err := sec.NewRateLimiter(security.TicketCreateLimit, security.TicketCreateWindow)
@@ -25,21 +24,17 @@ func newTicketLimiter(t *testing.T, sec *security.Security) *security.RateLimite
 func TestNewHandlerRequiresTicketLimiter(t *testing.T) {
 	t.Parallel()
 
-	h, _ := newTestApp(t) // built from a complete Deps
+	h, _ := newTestApp(t)
 	if _, err := NewHandler(Deps{Logger: h.logger, Security: h.sec, Auth: h.auth, Users: h.users, Tickets: h.tickets}); err == nil {
 		t.Fatal("NewHandler without TicketLimiter must fail: the route would answer 500")
 	}
 }
 
-// postAs sends POST /api/tickets with the given session and token.
 func (f flowApp) postAs(t *testing.T, cookie *http.Cookie, token, body string) int {
 	t.Helper()
 	return f.send(t, http.MethodPost, "/api/tickets", body, cookie, map[string]string{security.CSRFHeaderName: token}).Code
 }
 
-// TestTicketRateLimit covers S-12, BR-9 and AC-6.7 on the server: 10
-// creations in a minute are accepted, the 11th gets 429 with the generic
-// body and Retry-After, and nothing more is stored.
 func TestTicketRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -71,14 +66,11 @@ func TestTicketRateLimit(t *testing.T) {
 		t.Errorf("%d tickets stored, want %d", n, security.TicketCreateLimit)
 	}
 
-	// The limit holds for the next request too, valid or not.
 	if code := f.postAs(t, cookie, token, `{"tipo":"outro"}`); code != http.StatusTooManyRequests {
 		t.Errorf("request 12 (malformed): status = %d, want 429", code)
 	}
 }
 
-// TestTicketRateLimitIsPerUser shows that users do not share quotas: user 1
-// (made comum) still creates tickets after user 2 used all of theirs.
 func TestTicketRateLimitIsPerUser(t *testing.T) {
 	t.Parallel()
 
@@ -100,10 +92,6 @@ func TestTicketRateLimitIsPerUser(t *testing.T) {
 	}
 }
 
-// TestTicketRateLimitCountsOnlyWhatReachesIt shows where the limiter sits:
-// after Session, CSRF and Authorize. Requests those refuse (no token, an
-// admin, an anonymous session) use no quota; refused bodies (400, 422) that
-// reach it do count.
 func TestTicketRateLimitCountsOnlyWhatReachesIt(t *testing.T) {
 	t.Parallel()
 

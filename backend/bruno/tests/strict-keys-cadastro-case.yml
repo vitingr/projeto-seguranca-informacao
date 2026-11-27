@@ -23,8 +23,7 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // "PAPEL" is not "papel" (plan P-11): encoding/json alone would
-        // accept it and register an admin.
+        // encoding/json alone would accept "PAPEL" as "papel" and register an admin.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

@@ -11,11 +11,6 @@ import {
   reply
 } from './support/tracking'
 
-// Replying from the author's ticket page (spec 003 AC-3.4 to AC-3.9, tasks
-// T9.4 and T9.5). The author is registered here, so the reply limit (30 per
-// minute, S-9) of other spec files is never shared. Error answers are
-// simulated in the browser and store nothing.
-
 const OTHER = (titulo: string) =>
   ({
     dados: {
@@ -79,7 +74,6 @@ test('the author replies; the reply shows on the right and the ticket goes to th
   await expectNothingInBrowserStorage(page)
   expect(page.url()).not.toContain('teste-01')
 
-  // An admin answers; "Atualizar" brings it, as "Suporte".
   await asUser(browser, seedAdmin(), '/administradores', async admin => {
     await reply(admin, 'queue', first, 'Estamos olhando.')
   })
@@ -117,7 +111,6 @@ test('whitespace only and 2001 characters send nothing (AC-3.5)', async ({
   await openConversa(page, second)
   await box(page).fill('   \n  ')
   await expect(sendButton(page)).toHaveAttribute('aria-disabled', 'true')
-  // Playwright waits on `aria-disabled`; the click must still do nothing.
   await sendButton(page).click({ force: true })
   await box(page).press('Control+Enter')
 
@@ -213,7 +206,6 @@ test('a "Fechado" ticket shows the closed line and "Novo ticket", no box (AC-3.8
 })
 
 test.describe('unsent text (AC-3.9)', () => {
-  /** Every browser dialog, dismissed so nothing hangs. */
   const dialogs = (page: Page) => {
     const seen: string[] = []
     page.on('dialog', async dialog => {

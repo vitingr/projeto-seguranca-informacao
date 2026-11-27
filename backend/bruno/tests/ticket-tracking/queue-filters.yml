@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-4.3, AC-4.4: the author filter combined with the status; A's
-        // reply (60) put ticketA1 first.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

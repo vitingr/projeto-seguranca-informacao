@@ -7,15 +7,8 @@ import { type Browser, type Page, expect } from '@playwright/test'
 import { generateComumCredentials, requireEnv, seedAdmin } from './env'
 import { type Credentials, loginAs } from './login'
 
-// Helpers of the ticket tracking specs (spec 003): users of their own,
-// tickets and thread entries created through the browser and the /api
-// proxy, as the real pages would. Only the paging test inserts rows in the
-// database, since the creation limit (10 per minute, spec 001 S-12) would
-// make 21 tickets take minutes.
-
 const backendDir = path.join(__dirname, '..', '..', '..', 'backend')
 
-/** A comum user registered by the seed admin, for one spec file. */
 export const registerComum = async (browser: Browser): Promise<Credentials> => {
   const user = generateComumCredentials(randomBytes)
   await asUser(browser, seedAdmin(), '/administradores', async admin => {
@@ -39,7 +32,6 @@ export const registerComum = async (browser: Browser): Promise<Credentials> => {
   return user
 }
 
-/** Runs `work` in a fresh context logged in as `user`, then closes it. */
 export const asUser = async <T>(
   browser: Browser,
   user: Credentials,
@@ -56,7 +48,6 @@ export const asUser = async <T>(
   }
 }
 
-/** A write of the page's session, with the CSRF token; status and body. */
 const write = (page: Page, method: string, url: string, body: unknown) =>
   page.evaluate(
     async ([method, url, body]) => {
@@ -96,14 +87,12 @@ export type TicketBody =
     }
   | { dados: { descricao: string; titulo: string }; tipo: 'outro' }
 
-/** Creates a ticket as the page's comum user; returns its number. */
 export const createTicket = async (page: Page, ticket: TicketBody) => {
   const { body, status } = await write(page, 'POST', '/api/tickets', ticket)
   expect(status).toBe(201)
   return body.id as number
 }
 
-/** A reply on a ticket, as the author (`own`) or as an admin (`queue`). */
 export const reply = async (
   page: Page,
   scope: 'own' | 'queue',
@@ -117,7 +106,6 @@ export const reply = async (
   expect(status).toBe(201)
 }
 
-/** A status change as the page's admin. */
 export const changeStatus = async (
   page: Page,
   id: number,
@@ -133,11 +121,7 @@ export const changeStatus = async (
   expect(status).toBe(200)
 }
 
-/**
- * Inserts `count` "Outro" tickets for `login`, one minute apart, the newest
- * named "Pedido <count>". The SQL goes on stdin and the values are psql
- * variables, never concatenated (like support/db.ts).
- */
+// Values are psql variables, never concatenated into the SQL
 export const insertOtherTickets = (login: string, count: number) => {
   const output = execFileSync(
     'docker',

@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // BR-8, AC-1.3: the reply moved ticketA1 to the top, with the
-        // status unchanged (Q-5).
         test("ticketA1 is first", function () {
           const items = res.getBody().items;
           expect(items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA1"), bru.getVar("ticketA2")]);

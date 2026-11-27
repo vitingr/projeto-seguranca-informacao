@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-6.4, S-7: a pair BR-3 never allows is an invalid request.
         test("status is 422", function () {
           expect(res.getStatus()).to.equal(422);
           expect(res.getBody().error).to.equal("unprocessable_entity");

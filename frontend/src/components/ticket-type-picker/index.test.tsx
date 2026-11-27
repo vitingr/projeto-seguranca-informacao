@@ -5,9 +5,6 @@ import { TICKET_TYPES } from '@/domain/tickets'
 
 import { TicketTypePicker } from '.'
 
-// Static markup only (Vitest runs in Node, with no DOM). Keyboard use is
-// covered by e2e/tickets.spec.ts.
-
 const render = (props: Partial<Parameters<typeof TicketTypePicker>[0]> = {}) =>
   renderToStaticMarkup(
     <TicketTypePicker

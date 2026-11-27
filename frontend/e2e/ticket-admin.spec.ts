@@ -11,11 +11,6 @@ import {
   reply
 } from './support/tracking'
 
-// The admin's ticket page (spec 003 US-5, task T10.2): header with the
-// author, "Detalhes", the support view of the thread, the reply box and the
-// way back to the queue. A second admin of this file shows how other admins
-// appear.
-
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 const PAYLOAD = '<img src=x onerror=alert(1)> <b>negrito</b>'
 

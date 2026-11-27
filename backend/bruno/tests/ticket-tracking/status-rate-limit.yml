@@ -22,14 +22,10 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        // Spends the quota (spec 003 S-9): 30 status requests, each refused
-        // with 409 (a change from fechado), which still count. This valid
-        // request is then the 31st within the minute.
+        // 30 refused requests spend the quota; the next one is the 31st within the minute.
         const url = bru.interpolate("{{baseUrl}}/api/administradores/tickets/{{ticketB1}}/status");
         const statuses = [];
         for (let i = 1; i <= 30; i++) {
-          // bru.sendRequest throws on a status outside 2xx: read it from
-          // the error.
           try {
             const r = await bru.sendRequest({
               method: "PATCH",
@@ -43,8 +39,6 @@ runtime:
             });
             statuses.push(r.status);
           } catch (err) {
-            // In the CLI sandbox the error has only its message, "Request
-            // failed with status code 409".
             const status = (err && err.response && err.response.status) || (String(err && err.message).match(/status code (\d{3})/) || [])[1];
             statuses.push(status ? String(status) : "network");
           }

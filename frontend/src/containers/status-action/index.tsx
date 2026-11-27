@@ -24,18 +24,8 @@ export const STATUS_ACTION_TEXTS = {
   trigger: 'Status'
 } as const
 
-/** One change at a time: a second choice while saving starts nothing. */
 const applyOnce = singleFlight(applyStatus)
 
-/**
- * The admin's status action in the ticket header (spec 003 US-6, D-5): a
- * menu "Status: <atual>" with the rows of `input-texto.mp4` (label, check on
- * the current status), offering only the allowed transitions (BR-3), with
- * "Fechado" in discreet red behind an inline confirmation (never a browser
- * dialog). While saving it cannot be used again; the result is announced
- * politely and the page is loaded again from the server. A closed ticket
- * has no action (AC-6.5).
- */
 export const StatusAction = ({ current, ticketId }: StatusActionProps) => {
   const router = useRouter()
   const [, startTransition] = useTransition()

@@ -5,14 +5,6 @@ import { parseThreadEntry } from '@/repositories/tickets'
 
 import type { ReplyDeps, ReplyInput, ReplyOutcome } from './types'
 
-/**
- * One reply (spec 003 AC-3.5 to AC-3.7): the message rule of the backend is
- * checked first, so an invalid text sends nothing and gets its field
- * message. A stored reply gives its entry id (for the fade-in); a failure
- * gives the AC-3.7 text and whether the page must be loaded again: a 409
- * (closed meanwhile) shows the closed line, a 404 the not-found screen. A
- * 401 never comes back: the client has already gone to the login page.
- */
 export const sendReply = async (
   deps: ReplyDeps,
   { raw, scope, ticketId }: ReplyInput

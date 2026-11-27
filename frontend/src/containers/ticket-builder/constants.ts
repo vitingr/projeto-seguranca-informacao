@@ -4,7 +4,6 @@ import type { TicketType } from '@/domain/tickets/types'
 
 import type { Step } from './types'
 
-/** The steps in order, as the step indicator shows them. */
 export const STEPS = [
   {
     description: 'Escolha do pedido',
@@ -32,11 +31,9 @@ export const STEPS = [
 }[]
 
 export const BUILDER_MESSAGES = {
-  /** AC-5.2, announced to screen readers. */
   created: (id: number) => `Ticket #${id} criado.`,
   noType: 'Escolha um tipo de ticket.',
   sending: 'Enviando ticket.',
-  /** AC-2.4: the inline confirmation, never a browser dialog. */
   typeChange: (next: string, current: string) =>
     `Trocar para "${next}" descarta os campos preenchidos de "${current}".`
 } as const
@@ -49,7 +46,6 @@ export const BUILDER_TEXTS = {
   detailsIntro: (type: string) =>
     `${type}: preencha os campos. Os marcados com * são obrigatórios.`,
   keepType: 'Manter o tipo atual',
-  /** AC-3.8: the inline warning before following a link out. */
   leave: 'Sair sem enviar',
   leaveBody: 'O que você preencheu neste ticket será perdido.',
   leaveTitle: 'Sair sem enviar?',
@@ -57,7 +53,6 @@ export const BUILDER_TEXTS = {
     'Confira o pedido antes de enviar. Para corrigir algum campo, use "Editar".',
   send: 'Enviar ticket',
   sending: 'Enviando…',
-  /** AC-3.7. */
   sessionNote:
     'Sua sessão expira após um período sem atividade. Envie o ticket antes de sair da página.',
   stay: 'Continuar no ticket',
@@ -65,10 +60,8 @@ export const BUILDER_TEXTS = {
   title: 'Novo ticket'
 } as const
 
-/** Shown on every step and type: tickets are read by people. */
 export const SECURITY_TIP = 'Nunca escreva senhas ou tokens no ticket.'
 
-/** The "Dicas" card (plan 5.4): short and true, per step and type. */
 export const TIPS = {
   acesso: [
     'Use o nome do sistema como a equipe o conhece.',

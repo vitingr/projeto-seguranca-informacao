@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The right credentials under a key in another case (plan P-11):
         // encoding/json alone would match "LOGIN" to "login" and sign in.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);

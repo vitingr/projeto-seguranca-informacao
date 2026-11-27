@@ -12,8 +12,6 @@ import (
 	"backend_si/internal/security"
 )
 
-// ticketSchema is the subset of a JSON Schema that the ticket contract
-// checks read.
 type ticketSchema struct {
 	Ref                  string                     `json:"$ref"`
 	Type                 any                        `json:"type"`
@@ -29,8 +27,6 @@ type ticketSchema struct {
 	Enum  []string `json:"enum"`
 }
 
-// optionalTicketKeys are the "dados" keys that may be left out (spec
-// section 4: only the deploy notes are optional).
 var optionalTicketKeys = []string{"observacoes"}
 
 func loadTicketSchemas(t *testing.T) map[string]ticketSchema {
@@ -83,9 +79,6 @@ func sorted(s []string) []string {
 	return out
 }
 
-// TestContractTicketRequestMatchesDecoder compares CreateTicketRequest with
-// the keys security.DecodeTicket accepts: one schema per type, no other key
-// at either level, and the required keys of spec section 4.
 func TestContractTicketRequestMatchesDecoder(t *testing.T) {
 	t.Parallel()
 
@@ -154,7 +147,6 @@ func TestContractTicketRequestMatchesDecoder(t *testing.T) {
 	}
 }
 
-// TestContractTicketEnums compares the contract enums with the domain codes.
 func TestContractTicketEnums(t *testing.T) {
 	t.Parallel()
 
@@ -215,8 +207,6 @@ func TestContractTicketResponseMatchesStruct(t *testing.T) {
 	}
 }
 
-// TestContractTrackingSchemasMatchStructs compares the answer schemas of
-// spec 003 with the structs the handlers write (S-13: the keys per role).
 func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 	t.Parallel()
 
@@ -253,10 +243,6 @@ func TestContractTrackingSchemasMatchStructs(t *testing.T) {
 	}
 }
 
-// TestContractTicketDetailData checks that data of TicketDetail is one
-// schema per type, whose properties are the keys of the type
-// (security.TicketDataKeys, plan P-10), all required: an empty optional
-// field is null, never left out.
 func TestContractTicketDetailData(t *testing.T) {
 	t.Parallel()
 
@@ -266,7 +252,6 @@ func TestContractTicketDetailData(t *testing.T) {
 		t.Fatal("schema TicketDetail is missing")
 	}
 	data := propertySchema(t, detail.Properties["data"])
-	// AdminTicketDetail.data is the same oneOf (plan T5.3).
 	if admin, ok := schemas["AdminTicketDetail"]; ok {
 		if got := propertySchema(t, admin.Properties["data"]).OneOf; !slices.Equal(got, data.OneOf) {
 			t.Errorf("AdminTicketDetail.data oneOf = %v, want the one of TicketDetail %v", got, data.OneOf)
@@ -298,9 +283,6 @@ func TestContractTicketDetailData(t *testing.T) {
 	}
 }
 
-// TestContractThreadEntryKinds checks the thread entry codes: EntryKind is
-// the domain's, EntrySide the web's, and the oneOf of ThreadEntry has one
-// branch per kind with the keys that kind carries.
 func TestContractThreadEntryKinds(t *testing.T) {
 	t.Parallel()
 
@@ -361,9 +343,6 @@ func TestContractThreadEntryKinds(t *testing.T) {
 	}
 }
 
-// TestContractMessageRequest checks CreateMessageRequest against the
-// decoder: only texto, required, no other key (S-8), and the limit of
-// security.MessageMaxLength.
 func TestContractMessageRequest(t *testing.T) {
 	t.Parallel()
 
@@ -386,9 +365,6 @@ func TestContractMessageRequest(t *testing.T) {
 	}
 }
 
-// TestContractStatusChange checks ChangeStatusRequest: only de and para,
-// both TicketStatus codes, and x-allowed-transitions equal to
-// security.AllowedNextStatuses for every status (BR-3).
 func TestContractStatusChange(t *testing.T) {
 	t.Parallel()
 
@@ -436,9 +412,6 @@ func TestContractStatusChange(t *testing.T) {
 	}
 }
 
-// TestContractListParameters checks the list parameters: their names are
-// the ones the security parsers read, their codes come from the domain
-// enums, and the page size is the server's.
 func TestContractListParameters(t *testing.T) {
 	t.Parallel()
 
@@ -486,8 +459,7 @@ func TestContractListParameters(t *testing.T) {
 		}
 	}
 
-	// The thread page bound is the one of service and repository (100,
-	// plan P-4); TestOwnThreadPages checks it on the answers.
+	// 100: the thread page bound of service and repository
 	if m := doc.Components.Schemas["ThreadPage"].Properties["entries"].MaxItems; m == nil || *m != 100 {
 		t.Errorf("ThreadPage.entries maxItems = %v, want 100", m)
 	}
@@ -504,9 +476,6 @@ func TestContractListParameters(t *testing.T) {
 	}
 }
 
-// TestDiffParameters checks the parameter comparison on a small inline
-// contract (plan 003 section 8: the contract test reads path and query
-// parameters for the first time).
 func TestDiffParameters(t *testing.T) {
 	t.Parallel()
 

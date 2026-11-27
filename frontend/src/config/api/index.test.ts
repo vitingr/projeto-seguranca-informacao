@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { parseApiUrl } from '.'
 
-// `env` is parsed when config/env is imported, so the variables it reads
-// must be set before the imports above run.
 const API_BASE_URL = vi.hoisted(() => {
   const value = 'https://localhost:8443'
   vi.stubEnv('API_BASE_URL', value)

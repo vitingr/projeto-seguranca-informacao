@@ -80,6 +80,16 @@ export type TicketInput = {
   [Type in TicketType]: { dados: TicketDataByType[Type]; tipo: Type }
 }[TicketType]
 
+/** A field of a ticket as the review and the ticket page show it. */
+export interface TicketDetailRow {
+  key: string
+  label: string
+  /** A fixed choice shown in discreet red ("Produção", "Crítica"). */
+  risky: boolean
+  /** `null` for an optional field left empty ("Não informado"). */
+  value: null | string
+}
+
 /** A created ticket, as the confirmation shows it. */
 export interface CreatedTicket {
   createdAt: string

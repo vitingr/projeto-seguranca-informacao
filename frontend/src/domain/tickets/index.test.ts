@@ -12,6 +12,8 @@ import {
   checkMessage,
   codePoints,
   messageSchema,
+  ticketDetailRows,
+  ticketFieldRows,
   ticketTitle,
   trimField
 } from '.'
@@ -311,9 +313,85 @@ describe('checkMessage and messageSchema (spec 003 BR-6)', () => {
     expect(result.error?.issues[0]?.message).toBe(message)
   })
 
+  it('a control character other than \\n, \\r and \\t is refused', () => {
+    expect(checkMessage('a\u0007b')).toBe(
+      'Remova os caracteres de controle do texto.'
+    )
+  })
+
   it('trims what it accepts, as the backend stores it', () => {
     expect(messageSchema.parse('  olá\n')).toBe('olá')
     expect(codePoints(`  ${'a'.repeat(2000)}  `)).toBe(2004)
     expect(checkMessage(`  ${'a'.repeat(2000)}  `)).toBeNull()
+  })
+})
+
+describe('ticketDetailRows (spec 003 AC-2.2)', () => {
+  const show = (rows: ReturnType<typeof ticketDetailRows>) =>
+    rows.map(
+      row => `${row.label}: ${row.value ?? 'null'}${row.risky ? '!' : ''}`
+    )
+
+  it('acesso: labels and the choice label', () => {
+    expect(
+      show(
+        ticketDetailRows('acesso', {
+          justificativa: 'Painéis\nde uso',
+          nivel_acesso: 'leitura',
+          sistema: 'Grafana'
+        })
+      )
+    ).toEqual([
+      'Sistema ou recurso: Grafana',
+      'Nível de acesso: Leitura',
+      'Justificativa: Painéis\nde uso'
+    ])
+  })
+
+  it('bug: "Crítica" is risky, short fields first', () => {
+    expect(
+      show(
+        ticketDetailRows('bug', {
+          descricao: 'Erro 500',
+          passos: '1. Abra',
+          severidade: 'critica',
+          sistema: 'Portal'
+        })
+      )
+    ).toEqual([
+      'Sistema afetado: Portal',
+      'Severidade: Crítica!',
+      'Descrição: Erro 500',
+      'Passos para reproduzir: 1. Abra'
+    ])
+  })
+
+  it('deploy: "Produção" is risky and null notes are not informed', () => {
+    expect(
+      show(
+        ticketDetailRows('deploy', {
+          ambiente: 'prod',
+          observacoes: null,
+          projeto: 'api',
+          repositorio: 'https://github.com/org/api'
+        })
+      )
+    ).toEqual([
+      'Nome do projeto: api',
+      'Repositório: https://github.com/org/api',
+      'Ambiente: Produção!',
+      'Observações: null'
+    ])
+  })
+
+  it('outro: the title field is left out, the full list keeps it', () => {
+    const data = { descricao: 'Abrir a porta', titulo: 'Liberar porta' }
+    expect(show(ticketDetailRows('outro', data))).toEqual([
+      'Descrição: Abrir a porta'
+    ])
+    expect(ticketFieldRows('outro', data).map(row => row.key)).toEqual([
+      'titulo',
+      'descricao'
+    ])
   })
 })

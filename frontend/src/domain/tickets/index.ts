@@ -7,6 +7,7 @@
 import { z } from 'zod'
 
 import type {
+  TicketDetailRow,
   TicketField,
   TicketFieldKey,
   TicketInput,
@@ -295,6 +296,56 @@ export const trimField = (value: string): string =>
 
 /** Length in Unicode code points, as the backend counts it. */
 export const codePoints = (value: string): number => [...value].length
+
+/** What an optional field left empty shows (spec 001 AC-4.1, 003 AC-2.2). */
+export const NOT_INFORMED = 'Não informado'
+
+/** Kinds shown first, side by side, on the builder and in the details. */
+const COMPACT_KINDS: readonly string[] = ['choice', 'short', 'url']
+
+/** The field whose value is the ticket title itself ("Outro", BR-3). */
+const TITLE_FIELDS: Partial<Record<TicketType, string>> = { outro: 'titulo' }
+
+/**
+ * Every field of a type in screen order (short fields, URLs and choices
+ * first, then the long ones), with its label, the label of a fixed choice,
+ * and `null` for an optional field left empty (`""`, `null` or absent).
+ */
+export const ticketFieldRows = (
+  type: TicketType,
+  data: Readonly<Record<string, null | string | undefined>>
+): TicketDetailRow[] => {
+  const fields = fieldsOf(type)
+  const ordered = [
+    ...fields.filter(field => COMPACT_KINDS.includes(field.kind)),
+    ...fields.filter(field => !COMPACT_KINDS.includes(field.kind))
+  ]
+  return ordered.map(field => {
+    const raw = data[field.key]
+    const option = field.options?.find(item => item.code === raw)
+    return {
+      key: field.key,
+      label: field.label,
+      risky: option?.risky ?? false,
+      value:
+        raw === undefined || raw === null || raw === ''
+          ? null
+          : (option?.label ?? raw)
+    }
+  })
+}
+
+/**
+ * The rows of the "Detalhes" group of a ticket (the builder review, 001
+ * AC-4.1, and the ticket page, 003 AC-2.2): the field that is the ticket
+ * title ("Título" of "Outro") is left out, since the "Pedido" group already
+ * shows it as the title.
+ */
+export const ticketDetailRows = (
+  type: TicketType,
+  data: Readonly<Record<string, null | string | undefined>>
+): TicketDetailRow[] =>
+  ticketFieldRows(type, data).filter(row => row.key !== TITLE_FIELDS[type])
 
 /** A lone surrogate: the JavaScript form of text that is not valid UTF-8. */
 const LONE_SURROGATE = /\p{Surrogate}/u

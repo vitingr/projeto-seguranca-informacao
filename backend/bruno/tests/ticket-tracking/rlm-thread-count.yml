@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The 31st reply was not stored: exactly 30 entries.
         test("holds 30 replies", function () {
           expect(res.getStatus()).to.equal(200);
           expect(res.getBody().entries.length).to.equal(30);

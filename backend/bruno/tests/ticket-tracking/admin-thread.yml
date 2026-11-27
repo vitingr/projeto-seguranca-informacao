@@ -12,9 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-5.3, and S-2 from the other side: the thread of A's ticket holds
-        // A's reply of 60 only, so B's reply (125) and the refused ones
-        // (63-65) stored nothing.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

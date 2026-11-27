@@ -14,7 +14,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// renderJSON is an ErrorRenderer that writes a JSON body, like web.WriteError.
 func renderJSON(w http.ResponseWriter, _ *http.Request, status int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -37,7 +36,6 @@ func TestRequestTimeoutSetsDeadline(t *testing.T) {
 	if !hasDeadline {
 		t.Fatal("request context has no deadline")
 	}
-	// The deadline is set between start and end, so it lies in this window.
 	if deadline.Before(start.Add(timeout)) || deadline.After(end.Add(timeout)) {
 		t.Errorf("deadline %v after start, want %v", deadline.Sub(start), timeout)
 	}
@@ -101,7 +99,6 @@ func TestHashWaitEndsAtRequestDeadline(t *testing.T) {
 					tr.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
 					client = &http.Client{Transport: tr}
 				}
-				// The client itself waits much longer than the deadline.
 				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 				req, err := http.NewRequestWithContext(ctx, http.MethodPost, ts.URL, http.NoBody)

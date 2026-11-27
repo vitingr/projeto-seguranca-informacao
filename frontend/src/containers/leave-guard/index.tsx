@@ -15,26 +15,11 @@ import type {
   LeaveRequest
 } from './types'
 
-// The unsent data guard (001 AC-3.8, 003 AC-3.9, plan P-12), shared by the
-// ticket builder and the reply box: with typed text not sent, closing or
-// reloading the tab gets the browser's own prompt, and a link out of the
-// page or the header's "Sair" get an inline bar instead of a dialog.
-
-/**
- * Listens for leaving on `target` (the window) and returns the cleanup.
- * `beforeunload` asks the browser to warn, unless a confirmed logout is
- * running. A capture-phase click listener runs before the router's link
- * handler and the button's own handler: it stops a click on "Sair" or on a
- * plain link out of the page and reports it through `onRequest`.
- */
 export const installLeaveGuard = (
   target: GuardTarget,
   options: GuardOptions
 ): (() => void) => {
   const onBeforeUnload = (event: Event) => {
-    // A logout the user confirmed is running (the button stays disabled
-    // until the login page loads): its redirect is not warned again. If the
-    // logout fails, the button is enabled and the warning is back.
     if (options.logoutRunning()) return
     event.preventDefault()
   }
@@ -46,7 +31,6 @@ export const installLeaveGuard = (
         options.logoutAllowed.current = false
         return
       }
-      // Any click on "Sair" logs out, with or without a modifier.
       event.preventDefault()
       event.stopPropagation()
       options.onRequest({ from: logout, kind: 'logout' })
@@ -74,7 +58,6 @@ export const installLeaveGuard = (
   }
 }
 
-/** The guard of a page: active only while `active` (typed and not sent). */
 export const useLeaveGuard = (active: boolean): LeaveGuard => {
   const router = useRouter()
   const [leaving, setLeaving] = useState<LeaveRequest | null>(null)
@@ -105,8 +88,6 @@ export const useLeaveGuard = (active: boolean): LeaveGuard => {
     if (!leaving) return
     setLeaving(null)
     if (leaving.kind === 'logout') {
-      // The button logs out as it always does (POST /api/logout, then the
-      // login page), showing its own error if that fails.
       logoutAllowed.current = true
       leaving.from.click()
       logoutAllowed.current = false
@@ -119,7 +100,6 @@ export const useLeaveGuard = (active: boolean): LeaveGuard => {
   return { leave, leaving, stay, stayRef }
 }
 
-/** The inline "Sair sem enviar?" bar, shown while a request is pending. */
 export const LeaveGuardBar = ({
   body,
   leaveLabel,

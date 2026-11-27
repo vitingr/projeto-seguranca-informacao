@@ -23,8 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Anonymous with a valid CSRF token: the CSRF check passes and
-        // Authorize answers 401.
         test("status is 401", function () {
           expect(res.getStatus()).to.equal(401);
         });

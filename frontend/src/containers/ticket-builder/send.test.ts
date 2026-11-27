@@ -26,7 +26,7 @@ const failing = (error: ApiError): CreateTicket =>
   vi.fn(async () => ({ error, ok: false as const }))
 
 describe('sendTicket', () => {
-  it('sends the reviewed input and returns the created ticket (AC-5.2)', async () => {
+  it('sends the reviewed input and returns the created ticket', async () => {
     const createTicket = vi.fn(async () => ({
       data: ANSWER,
       ok: true as const
@@ -47,23 +47,23 @@ describe('sendTicket', () => {
 
   it.each([
     [
-      'invalid data (422, AC-6.1)',
+      'invalid data (422)',
       { code: 'unprocessable_entity', status: 422 },
       MESSAGES.invalidData
     ],
     [
-      'too many requests (429, AC-6.7)',
+      'too many requests (429)',
       { code: 'too_many_requests', status: 429 },
       MESSAGES.tooManyRequests
     ],
     [
-      'lost permission (403, AC-6.5)',
+      'lost permission (403)',
       { code: 'forbidden', status: 403 },
       MESSAGES.forbiddenAction
     ],
-    ['network failure (AC-6.3)', networkError(), MESSAGES.network],
+    ['network failure', networkError(), MESSAGES.network],
     [
-      'server error with its code (500, AC-6.4)',
+      'server error with its code (500)',
       { code: 'internal', requestId: 'req-123', status: 500 },
       `${MESSAGES.internal} (código: req-123)`
     ]
@@ -73,11 +73,10 @@ describe('sendTicket', () => {
       message,
       type: 'sendFailed'
     })
-    // One call: the client never retries by itself.
     expect(createTicket).toHaveBeenCalledTimes(1)
   })
 
-  it('never shows the backend text or field contents (AC-6.6)', async () => {
+  it('never shows the backend text or field contents', async () => {
     const outcome = await sendTicket(
       failing({
         code: 'unprocessable_entity',

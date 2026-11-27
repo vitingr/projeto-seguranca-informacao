@@ -23,8 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The user of the reply rate limit (400-490), so no other request
-        // shares its quota. An e2e.* login.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           expect(res.getBody().role).to.equal("comum");

@@ -24,9 +24,7 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The role twice, the second in another case (plan P-11): a reviewer
-        // or a log reading the first sees "comum", while encoding/json alone
-        // keeps the last and would register an admin.
+        // encoding/json alone keeps the last role and would register an admin.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

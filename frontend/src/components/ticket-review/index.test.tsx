@@ -22,7 +22,7 @@ const pair = (label: string, value: string) =>
   )
 
 describe('TicketReview', () => {
-  it('shows the type, the title and every label with its value (AC-4.1)', () => {
+  it('shows the type, the title and every label with its value', () => {
     const html = render([
       { key: 'sistema', label: 'Sistema afetado', value: 'Portal' },
       { key: 'severidade', label: 'Severidade', value: 'Alta' }
@@ -63,7 +63,7 @@ describe('TicketReview', () => {
     '<script>alert(1)</script>',
     '<img src=x onerror=alert(1)>',
     '**negrito** e [link](javascript:alert(1))'
-  ])('shows %s as literal text, creating no element (AC-4.3, S-8)', payload => {
+  ])('shows %s as literal text, creating no element', payload => {
     const html = render(
       [{ key: 'descricao', label: 'Descrição', value: payload }],
       payload
@@ -73,7 +73,6 @@ describe('TicketReview', () => {
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;')
-    // In the title row and in the field row.
     expect(html.split(escaped)).toHaveLength(3)
   })
 })

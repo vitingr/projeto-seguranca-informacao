@@ -36,7 +36,6 @@ func (l *RateLimiter) tracked(user domain.UserID) (users, times int) {
 func TestTicketCreateLimitIsTenPerMinute(t *testing.T) {
 	t.Parallel()
 
-	// S-12: the numbers are part of the spec, not a tuning knob.
 	if TicketCreateLimit != 10 || TicketCreateWindow != time.Minute {
 		t.Errorf("limit = %d per %v, want 10 per 1m", TicketCreateLimit, TicketCreateWindow)
 	}
@@ -90,8 +89,6 @@ func TestRateLimiterSlidingWindow(t *testing.T) {
 			{time.Second, 1, true, 0},
 			{time.Second, 1, true, 0},
 		}, step{time.Second, 1, false, 50 * time.Second})},
-		// The burst shares one instant, so all of it leaves the window
-		// together: ten more fit, and the next waits a whole window again.
 		{"allowed again once the oldest leaves, not a moment before", append(append(burst(1, 10),
 			step{59*time.Second + 999*time.Millisecond, 1, false, time.Millisecond},
 			step{time.Millisecond, 1, true, 0}),
@@ -244,8 +241,6 @@ func TestRetryAfterSeconds(t *testing.T) {
 	}
 }
 
-// rateLimitFixture is the RateLimit middleware on a fake clock, with a
-// captured log and a next handler that counts its calls.
 type rateLimitFixture struct {
 	sec     *Security
 	limiter *RateLimiter
@@ -274,7 +269,6 @@ func newRateLimitFixture(t *testing.T) *rateLimitFixture {
 	return f
 }
 
-// send posts a body holding marker, as user (0 = no principal).
 func (f *rateLimitFixture) send(t *testing.T, user domain.UserID) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/tickets",
@@ -360,10 +354,6 @@ func TestRateLimitMiddleware(t *testing.T) {
 	})
 }
 
-// TestTrackingLimits covers spec 003 S-9 (Q-9): a limiter built from each
-// pair of constants allows 30 requests of a user in a minute and refuses
-// the 31st, then lets the user in again once the window has passed. The
-// two limiters count apart.
 func TestTrackingLimits(t *testing.T) {
 	t.Parallel()
 
@@ -414,7 +404,6 @@ func TestTrackingLimits(t *testing.T) {
 		})
 	}
 
-	// Separate limiters: using up the message quota leaves the status quota.
 	clk := newClock()
 	s := newTestSecurityWith(t, func(o *Options) { o.Now = clk.Now })
 	messages, _ := s.NewRateLimiter(MessageCreateLimit, MessageCreateWindow)

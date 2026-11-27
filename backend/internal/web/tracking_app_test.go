@@ -18,8 +18,6 @@ import (
 	"backend_si/internal/service"
 )
 
-// The users of the ticket tracking tests (spec 003). maria and joao are the
-// comum users A and B of the IDOR tests; admin and ana are two admins.
 const (
 	trackAdminID domain.UserID = 1
 	trackMariaID domain.UserID = 2
@@ -37,7 +35,6 @@ var trackingUsers = map[string]domain.User{
 	anaLogin:   {ID: trackAnaID, Login: anaLogin, Role: domain.RoleAdmin},
 }
 
-// trackingAuth accepts the four tracking users, all with flowPassword.
 type trackingAuth struct{}
 
 func (trackingAuth) Authenticate(_ context.Context, login, password string) (domain.User, error) {
@@ -47,31 +44,21 @@ func (trackingAuth) Authenticate(_ context.Context, login, password string) (dom
 	return domain.User{}, fmt.Errorf("fake: %w", domain.ErrInvalidCredentials)
 }
 
-// memTracking is an in-memory store of tickets and their entries. It is the
-// service.TicketRepository, the service.TicketEntryRepository and the
-// security.TicketOwnerStore of the tracking app, with the semantics of the
-// repository (order by last update, pages of 20, compare-and-set on the
-// status, no message after the close), checked against PostgreSQL by the
-// repository integration tests.
 type memTracking struct {
 	mu      sync.Mutex
 	clock   time.Time
-	tickets []domain.Ticket // in id order
+	tickets []domain.Ticket
 	entries []domain.TicketEntry
-	err     error // returned by every call a handler makes, when set
-	// calls counts the calls only a handler makes (every method but
-	// TicketAuthor, which TicketAccess uses).
-	calls int
+	err     error
+	calls   int
 }
 
-// handlerCalls returns how many times a handler reached the store.
 func (m *memTracking) handlerCalls() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.calls
 }
 
-// lock takes the store's lock for a call a handler makes and counts it.
 func (m *memTracking) lock() {
 	m.mu.Lock()
 	m.calls++
@@ -81,8 +68,6 @@ func newMemTracking() *memTracking {
 	return &memTracking{clock: time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)}
 }
 
-// tick returns a new time, one second after the previous one, so the order
-// by last update is deterministic.
 func (m *memTracking) tick() time.Time {
 	m.clock = m.clock.Add(time.Second)
 	return m.clock
@@ -129,8 +114,6 @@ func (m *memTracking) Get(_ context.Context, id domain.TicketID) (domain.Ticket,
 	return m.tickets[i], login, nil
 }
 
-// TicketAuthor ignores fail: it lets the request reach the handler, whose
-// store call then fails.
 func (m *memTracking) TicketAuthor(_ context.Context, id domain.TicketID) (domain.UserID, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -141,8 +124,6 @@ func (m *memTracking) TicketAuthor(_ context.Context, id domain.TicketID) (domai
 	return m.tickets[i].AuthorID, nil
 }
 
-// list filters, orders by last update (ties by id, highest first) and pages
-// like the repository.
 func (m *memTracking) list(q domain.TicketListQuery, keep func(*domain.Ticket) bool) domain.TicketPage {
 	var rows []*domain.Ticket
 	for i := range m.tickets {
@@ -179,7 +160,7 @@ func (m *memTracking) ListOwn(_ context.Context, author domain.UserID, q domain.
 	}
 	page := m.list(q, func(t *domain.Ticket) bool { return t.AuthorID == author })
 	for i := range page.Items {
-		page.Items[i].AuthorLogin = "" // the repository does not select it
+		page.Items[i].AuthorLogin = ""
 	}
 	return page, nil
 }
@@ -239,7 +220,6 @@ func (m *memTracking) Thread(_ context.Context, ticket domain.TicketID, before d
 	return page, nil
 }
 
-// addEntry stores e on the ticket at index i and moves its last update.
 func (m *memTracking) addEntry(i int, e domain.TicketEntry) domain.TicketEntry {
 	e.ID = domain.TicketEntryID(len(m.entries) + 1)
 	e.TicketID = m.tickets[i].ID
@@ -283,7 +263,6 @@ func (m *memTracking) ChangeStatus(_ context.Context, ticket domain.TicketID, ac
 	return m.addEntry(i, domain.TicketEntry{ActorID: actor, Kind: domain.EntryKindStatusChange, From: from, To: to}), nil
 }
 
-// seed stores a ticket of author directly, as if it had been created.
 func (m *memTracking) seed(author domain.UserID, typ domain.TicketType, title string) domain.Ticket {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -307,15 +286,12 @@ func (m *memTracking) seed(author domain.UserID, typ domain.TicketType, title st
 	return t
 }
 
-// fail makes every later call return err.
 func (m *memTracking) fail(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.err = err
 }
 
-// sizes returns the number of stored tickets and entries, to check that a
-// refused request wrote nothing.
 func (m *memTracking) sizes() (tickets, entries int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -339,13 +315,10 @@ func (m *memTracking) ticket(id domain.TicketID) domain.Ticket {
 	return m.tickets[m.find(id)]
 }
 
-// trackingApp is the full NewHandler chain with working sessions for the
-// four tracking users, the real service.Tickets and security.Security, and
-// memTracking as every store.
 type trackingApp struct {
 	flowApp
 	store    *memTracking
-	messages *security.RateLimiter // the reply limiter of the app
+	messages *security.RateLimiter
 }
 
 func newTrackingApp(t *testing.T, logOut io.Writer) trackingApp {
@@ -380,7 +353,6 @@ func newTrackingApp(t *testing.T, logOut io.Writer) trackingApp {
 	return trackingApp{flowApp: flowApp{app: app, sessions: sessions}, store: store, messages: deps.MessageLimiter}
 }
 
-// trackingDeps is a complete Deps for the tracking app.
 func trackingDeps(t *testing.T, logger *slog.Logger, sec *security.Security, tickets TicketService) Deps {
 	t.Helper()
 	return Deps{
@@ -391,8 +363,7 @@ func trackingDeps(t *testing.T, logger *slog.Logger, sec *security.Security, tic
 	}
 }
 
-// newStatusLimiter is the production limiter of status changes: 30 per
-// admin in any 60-second window (spec 003 S-9).
+// 30 per admin in any 60-second window.
 func newStatusLimiter(t *testing.T, sec *security.Security) *security.RateLimiter {
 	t.Helper()
 	l, err := sec.NewRateLimiter(security.StatusChangeLimit, security.StatusChangeWindow)
@@ -402,8 +373,7 @@ func newStatusLimiter(t *testing.T, sec *security.Security) *security.RateLimite
 	return l
 }
 
-// newMessageLimiter is the production limiter of replies: 30 per user in
-// any 60-second window (spec 003 S-9).
+// 30 per user in any 60-second window.
 func newMessageLimiter(t *testing.T, sec *security.Security) *security.RateLimiter {
 	t.Helper()
 	l, err := sec.NewRateLimiter(security.MessageCreateLimit, security.MessageCreateWindow)
@@ -413,7 +383,6 @@ func newMessageLimiter(t *testing.T, sec *security.Security) *security.RateLimit
 	return l
 }
 
-// get sends a GET with the session of cookie and decodes a JSON object.
 func (a trackingApp) get(t *testing.T, path string, cookie *http.Cookie) (int, map[string]any) {
 	t.Helper()
 	rr := a.send(t, http.MethodGet, path, "", cookie, nil)
@@ -424,7 +393,6 @@ func (a trackingApp) get(t *testing.T, path string, cookie *http.Cookie) (int, m
 	return rr.Code, body
 }
 
-// keysOf returns the sorted keys of a JSON object.
 func keysOf(v any) []string {
 	obj, _ := v.(map[string]any)
 	return sortedKeys(obj)

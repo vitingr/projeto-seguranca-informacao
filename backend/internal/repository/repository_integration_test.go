@@ -40,8 +40,6 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 
 	login := "it_" + rand.Text()[:10]
 	t.Cleanup(func() {
-		// t.Context() is already canceled when cleanups run, so the delete
-		// needs a context without that cancellation.
 		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
 			t.Errorf("cleanup: delete test user %s: %v", login, err)
 		}
@@ -112,9 +110,6 @@ func TestUsersAndSessionsIntegration(t *testing.T) {
 	}
 }
 
-// TestSessionGetReadsTheUserProfileIntegration covers spec Q-16: the same
-// session query returns the user's login and registration time, and an
-// anonymous session has neither.
 func TestSessionGetReadsTheUserProfileIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -122,7 +117,6 @@ func TestSessionGetReadsTheUserProfileIntegration(t *testing.T) {
 
 	login := "it_" + rand.Text()[:10]
 	t.Cleanup(func() {
-		// Sessions go with the user (ON DELETE CASCADE).
 		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
 			t.Errorf("cleanup: delete test user %s: %v", login, err)
 		}
@@ -164,9 +158,6 @@ func TestSessionGetReadsTheUserProfileIntegration(t *testing.T) {
 	}
 }
 
-// TestRoleChangeIntegration covers 003 D-12: a role changed in the database
-// is what the next Sessions.Get returns, in both directions, with no new
-// session.
 func TestRoleChangeIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -174,7 +165,6 @@ func TestRoleChangeIntegration(t *testing.T) {
 
 	login := "it_" + rand.Text()[:10]
 	t.Cleanup(func() {
-		// Sessions go with the user (ON DELETE CASCADE).
 		if _, err := db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM users WHERE login = $1`, login); err != nil {
 			t.Errorf("cleanup: delete test user %s: %v", login, err)
 		}
@@ -206,8 +196,6 @@ func TestRoleChangeIntegration(t *testing.T) {
 	}
 }
 
-// ticketRow is one row of the tickets table as the integration test inserts
-// it directly; nil is NULL. A nil status uses 'aberto', like the default.
 type ticketRow struct {
 	authorID      any
 	typ           string
@@ -227,12 +215,8 @@ type ticketRow struct {
 
 func ptr(s string) *string { return &s }
 
-// chars returns n characters, each two bytes in UTF-8, so the CHECKs are
-// shown to count characters rather than bytes.
 func chars(n int) string { return strings.Repeat("é", n) }
 
-// ticketsEqual compares two tickets field by field, with the dates compared
-// as instants (the database may return another location).
 func ticketsEqual(a, b domain.Ticket) bool {
 	if !a.CreatedAt.Equal(b.CreatedAt) || !a.UpdatedAt.Equal(b.UpdatedAt) {
 		return false
@@ -254,10 +238,6 @@ func insertTicket(ctx context.Context, db *sql.DB, r ticketRow) (domain.TicketID
 	return id, err
 }
 
-// TestTicketsTableIntegration covers migration 00002 (spec 001-ticket-builder,
-// S-1 second net, BR-1, BR-2, BR-6): one valid row per type is stored as
-// "aberto" with server dates, and every row that breaks one rule is refused
-// by the constraint of that rule, writing nothing.
 func TestTicketsTableIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -268,7 +248,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 		t.Fatalf("Create user: %v", err)
 	}
 	t.Cleanup(func() {
-		// Tickets do not cascade: delete them before their author.
 		bg := context.WithoutCancel(ctx)
 		if _, err := db.ExecContext(bg, `DELETE FROM tickets WHERE author_id = $1`, author); err != nil {
 			t.Errorf("cleanup: delete tickets: %v", err)
@@ -368,7 +347,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 			code       string
 			constraint string
 		}{
-			// Wrong set of fields for the type.
 			{"acesso without justification", with("acesso", func(r *ticketRow) { r.justification = nil }), check, byType},
 			{"acesso with steps", with("acesso", func(r *ticketRow) { r.steps = ptr("1. Abrir a página") }), check, byType},
 			{"acesso with notes", with("acesso", func(r *ticketRow) { r.notes = ptr("Observação") }), check, byType},
@@ -382,16 +360,12 @@ func TestTicketsTableIntegration(t *testing.T) {
 			{"outro with notes", with("outro", func(r *ticketRow) { r.notes = ptr("Observação") }), check, byType},
 			{"acesso fields under type bug", with("acesso", func(r *ticketRow) { r.typ = "bug" }), check, byType},
 
-			// Values outside their lists. An unknown type also breaks
-			// tickets_fields_by_type, and PostgreSQL checks constraints in
-			// name order, so that is the one it reports.
 			{"unknown type", with("outro", func(r *ticketRow) { r.typ = "incidente" }), check, byType},
 			{"status outside its list", with("outro", func(r *ticketRow) { r.status = ptr("cancelado") }), check, "tickets_status_check"},
 			{"access level outside its list", with("acesso", func(r *ticketRow) { r.accessLevel = ptr("root") }), check, "tickets_access_level_check"},
 			{"severity outside its list", with("bug", func(r *ticketRow) { r.severity = ptr("Alta") }), check, "tickets_severity_check"},
 			{"environment outside its list", with("deploy", func(r *ticketRow) { r.environment = ptr("Produção") }), check, "tickets_environment_check"},
 
-			// Lengths one past each limit.
 			{"title empty", with("outro", func(r *ticketRow) { r.title = "" }), check, "tickets_title_check"},
 			{"title 121", with("outro", func(r *ticketRow) { r.title = chars(121) }), check, "tickets_title_check"},
 			{"system 1", with("acesso", func(r *ticketRow) { r.system = ptr(chars(1)) }), check, "tickets_system_check"},
@@ -409,7 +383,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 			{"notes empty instead of NULL", with("deploy", func(r *ticketRow) { r.notes = ptr("") }), check, "tickets_notes_check"},
 			{"notes 2001", with("deploy", func(r *ticketRow) { r.notes = ptr(chars(2001)) }), check, "tickets_notes_check"},
 
-			// Author.
 			{"unknown author", with("outro", func(r *ticketRow) { r.authorID = int64(-1) }), fk, authorFK},
 			{"no author", with("outro", func(r *ticketRow) { r.authorID = nil }), notNull, ""},
 		}
@@ -457,8 +430,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 				AuthorID: author, Type: domain.TicketTypeDeploy, Title: "Deploy de api em Homologação",
 				Project: "api", Repository: "https://git.example/api", Environment: domain.EnvironmentStaging, Notes: "Depois das 18h.",
 			},
-			// The status column is left to its default: a status in the
-			// input is not stored (BR-1).
 			{
 				AuthorID: author, Type: domain.TicketTypeOther, Status: domain.TicketStatusClosed,
 				Title: "Dúvida <b>'; DROP TABLE tickets; --", Description: "Como peço uma VPN?\n\tObrigado.",
@@ -484,7 +455,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 					t.Errorf("created_at = %v, not the server time (test started at %v)", got.CreatedAt, before)
 				}
 
-				// Every column as stored; NULL reads back as "".
 				var stored domain.Ticket
 				var status string
 				var system, level, justification, description, steps, severity, project, repository, environment, notes sql.NullString
@@ -595,8 +565,6 @@ func TestTicketsTableIntegration(t *testing.T) {
 	})
 }
 
-// entryRow is a ticket_entries row as inserted by hand, so the table's own
-// constraints are tested without the repository rules. nil is NULL.
 type entryRow struct {
 	ticketID any
 	actorID  any
@@ -617,11 +585,6 @@ func insertEntry(ctx context.Context, db *sql.DB, r entryRow) (domain.TicketEntr
 	return id, err
 }
 
-// TestTicketEntriesTableIntegration covers migration 00003 (spec
-// 003-ticket-tracking, plan P-3 and P-15; BR-3, BR-4, BR-8; S-7): every row
-// that breaks a rule of ticket_entries or tickets is refused by the
-// constraint of that rule, writing nothing, and the six BR-3 transitions
-// and valid messages are accepted.
 func TestTicketEntriesTableIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -643,7 +606,6 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 		t.Fatalf("insert ticket: %v", err)
 	}
 	t.Cleanup(func() {
-		// Nothing cascades: entries, then tickets, then users.
 		bg := context.WithoutCancel(ctx)
 		for _, q := range []string{
 			`DELETE FROM ticket_entries WHERE ticket_id IN (SELECT id FROM tickets WHERE author_id = $1) OR actor_id IN ($1, $2)`,
@@ -696,7 +658,7 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			}
 		}
 		if got := len(cases) - 4; got != 6 {
-			t.Fatalf("%d BR-3 transitions in the table, want 6", got)
+			t.Fatalf("%d allowed transitions in the table, want 6", got)
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -732,11 +694,6 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			constraint string
 		}
 		cases := []refused{
-			// Wrong set of fields for the kind. A message with a valid pair
-			// passes ticket_entries_allowed_transition (it only looks at
-			// status changes), and a status change with one NULL status
-			// makes that CHECK NULL, which passes; so fields_by_kind is the
-			// one that refuses them.
 			{"message without body", message(nil), check, byKind},
 			{"message with both statuses", entryRow{ticketID: ticket, actorID: author, kind: "message", body: ptr("Oi"), from: ptr("aberto"), to: ptr("em_andamento")}, check, byKind},
 			{"message with a to status", entryRow{ticketID: ticket, actorID: author, kind: "message", body: ptr("Oi"), to: ptr("fechado")}, check, byKind},
@@ -744,23 +701,17 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			{"status change without from", change(nil, ptr("em_andamento")), check, byKind},
 			{"status change without to", change(ptr("aberto"), nil), check, byKind},
 			{"status change without statuses", change(nil, nil), check, byKind},
-			// An unknown kind breaks both fields_by_kind and the kind
-			// CHECK; PostgreSQL checks constraints in name order.
 			{"unknown kind", entryRow{ticketID: ticket, actorID: author, kind: "note", body: ptr("Oi")}, check, byKind},
 
-			// Body length, in characters.
 			{"body empty", message(ptr("")), check, bodyCheck},
 			{"body 2001 multi-byte characters", message(ptr(chars(2001))), check, bodyCheck},
 
-			// Missing or unknown references.
 			{"no kind", entryRow{ticketID: ticket, actorID: author, body: ptr("Oi")}, notNull, ""},
 			{"no ticket", entryRow{actorID: author, kind: "message", body: ptr("Oi")}, notNull, ""},
 			{"no actor", entryRow{ticketID: ticket, kind: "message", body: ptr("Oi")}, notNull, ""},
 			{"unknown ticket", entryRow{ticketID: int64(-1), actorID: author, kind: "message", body: ptr("Oi")}, fk, "ticket_entries_ticket_id_fkey"},
 			{"unknown actor", entryRow{ticketID: ticket, actorID: int64(-1), kind: "message", body: ptr("Oi")}, fk, "ticket_entries_actor_id_fkey"},
 		}
-		// Every pair outside BR-3: the same status, anything from
-		// "fechado", and the backward or skipping moves.
 		outside := 0
 		for _, from := range statuses {
 			for _, to := range statuses {
@@ -771,7 +722,7 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			}
 		}
 		if outside != 10 {
-			t.Fatalf("%d pairs outside BR-3, want 10", outside)
+			t.Fatalf("%d pairs outside the allowed transitions, want 10", outside)
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -794,7 +745,7 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 	t.Run("updated_at is never before created_at", func(t *testing.T) {
 		tests := []struct {
 			name       string
-			shift      string // added to created_at
+			shift      string
 			constraint string
 		}{
 			{"one second before", "-1 second", "tickets_updated_not_before_created"},
@@ -851,9 +802,6 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 	})
 }
 
-// TestTicketTrackingIndexesIntegration covers the indexes of migration 00003
-// (plan section 1, S-14): the thread and both lists have their index, and
-// the "Meus tickets" index of 00002, ordered by creation, is gone.
 func TestTicketTrackingIndexesIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -861,7 +809,7 @@ func TestTicketTrackingIndexesIntegration(t *testing.T) {
 	tests := []struct {
 		name    string
 		table   string
-		columns string // "" means the index must not exist
+		columns string
 	}{
 		{"ticket_entries_ticket_idx", "ticket_entries", "(ticket_id, id)"},
 		{"ticket_entries_actor_idx", "ticket_entries", "(actor_id)"},
@@ -892,10 +840,6 @@ func TestTicketTrackingIndexesIntegration(t *testing.T) {
 	}
 }
 
-// newTrackingUser creates a user with a random "it_" login for the spec 003
-// tests and deletes, when the test ends, everything it left: the entries on
-// its tickets and the entries it wrote, its tickets, then the user (nothing
-// cascades).
 func newTrackingUser(t *testing.T, db *sql.DB, role domain.Role) (domain.UserID, string) {
 	t.Helper()
 	ctx := t.Context()
@@ -919,8 +863,6 @@ func newTrackingUser(t *testing.T, db *sql.DB, role domain.Role) (domain.UserID,
 	return id, login
 }
 
-// sampleTickets returns one valid ticket of each type by author, with notes
-// on the deploy, as Tickets.Create takes them.
 func sampleTickets(author domain.UserID) []domain.Ticket {
 	return []domain.Ticket{
 		{
@@ -942,10 +884,6 @@ func sampleTickets(author domain.UserID) []domain.Ticket {
 	}
 }
 
-// TestTicketReadsIntegration covers Tickets.TicketAuthor (the store of
-// security.TicketAccess, spec 003 S-2) and Tickets.Get (US-2, US-5): every
-// field of each type comes back as stored, with the author's login, and a
-// missing ticket is ErrNotFound for both.
 func TestTicketReadsIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -1005,14 +943,11 @@ func TestTicketReadsIntegration(t *testing.T) {
 	})
 }
 
-// listedTicket is a ticket of the list fixtures, with what the lists show.
 type listedTicket struct {
 	summary domain.TicketSummary
 	author  domain.UserID
 }
 
-// insertListedTicket stores a ticket of typ for author, then sets its
-// status and its last update, so the list order is known.
 func insertListedTicket(t *testing.T, db *sql.DB, author domain.UserID, login string, typ domain.TicketType, status domain.TicketStatus, updatedAt time.Time) listedTicket {
 	t.Helper()
 	ctx := t.Context()
@@ -1040,8 +975,6 @@ func insertListedTicket(t *testing.T, db *sql.DB, author domain.UserID, login st
 	}
 }
 
-// expectedPage filters, orders (last update first, ties by id) and pages
-// the fixture tickets the way the lists must.
 func expectedPage(all []listedTicket, keep func(listedTicket) bool, page int, withLogin bool) (items []domain.TicketSummary, total int) {
 	var kept []listedTicket
 	for i := range all {
@@ -1084,11 +1017,6 @@ func summaryIDs(items []domain.TicketSummary) []domain.TicketID {
 	return ids
 }
 
-// TestTicketListsIntegration covers the lists of spec 003 (AC-1.3 to
-// AC-1.7, AC-4.3 to AC-4.5; BR-8; S-3, S-14; plan P-9, P-18). The fixture
-// tickets get last updates in the year 2100, so they are the newest of the
-// queue whatever else the database holds, and pairs of them share a last
-// update, so ties are ordered by id.
 func TestTicketListsIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -1096,16 +1024,16 @@ func TestTicketListsIntegration(t *testing.T) {
 
 	authorA, loginA := newTrackingUser(t, db, domain.RoleComum)
 	authorB, loginB := newTrackingUser(t, db, domain.RoleComum)
-	_, loginNone := newTrackingUser(t, db, domain.RoleAdmin) // admins write no ticket
+	_, loginNone := newTrackingUser(t, db, domain.RoleAdmin)
 	types := []domain.TicketType{domain.TicketTypeAccess, domain.TicketTypeBug, domain.TicketTypeDeploy, domain.TicketTypeOther}
 	statuses := []domain.TicketStatus{domain.TicketStatusOpen, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
 	base := time.Date(2100, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	var all []listedTicket
-	for i := range 25 { // A: two pages
+	for i := range 25 {
 		all = append(all, insertListedTicket(t, db, authorA, loginA, types[i%4], statuses[(i/4)%4], base.Add(time.Duration(i/2)*time.Minute)))
 	}
-	for i := range 3 { // B: newer than every ticket of A
+	for i := range 3 {
 		all = append(all, insertListedTicket(t, db, authorB, loginB, types[i], statuses[i], base.Add(time.Hour+time.Duration(i)*time.Minute)))
 	}
 	byAuthor := func(author domain.UserID) func(listedTicket) bool {
@@ -1132,7 +1060,6 @@ func TestTicketListsIntegration(t *testing.T) {
 	})
 
 	t.Run("own list holds only the author's tickets", func(t *testing.T) {
-		// S-3: an author login in the query is ignored by the own list.
 		got, err := repo.ListOwn(ctx, authorB, domain.TicketListQuery{AuthorLogin: loginA, Page: 1})
 		if err != nil {
 			t.Fatalf("ListOwn: %v", err)
@@ -1185,8 +1112,6 @@ func TestTicketListsIntegration(t *testing.T) {
 		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM tickets`).Scan(&total); err != nil {
 			t.Fatalf("count: %v", err)
 		}
-		// The fixture is the newest of the database, so page 1 is its 20
-		// newest tickets, B's three first.
 		want, _ := expectedPage(all, func(listedTicket) bool { return true }, 1, true)
 		if got.Total != total || got.Pages != (total+19)/20 || !summariesEqual(got.Items, want) {
 			t.Errorf("queue page 1 = %v (total %d, pages %d), want %v (total %d)",
@@ -1228,8 +1153,6 @@ func TestTicketListsIntegration(t *testing.T) {
 			}
 		}
 
-		// Status or type alone, over the whole queue: every item matches,
-		// and the fixture's matching tickets come first.
 		for _, q := range []domain.TicketListQuery{
 			{Status: domain.TicketStatusResolved, Page: 1},
 			{Type: domain.TicketTypeDeploy, Page: 1},
@@ -1259,7 +1182,6 @@ func TestTicketListsIntegration(t *testing.T) {
 			}
 		}
 
-		// An author with no ticket, or no such login: an empty page.
 		for _, login := range []string{loginNone, "it_nobody_" + strings.ToLower(rand.Text()[:8])} {
 			got, _, err := repo.ListQueue(ctx, domain.TicketListQuery{AuthorLogin: login, Page: 1})
 			if err != nil || got.Total != 0 || got.Pages != 1 || len(got.Items) != 0 || got.Items == nil {
@@ -1330,13 +1252,9 @@ func TestTicketListsIntegration(t *testing.T) {
 	})
 }
 
-// TestTicketListPlansIntegration checks, on 2 000 extra tickets, that the
-// list queries use the indexes of migration 00003 (plan section 1, S-14)
-// instead of reading the whole table.
 func TestTicketListPlansIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
-	// Run after all fixture cleanup, so later plan tests see current counts.
 	t.Cleanup(func() {
 		for _, query := range []string{`ANALYZE tickets`, `ANALYZE users`} {
 			if _, err := db.ExecContext(context.WithoutCancel(ctx), query); err != nil {
@@ -1344,8 +1262,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 			}
 		}
 	})
-	// 2 000 tickets of one bulk author, and 30 of the author whose plans are
-	// read, like a user among many.
 	bulk, _ := newTrackingUser(t, db, domain.RoleComum)
 	author, login := newTrackingUser(t, db, domain.RoleComum)
 	for _, fill := range []struct {
@@ -1360,8 +1276,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 			t.Fatalf("insert %d tickets: %v", fill.n, err)
 		}
 	}
-	// Give the planner many low-volume authors even on a clean database.
-	// The prefix is unique to this run; cleanup is registered before inserting.
 	prefix := "it_plan_" + strings.ToLower(rand.Text()[:12]) + "_"
 	t.Cleanup(func() {
 		bg := context.WithoutCancel(ctx)
@@ -1389,7 +1303,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 		FROM authors a CROSS JOIN generate_series(1, 10) AS g`, prefix); err != nil {
 		t.Fatalf("insert plan authors and tickets: %v", err)
 	}
-	// Keep indexed existence probes cheaper than reading the whole table.
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO tickets (author_id, type, status, title, description)
 		SELECT $1, 'outro', (ARRAY['aberto', 'em_andamento', 'resolvido', 'fechado'])[1 + g % 4],
@@ -1404,8 +1317,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 		t.Fatalf("analyze users: %v", err)
 	}
 
-	// explain returns the plan of query; noSeqScan makes it the plan with
-	// sequential scans disabled, which shows an index can serve the query.
 	explain := func(t *testing.T, query string, args []any, noSeqScan bool) string {
 		t.Helper()
 		tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
@@ -1443,7 +1354,7 @@ func TestTicketListPlansIntegration(t *testing.T) {
 		name    string
 		query   string
 		args    []any
-		indexes []string // the plan uses one of them, with no sequential scan of tickets
+		indexes []string
 	}{
 		{"own list", ownListQuery, append([]any{author, "", ""}, page...), byAuthor},
 		{"own list by status", ownListQuery, append([]any{author, "resolvido", ""}, page...), byAuthor},
@@ -1463,10 +1374,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 		})
 	}
 
-	// The status counts read every ticket, so at this size a sequential
-	// scan is the cheapest plan and PostgreSQL takes it; the status index
-	// can serve the count (an index-only scan), which the plan shows with
-	// sequential scans disabled. Either way the counts need no sort.
 	t.Run("status counts", func(t *testing.T) {
 		if plan := explain(t, statusCountsQuery, nil, true); !strings.Contains(plan, "Index Only Scan using tickets_status_updated_idx") &&
 			!strings.Contains(plan, "Index Scan using tickets_status_updated_idx") {
@@ -1478,10 +1385,6 @@ func TestTicketListPlansIntegration(t *testing.T) {
 	})
 }
 
-// insertEntries adds n entries to ticket, oldest first: messages by author
-// with the text "m<i>", and every third entry a status change by admin
-// (aberto → em_andamento, only the table is tested here). It returns their
-// ids in order.
 func insertEntries(t *testing.T, db *sql.DB, ticket domain.TicketID, author, admin domain.UserID, n int) []domain.TicketEntryID {
 	t.Helper()
 	ids := make([]domain.TicketEntryID, 0, n)
@@ -1507,10 +1410,6 @@ func entryIDs(entries []domain.TicketEntry) []domain.TicketEntryID {
 	return ids
 }
 
-// TestThreadIntegration covers TicketEntries.Thread (spec 003 AC-3.1,
-// AC-3.2, AC-3.4a; BR-4; S-14; plan P-4): the latest 100 entries oldest
-// first, older pages with before, has_more, and only the ticket's own
-// entries.
 func TestThreadIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -1526,8 +1425,6 @@ func TestThreadIntegration(t *testing.T) {
 		return created.ID
 	}
 	long, exact, empty, other := newTicket(), newTicket(), newTicket(), newTicket()
-	// 5 000 older entries on another ticket, so the thread read is one
-	// ticket among many, before and after the cursor, as in use.
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO ticket_entries (ticket_id, actor_id, kind, body)
 		SELECT $1, $2, 'message', 'bulk ' || g FROM generate_series(1, 5000) AS g`, other, author); err != nil {
@@ -1535,7 +1432,6 @@ func TestThreadIntegration(t *testing.T) {
 	}
 	ids := insertEntries(t, db, long, author, admin, 250)
 	insertEntries(t, db, other, author, admin, 5)
-	// Interleaved with long's last entries, so a missing ticket filter shows.
 	insertEntries(t, db, other, author, admin, 3)
 	exactIDs := insertEntries(t, db, exact, author, admin, ThreadPageSize)
 
@@ -1605,7 +1501,7 @@ func TestThreadIntegration(t *testing.T) {
 	})
 
 	t.Run("entry fields", func(t *testing.T) {
-		got, err := entries.Thread(ctx, long, ids[3], ThreadPageSize) // ids[0..2]
+		got, err := entries.Thread(ctx, long, ids[3], ThreadPageSize)
 		if err != nil || len(got.Entries) != 3 {
 			t.Fatalf("Thread = %d entries, %v", len(got.Entries), err)
 		}
@@ -1660,8 +1556,6 @@ func TestThreadIntegration(t *testing.T) {
 	})
 }
 
-// openConcurrentTestDB opens a pool with room for a lock holder and the
-// writers that wait behind it (openTestDB keeps 2 connections).
 func openConcurrentTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
@@ -1676,7 +1570,6 @@ func openConcurrentTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-// ticketState is what a write may change on a ticket.
 type ticketState struct {
 	status    domain.TicketStatus
 	updatedAt time.Time
@@ -1695,8 +1588,6 @@ func readTicketState(ctx context.Context, t *testing.T, db *sql.DB, ticket domai
 	return s
 }
 
-// lockTicket holds the row lock of ticket in an open transaction, as a
-// write in progress would; release commits it.
 func lockTicket(ctx context.Context, t *testing.T, db *sql.DB, ticket domain.TicketID) (release func()) {
 	t.Helper()
 	tx, err := db.BeginTx(ctx, nil)
@@ -1721,8 +1612,6 @@ func lockTicket(ctx context.Context, t *testing.T, db *sql.DB, ticket domain.Tic
 	}
 }
 
-// waitForLockWaiters waits until n statements of this database are blocked
-// on a lock, so the writes started by a test are known to overlap.
 func waitForLockWaiters(t *testing.T, db *sql.DB, n int) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -1749,8 +1638,6 @@ type writeResult struct {
 	err   error
 }
 
-// TestTicketWritesIntegration covers AddMessage and ChangeStatus one at a
-// time (spec 003 BR-4 to BR-8, BR-10; plan section 4).
 func TestTicketWritesIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
@@ -1816,7 +1703,7 @@ func TestTicketWritesIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("status changes along BR-3", func(t *testing.T) {
+	t.Run("status changes along the allowed transitions", func(t *testing.T) {
 		ticket := newTicket(domain.TicketStatusOpen)
 		path := []domain.TicketStatus{domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
 		from := domain.TicketStatusOpen
@@ -1864,8 +1751,6 @@ func TestTicketWritesIntegration(t *testing.T) {
 		}
 	})
 
-	// BR-10: when the second statement fails, the first one (the ticket's
-	// UPDATE, which already ran) is rolled back too.
 	t.Run("a failure after the ticket update rolls back both", func(t *testing.T) {
 		tests := []struct {
 			name  string
@@ -1883,7 +1768,7 @@ func TestTicketWritesIntegration(t *testing.T) {
 				_, err := entries.AddMessage(ctx, ticket, author, chars(2001))
 				return err
 			}},
-			{"change BR-3 forbids, past the service", func(ticket domain.TicketID) error {
+			{"change the transition table forbids, past the service", func(ticket domain.TicketID) error {
 				_, err := entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusOpen, domain.TicketStatusResolved)
 				return err
 			}},
@@ -1908,10 +1793,6 @@ func TestTicketWritesIntegration(t *testing.T) {
 	})
 }
 
-// TestTicketWritesConcurrencyIntegration runs the concurrent cases of plan
-// section 4 with real transactions: a test transaction holds the ticket's
-// row lock, the writes start and wait on it (checked in pg_stat_activity),
-// then the lock is released and PostgreSQL serializes them.
 func TestTicketWritesConcurrencyIntegration(t *testing.T) {
 	db := openConcurrentTestDB(t)
 	ctx := t.Context()
@@ -1929,8 +1810,6 @@ func TestTicketWritesConcurrencyIntegration(t *testing.T) {
 		}
 		return created.ID
 	}
-	// start runs write in a goroutine and waits until it is blocked on the
-	// lock, behind waiting writes already started.
 	start := func(t *testing.T, waiting int, write func() (domain.TicketEntry, error)) <-chan writeResult {
 		t.Helper()
 		out := make(chan writeResult, 1)
@@ -2061,7 +1940,7 @@ func TestTicketWritesConcurrencyIntegration(t *testing.T) {
 			release()
 			rr, cr := <-r, <-c
 			if rr.err != nil || cr.err != nil {
-				t.Fatalf("reply = %v, change = %v; want both stored (a reply never makes a change fail, P-6)", rr.err, cr.err)
+				t.Fatalf("reply = %v, change = %v; want both stored (a reply never makes a change fail)", rr.err, cr.err)
 			}
 			last := cr.entry
 			if replyFirst != (rr.entry.ID < cr.entry.ID) {

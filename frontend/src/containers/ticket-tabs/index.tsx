@@ -19,10 +19,6 @@ export const TAB_TEXTS = {
   label: 'Seções do ticket'
 } as const
 
-/**
- * The address of the page with `tab` selected: `?aba=conversa`, and no
- * `aba` for "Detalhes"; every other parameter (`de`) is kept as it is.
- */
 export const tabHref = (href: string, tab: TicketTab): string => {
   const url = new URL(href)
   if (tab === 'detalhes') url.searchParams.delete('aba')
@@ -30,14 +26,6 @@ export const tabHref = (href: string, tab: TicketTab): string => {
   return `${url.pathname}${url.search}${url.hash}`
 }
 
-/**
- * The two tabs of a ticket page (spec 003 AC-2.1, AC-2.3, plan 6.4): the
- * WAI-ARIA tabs of Base UI (arrow keys between tabs, each panel labelled by
- * its tab), with both panels rendered by the server and kept mounted. The
- * chosen tab goes to the address with `history.replaceState`, only when the
- * address really changes (001 T9.9), so no request is made. The title gets
- * the focus when the page opens.
- */
 export const TicketTabs = ({
   conversation,
   details,

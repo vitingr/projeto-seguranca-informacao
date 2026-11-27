@@ -14,15 +14,12 @@ const (
 	EnvAddr        = "APP_ADDR"
 	EnvTLSCertFile = "APP_TLS_CERT_FILE"
 	EnvTLSKeyFile  = "APP_TLS_KEY_FILE"
-	// EnvTLSMode set to TLSModeProxy makes the server speak plain HTTP,
-	// for a proxy in front of it that terminates TLS (Render). Any other
-	// value keeps HTTPS with the certificate files.
-	EnvTLSMode            = "APP_TLS_MODE"
-	EnvDatabaseURL        = "DATABASE_URL"
-	EnvDBMaxOpenConns     = "DB_MAX_OPEN_CONNS"
-	EnvDBMaxIdleConns     = "DB_MAX_IDLE_CONNS"
-	EnvSessionIdleTimeout = "SESSION_IDLE_TIMEOUT"
-	// EnvSessionAbsoluteTimeout limits a session's total lifetime (D-18).
+	EnvTLSMode     = "APP_TLS_MODE"
+
+	EnvDatabaseURL            = "DATABASE_URL"
+	EnvDBMaxOpenConns         = "DB_MAX_OPEN_CONNS"
+	EnvDBMaxIdleConns         = "DB_MAX_IDLE_CONNS"
+	EnvSessionIdleTimeout     = "SESSION_IDLE_TIMEOUT"
 	EnvSessionAbsoluteTimeout = "SESSION_ABSOLUTE_TIMEOUT"
 	EnvShutdownTimeout        = "SHUTDOWN_TIMEOUT"
 	EnvLogLevel               = "LOG_LEVEL"
@@ -39,23 +36,19 @@ const (
 	maxDBConns            = 1000
 )
 
-// TLSModeProxy is the EnvTLSMode value for a TLS terminating proxy.
 const TLSModeProxy = "proxy"
 
 var ErrInvalid = errors.New("invalid configuration")
 
 type Config struct {
-	Addr               string
-	TLSCertFile        string
-	TLSKeyFile         string
-	TLSMode            string
-	DatabaseURL        string
-	DBMaxOpenConns     int
-	DBMaxIdleConns     int
-	SessionIdleTimeout time.Duration
-	// SessionAbsoluteTimeout is the maximum lifetime of a session, counted
-	// from its creation (login), whatever its activity. It is at least
-	// SessionIdleTimeout (D-18).
+	Addr                   string
+	TLSCertFile            string
+	TLSKeyFile             string
+	TLSMode                string
+	DatabaseURL            string
+	DBMaxOpenConns         int
+	DBMaxIdleConns         int
+	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 	ShutdownTimeout        time.Duration
 	LogLevel               slog.Level

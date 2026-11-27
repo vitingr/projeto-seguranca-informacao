@@ -1,10 +1,5 @@
 import 'server-only'
 
-// The server reads of ticket tracking (plan P-5), with their dependencies
-// passed in so they can be unit-tested; index.ts wires them to cookies(),
-// redirect(), notFound() and the backend. Only the codes of a parsed list
-// query and a well-formed ticket number ever reach the backend.
-
 import { loginUrl } from '@/domain/navigation'
 import { LIST_PATHS } from '@/domain/ticket-query'
 import type { ListQuery } from '@/domain/ticket-query/types'
@@ -21,7 +16,6 @@ import {
 
 import type { LoadResult, TicketLoaderDeps } from './types'
 
-/** A ticket number as the page path holds it: digits, no leading zero. */
 const TICKET_ID = /^[1-9]\d{0,18}$/
 
 const requestIdOf = (body: unknown): string | undefined => {
@@ -40,12 +34,6 @@ const listSearch = (query: ListQuery): string => {
 }
 
 export const createTicketLoaders = (deps: TicketLoaderDeps) => {
-  /**
-   * GET `apiPath` with the session cookie. No valid cookie → login; 401 →
-   * login with the expired notice and `pagePath` as `next`; 403 → the
-   * forbidden screen; 404 of a ticket → not found; a 200 that does not
-   * parse, any other status or no answer → the inline error.
-   */
   const load = async <T>(
     apiPath: string,
     pagePath: string,
@@ -72,7 +60,6 @@ export const createTicketLoaders = (deps: TicketLoaderDeps) => {
     return { kind: 'error', requestId: requestIdOf(answer.body) }
   }
 
-  /** The id of a page path; anything malformed is a missing ticket. */
   const ticketId = (raw: string): string => {
     if (!TICKET_ID.test(raw)) deps.notFound()
     return raw

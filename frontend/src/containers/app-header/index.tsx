@@ -7,8 +7,6 @@ import { ROLE_NAMES } from '@/domain/role-names'
 
 import type { AppHeaderProps } from './types'
 
-// One line from 360 px: below `md` the role links and the role name move
-// into the "Menu" panel; "Início" and "Sair" stay visible at every width.
 export const AppHeader: React.FC<AppHeaderProps> = ({ role }) => (
   <header className="border-border relative border-b">
     <nav

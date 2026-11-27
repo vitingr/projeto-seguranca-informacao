@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { EmptyState } from '.'
 
-describe('EmptyState (spec 003 AC-1.8)', () => {
+describe('EmptyState', () => {
   it('shows its text and one action', () => {
     const html = renderToStaticMarkup(
       <EmptyState

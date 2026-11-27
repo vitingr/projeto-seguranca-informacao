@@ -74,7 +74,6 @@ func TestTicketEnumsValid(t *testing.T) {
 func TestNewTicketStatusIsOpen(t *testing.T) {
 	t.Parallel()
 
-	// BR-1: every new ticket starts as "Aberto", stored as "aberto".
 	if TicketStatusOpen != "aberto" {
 		t.Errorf("TicketStatusOpen = %q, want %q", TicketStatusOpen, "aberto")
 	}

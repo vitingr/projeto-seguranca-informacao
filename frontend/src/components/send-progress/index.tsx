@@ -3,12 +3,6 @@ import { CircleCheckIcon, CircleXIcon, ListChecksIcon } from 'lucide-react'
 
 import type { SendPhase, SendProgressProps, SendStepState } from './types'
 
-/**
- * The steps, each standing for something that really happens (AC-5.5):
- * the form is checked again in the browser, the request is pending, the
- * server answered 201 and the confirmation is built. No step claims a check
- * the system does not make.
- */
 export const SEND_STEPS = [
   'Validando campos',
   'Registrando ticket',
@@ -42,7 +36,6 @@ const seconds = (ms: number) =>
     minimumFractionDigits: 1
   })
 
-/** The header line: the real time, counting while the request is pending. */
 export const progressHeading = (phase: SendPhase, elapsedMs: number) =>
   phase === 'registering'
     ? { muted: `${Math.floor(elapsedMs / 1000)} s`, text: SEND_TEXTS.sending }
@@ -50,15 +43,6 @@ export const progressHeading = (phase: SendPhase, elapsedMs: number) =>
       ? { muted: null, text: `Enviado em ${seconds(elapsedMs)} s` }
       : { muted: `após ${seconds(elapsedMs)} s`, text: SEND_TEXTS.failed }
 
-/**
- * The send progress of `design/references/criacao-tickety.mp4`: a header
- * with blinking squares and the elapsed time, the fields being sent as
- * chips (names only, never values), then the steps on a thin line, each
- * entering from a blur, with a check row at the end. Driven only by real
- * events (AC-5.6): nothing here waits on a timer. Every movement is under
- * `motion-safe:` (AC-5.9). The decorations are hidden from screen readers;
- * each step says its state in words (AC-5.10).
- */
 export const SendProgress = ({
   chips,
   elapsedMs,
@@ -71,7 +55,6 @@ export const SendProgress = ({
   const hidden = chips.length - shown.length
   const enter = (index: number) =>
     index >= enterFrom && 'motion-safe:animate-enter-blur'
-  // Row 0 is the fields; the steps follow; the check row closes "done".
   const rows = 1 + states.length + (phase === 'done' ? 1 : 0)
 
   const line = (index: number) =>

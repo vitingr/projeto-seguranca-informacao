@@ -1,7 +1,3 @@
-// `pnpm demo`: the class demo (playwright.demo.config.ts), then the HTML
-// report. Playwright opens the report by itself only when stdin is a TTY,
-// which Node often does not get under Git Bash (mintty), so it is opened
-// here, pass or fail. Ctrl+C stops the report server; the exit code is the tests' one.
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 

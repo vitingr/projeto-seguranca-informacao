@@ -21,37 +21,24 @@ type UserService interface {
 
 type TicketService interface {
 	Create(ctx context.Context, author domain.UserID, draft domain.TicketDraft) (domain.Ticket, error)
-	// ListOwn returns a page of the tickets of author, the session user.
 	ListOwn(ctx context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error)
-	// ListQueue returns a page of every user's tickets and the status
-	// counts of the whole queue.
 	ListQueue(ctx context.Context, q domain.TicketListQuery) (domain.TicketPage, domain.StatusCounts, error)
-	// Authors returns the logins of the users with at least one ticket.
 	Authors(ctx context.Context) ([]string, error)
-	// Get returns a ticket and its author's login.
 	Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error)
-	// Thread returns a page of a ticket's thread, older than before (0: the
-	// latest entries).
 	Thread(ctx context.Context, id domain.TicketID, before domain.TicketEntryID) (domain.ThreadPage, error)
-	// Reply validates and stores a message of actor on a ticket.
 	Reply(ctx context.Context, actor domain.UserID, ticket domain.TicketID, raw string) (domain.TicketEntry, error)
-	// ChangeStatus moves a ticket from the status the admin saw to another.
 	ChangeStatus(ctx context.Context, actor domain.UserID, ticket domain.TicketID, from, to domain.TicketStatus) (domain.TicketEntry, error)
 }
 
 type Deps struct {
-	Logger   *slog.Logger
-	Security *security.Security
-	Auth     AuthService
-	Users    UserService
-	Tickets  TicketService
-	// TicketLimiter limits ticket creation per user (spec S-12).
-	TicketLimiter *security.RateLimiter
-	// MessageLimiter limits ticket replies per user, on both sides (spec
-	// 003 S-9).
+	Logger         *slog.Logger
+	Security       *security.Security
+	Auth           AuthService
+	Users          UserService
+	Tickets        TicketService
+	TicketLimiter  *security.RateLimiter
 	MessageLimiter *security.RateLimiter
-	// StatusLimiter limits status changes per admin (spec 003 S-9).
-	StatusLimiter *security.RateLimiter
+	StatusLimiter  *security.RateLimiter
 }
 
 func NewHandler(d Deps) (http.Handler, error) {

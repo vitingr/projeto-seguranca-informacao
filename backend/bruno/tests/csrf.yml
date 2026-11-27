@@ -12,9 +12,7 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        // The POSTs below send this token in X-CSRF-Token.
         bru.setVar("csrfToken", res.getBody().csrf_token);
-        // login checks that its cookie differs from this anonymous one.
         const cookies = [].concat(res.getHeader("set-cookie") || []);
         const session = cookies.find((c) => c.startsWith("__Host-session="));
         bru.setVar("anonCookie", session ? session.split(";")[0] : "");

@@ -11,9 +11,6 @@ import (
 	"backend_si/internal/security"
 )
 
-// TestServeSecurityOptionsWireTheTicketStore is spec 003 S-2: the server
-// gives TicketAccess the ticket repository as its owner store, and the
-// options are accepted by security.New.
 func TestServeSecurityOptionsWireTheTicketStore(t *testing.T) {
 	t.Parallel()
 

@@ -22,8 +22,7 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        // tickets-rate-limit sends its first 10 requests with bru.sendRequest,
-        // which does not use the cookie jar: keep the session cookie.
+        // bru.sendRequest does not use the cookie jar.
         const cookies = [].concat(res.getHeader("set-cookie") || []);
         const session = cookies.find((c) => c.startsWith("__Host-session="));
         bru.setVar("rateLimitCookie", session ? session.split(";")[0] : "");

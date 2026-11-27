@@ -18,13 +18,6 @@ func NewTickets(db *sql.DB) *Tickets {
 	return &Tickets{db: db}
 }
 
-// Create stores a validated ticket in one parameterized INSERT, so it is
-// stored with every field or not at all (BR-6). A field the type does not
-// have, and empty notes, are "" in the ticket and stored as NULL. The id,
-// the status and the dates come from the database (BR-1, BR-2, S-5): the
-// status column is left to its default, so a new ticket is always "aberto"
-// whatever t.Status holds. The ticket returned is the one given, with those
-// values filled in.
 func (r *Tickets) Create(ctx context.Context, t domain.Ticket) (domain.Ticket, error) {
 	const q = `INSERT INTO tickets (author_id, type, title, system, access_level, justification,
 			description, steps, severity, project, repository, environment, notes)
@@ -45,10 +38,6 @@ func (r *Tickets) Create(ctx context.Context, t domain.Ticket) (domain.Ticket, e
 	return t, nil
 }
 
-// TicketAuthor returns the author of a ticket, for the ownership check of
-// security.TicketAccess (spec 003 S-2). A ticket that does not exist is
-// domain.ErrNotFound. It reads one indexed column, so a missing ticket and
-// someone else's ticket cost the same.
 func (r *Tickets) TicketAuthor(ctx context.Context, id domain.TicketID) (domain.UserID, error) {
 	const q = `SELECT author_id FROM tickets WHERE id = $1`
 
@@ -63,9 +52,6 @@ func (r *Tickets) TicketAuthor(ctx context.Context, id domain.TicketID) (domain.
 	return author, nil
 }
 
-// Get returns a ticket with every field of its type, as stored (NULL reads
-// back as ""), and its author's login. A ticket that does not exist is
-// domain.ErrNotFound.
 func (r *Tickets) Get(ctx context.Context, id domain.TicketID) (domain.Ticket, string, error) {
 	const q = `SELECT t.id, t.author_id, t.type, t.status, t.title, t.system, t.access_level,
 			t.justification, t.description, t.steps, t.severity, t.project, t.repository,
@@ -97,18 +83,10 @@ func (r *Tickets) Get(ctx context.Context, id domain.TicketID) (domain.Ticket, s
 	return t, login, nil
 }
 
-// TicketPageSize is the fixed size of a page of "Meus tickets" and of the
-// queue (spec 003 AC-1.7, S-14); the client cannot change it.
 const TicketPageSize = 20
 
-// MaxQueueAuthors bounds the author filter list (plan P-18).
 const MaxQueueAuthors = 500
 
-// The list queries (spec 003 section 4, S-14). Filters are fixed SQL with
-// parameters, "" meaning "all" ($n = ” OR column = $n), never
-// concatenated text (constitution 5); PostgreSQL folds the unused branch
-// per execution, so each filter uses its index (section 1 of the plan).
-// Summaries never select the fields of the type (S-13).
 const (
 	ownListWhere = `WHERE author_id = $1 AND ($2 = '' OR status = $2) AND ($3 = '' OR type = $3)`
 
@@ -136,10 +114,6 @@ const (
 		LIMIT $1`
 )
 
-// ListOwn returns one page of the tickets written by author ("Meus
-// tickets", BR-1, S-3): the author is a parameter of the query, never part
-// of q, whose AuthorLogin is ignored. Pages are ordered by the last update,
-// most recent first, ties by id (BR-8).
 func (r *Tickets) ListOwn(ctx context.Context, author domain.UserID, q domain.TicketListQuery) (domain.TicketPage, error) {
 	page, err := r.listPage(ctx, ownListCountQuery, ownListQuery, q.Page, false,
 		int64(author), string(q.Status), string(q.Type))
@@ -149,10 +123,6 @@ func (r *Tickets) ListOwn(ctx context.Context, author domain.UserID, q domain.Ti
 	return page, nil
 }
 
-// ListQueue returns one page of the tickets of every author, with each
-// author's login, filtered by status, type and author login (AC-4.3,
-// AC-4.4), and the number of tickets in each status over the whole queue,
-// whatever the filters (AC-4.5).
 func (r *Tickets) ListQueue(ctx context.Context, q domain.TicketListQuery) (domain.TicketPage, domain.StatusCounts, error) {
 	page, err := r.listPage(ctx, queueCountQuery, queueQuery, q.Page, true,
 		string(q.Status), string(q.Type), q.AuthorLogin)
@@ -166,10 +136,6 @@ func (r *Tickets) ListQueue(ctx context.Context, q domain.TicketListQuery) (doma
 	return page, counts, nil
 }
 
-// QueueAuthors returns the logins of the users with at least one ticket,
-// in alphabetical order, at most limit of them (AC-4.4, plan P-18). Logins
-// are ASCII ([a-z0-9._-]), so the order is the byte order (COLLATE "C"),
-// the same on every server whatever its locale.
 func (r *Tickets) QueueAuthors(ctx context.Context, limit int) ([]string, error) {
 	if limit <= 0 || limit > MaxQueueAuthors {
 		limit = MaxQueueAuthors
@@ -193,11 +159,6 @@ func (r *Tickets) QueueAuthors(ctx context.Context, limit int) ([]string, error)
 	return logins, nil
 }
 
-// listPage runs a count and a page query with the same filters in one
-// read-only REPEATABLE READ transaction, so the total and the items come
-// from the same snapshot. filters are $1 to $3 of both queries; the page
-// query takes the limit and offset as $4 and $5. A page past the end has no
-// items and the real total and pages. Pages is at least 1.
 func (r *Tickets) listPage(ctx context.Context, countQuery, pageQuery string, page int, withLogin bool, filters ...any) (domain.TicketPage, error) {
 	if page < 1 {
 		page = 1
@@ -266,8 +227,6 @@ func (r *Tickets) statusCounts(ctx context.Context) (domain.StatusCounts, error)
 	return counts, rows.Err()
 }
 
-// nullable maps "" to NULL, so a field the ticket type does not have is
-// stored as NULL, as the tickets_fields_by_type CHECK requires.
 func nullable(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
 }

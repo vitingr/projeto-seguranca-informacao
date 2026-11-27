@@ -26,8 +26,7 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // "sistema" has 1 character (minimum 2): 422 with the generic message,
-        // which never names the field (AC-6.1, Q-12).
+        // "sistema" has 1 character (minimum 2); the message never names the field.
         test("status is 422", function () {
           expect(res.getStatus()).to.equal(422);
         });

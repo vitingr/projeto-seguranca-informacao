@@ -11,8 +11,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// query parses a raw query string for the tables; the tests of ReadQuery
-// cover the strings ParseQuery refuses.
 func query(t *testing.T, raw string) url.Values {
 	t.Helper()
 	values, err := url.ParseQuery(raw)
@@ -22,8 +20,6 @@ func query(t *testing.T, raw string) url.Values {
 	return values
 }
 
-// wantInvalidQuery checks err is ErrInvalidInput with reason and does not
-// quote any of the client's text.
 func wantInvalidQuery(t *testing.T, err error, reason, raw string) {
 	t.Helper()
 	if !errors.Is(err, domain.ErrInvalidInput) {
@@ -98,7 +94,6 @@ func TestParseTicketListQueryRefuses(t *testing.T) {
 		scope  TicketListScope
 		reason string
 	}{
-		// Codes.
 		{"unknown status", "status=cancelado", TicketListOwn, queryInvalidStatus},
 		{"status wrong case", "status=Aberto", TicketListOwn, queryInvalidStatus},
 		{"status label", "status=Em+andamento", TicketListQueue, queryInvalidStatus},
@@ -106,7 +101,6 @@ func TestParseTicketListQueryRefuses(t *testing.T) {
 		{"type wrong case", "tipo=BUG", TicketListQueue, queryInvalidType},
 		{"type with spaces", "tipo=+bug+", TicketListOwn, queryInvalidType},
 
-		// Shape.
 		{"empty status", "status=", TicketListOwn, queryEmptyValue},
 		{"empty type", "tipo=", TicketListQueue, queryEmptyValue},
 		{"empty page", "pagina=", TicketListOwn, queryEmptyValue},
@@ -120,7 +114,6 @@ func TestParseTicketListQueryRefuses(t *testing.T) {
 		{"page size", "tamanho=100", TicketListQueue, queryUnknownParam},
 		{"thread cursor on a list", "antes=10", TicketListQueue, queryUnknownParam},
 
-		// Author (S-3).
 		{"author in the own list", "usuario=maria.souza", TicketListOwn, queryAuthorRefused},
 		{"empty author in the own list", "usuario=", TicketListOwn, queryAuthorRefused},
 		{"author in the own list with filters", "status=aberto&usuario=maria.souza", TicketListOwn, queryAuthorRefused},
@@ -130,7 +123,6 @@ func TestParseTicketListQueryRefuses(t *testing.T) {
 		{"author with a quote", "usuario=maria%27--", TicketListQueue, queryInvalidLogin},
 		{"author too long", "usuario=" + strings.Repeat("a", 65), TicketListQueue, queryInvalidLogin},
 
-		// Page.
 		{"page 0", "pagina=0", TicketListOwn, queryInvalidPage},
 		{"page 10001", "pagina=10001", TicketListOwn, queryInvalidPage},
 		{"page -1", "pagina=-1", TicketListQueue, queryInvalidPage},

@@ -18,7 +18,7 @@ const hrefOf = (html: string, text: string) =>
     html
   )?.[1]
 
-describe('Pager (spec 003 AC-1.7, P-9)', () => {
+describe('Pager', () => {
   it('shows "Anterior", "Página N de M" and "Próxima" as links in the middle', () => {
     const html = render(2, 3)
     expect(html).toContain('Página 2 de 3')

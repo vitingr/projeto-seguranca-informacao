@@ -18,8 +18,6 @@ import (
 	"backend_si/internal/service"
 )
 
-// waitingAuth stands for an Authenticate call stuck waiting for a hash slot:
-// it returns the context error when the request context ends.
 type waitingAuth struct{}
 
 func (waitingAuth) Authenticate(ctx context.Context, _, _ string) (domain.User, error) {
@@ -27,12 +25,6 @@ func (waitingAuth) Authenticate(ctx context.Context, _, _ string) (domain.User, 
 	return domain.User{}, fmt.Errorf("service: authenticate: %w", ctx.Err())
 }
 
-// TestLoginAnswersJSON500AtRequestDeadline checks D-21 through the full
-// NewHandler chain: over HTTP/1.1, a login with a valid session and CSRF
-// token that is stuck in the hash wait gets the generic JSON 500 at the
-// RequestTimeout deadline, before the server WriteTimeout cuts the
-// connection. It fails if RequestTimeout is not in the NewHandler chain:
-// the client would then wait until its own 10s limit.
 func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	t.Parallel()
 
@@ -70,7 +62,6 @@ func TestLoginAnswersJSON500AtRequestDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	// GET /api/csrf: anonymous session cookie and token.
 	csrfReq, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/api/csrf", http.NoBody)
 	if err != nil {
 		t.Fatal(err)

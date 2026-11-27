@@ -13,13 +13,12 @@ const STATUSES: [TicketStatus, string, string][] = [
   ['fechado', 'Fechado', 'fechado']
 ]
 
-describe('StatusBadge (spec 003 AC-1.9)', () => {
+describe('StatusBadge', () => {
   it.each(STATUSES)('%s shows its label on its tint', (status, label) => {
     const html = renderToStaticMarkup(<StatusBadge status={status} />)
     expect(html).toContain(`>${label}</span>`)
     expect(html).toContain(STATUS_BADGE_CLASSES[status])
     expect(html).toContain('rounded-sm')
-    // The tint replaces the primary fill and text of the default badge.
     const classes = /class="([^"]*)"/.exec(html)?.[1]?.split(' ') ?? []
     expect(classes).not.toContain('bg-primary')
     expect(classes).not.toContain('text-primary-foreground')

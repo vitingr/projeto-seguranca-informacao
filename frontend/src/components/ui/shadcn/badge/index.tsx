@@ -6,9 +6,6 @@ import { useRender } from '@base-ui/react/use-render'
 import type { BadgeProps } from './types'
 import { badgeVariants } from './variance'
 
-// shadcn badge (base-nova), adapted to the design rules: radius `sm`, no
-// dark variants.
-
 function Badge({
   className,
   variant = 'default',

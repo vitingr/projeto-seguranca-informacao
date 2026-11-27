@@ -3,13 +3,8 @@ import type { CreatedTicket, TicketInput } from '@/domain/tickets/types'
 
 import type { CreateTicket, SendOutcome, TicketAnswer } from './types'
 
-/**
- * The page clock of the send progress (milliseconds, monotonic). Read only
- * in event handlers and timers, never while rendering.
- */
 export const clock = (): number => performance.now()
 
-/** The created ticket as the confirmation shows it (AC-5.2). */
 export const toCreatedTicket = (answer: TicketAnswer): CreatedTicket => ({
   createdAt: answer.created_at,
   id: answer.id,
@@ -18,12 +13,6 @@ export const toCreatedTicket = (answer: TicketAnswer): CreatedTicket => ({
   type: answer.type
 })
 
-/**
- * Sends the reviewed ticket once and turns the answer into the next builder
- * action: the confirmation on 201, or the US-6 message otherwise (422, 429,
- * 403, network, 500 with its code). The client never retries a 429 and
- * goes to the login page by itself on 401 (AC-6.2).
- */
 export const sendTicket = async (
   createTicket: CreateTicket,
   input: TicketInput

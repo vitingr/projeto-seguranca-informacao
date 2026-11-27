@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Anonymous: Authorize answers 401 before checking the role.
         test("status is 401", function () {
           expect(res.getStatus()).to.equal(401);
         });

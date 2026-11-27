@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SupportMark } from '.'
 
-describe('SupportMark (spec 003 section 7)', () => {
+describe('SupportMark', () => {
   it('is a decorative neutral square with a headset icon', () => {
     const html = renderToStaticMarkup(<SupportMark />)
     expect(html).toMatch(/^<span[^>]*aria-hidden="true"/)

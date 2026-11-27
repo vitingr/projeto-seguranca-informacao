@@ -15,8 +15,6 @@ describe('Forbidden', () => {
         role === 'admin' ? 'href="/administradores"' : 'href="/usuarios"'
       )
       const classes = linkClasses(html)
-      // Only one border color, and it is the outline one: with both, the
-      // stylesheet order decided and the border could be transparent.
       expect(classes).toContain('border-border')
       expect(classes).not.toContain('border-transparent')
     }

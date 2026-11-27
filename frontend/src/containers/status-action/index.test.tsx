@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
 const failing = (status: number, code: string) =>
   vi.fn(async () => ({ error: { code, status }, ok: false as const }))
 
-describe('statusMenuItems (spec 003 AC-6.1, BR-3)', () => {
+describe('statusMenuItems', () => {
   it('offers the current status (checked) and only the allowed ones', () => {
     expect(statusMenuItems('aberto')).toEqual([
       { current: true, label: 'Aberto', risky: false, status: 'aberto' },
@@ -32,12 +32,12 @@ describe('statusMenuItems (spec 003 AC-6.1, BR-3)', () => {
     ])
   })
 
-  it('has no rows for a closed ticket (AC-6.5)', () => {
+  it('has no rows for a closed ticket', () => {
     expect(statusMenuItems('fechado')).toEqual([])
   })
 })
 
-describe('applyStatus (AC-6.2 to AC-6.6)', () => {
+describe('applyStatus', () => {
   it('sends the status the admin saw and announces the new one', async () => {
     const change = vi.fn(async () => ({
       data: { id: 7, status: 'em_andamento' as const, updated_at: 'x' },
@@ -59,7 +59,7 @@ describe('applyStatus (AC-6.2 to AC-6.6)', () => {
     expect(changedText('fechado')).toBe('Status alterado para Fechado.')
   })
 
-  it('a 409 shows the stale message and reloads the page (AC-6.3)', async () => {
+  it('a 409 shows the stale message and reloads the page', async () => {
     const outcome = await applyStatus(
       { change: failing(409, STALE_STATUS) },
       { from: 'aberto', ticketId: 7, to: 'em_andamento' }
@@ -72,7 +72,7 @@ describe('applyStatus (AC-6.2 to AC-6.6)', () => {
     })
   })
 
-  it('other errors keep the current status on screen (AC-6.6)', async () => {
+  it('other errors keep the current status on screen', async () => {
     const outcome = await applyStatus(
       { change: failing(429, 'too_many_requests') },
       { from: 'aberto', ticketId: 7, to: 'em_andamento' }
@@ -97,7 +97,7 @@ describe('StatusAction', () => {
     expect(html).toContain('rounded-sm')
   })
 
-  it('renders nothing for a closed ticket (AC-6.5)', () => {
+  it('renders nothing for a closed ticket', () => {
     expect(
       renderToStaticMarkup(<StatusAction current="fechado" ticketId={7} />)
     ).toBe('')

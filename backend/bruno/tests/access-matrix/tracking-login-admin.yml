@@ -22,8 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The seed admin again, for the cells 300-389, after the comum
-        // user's cells (the admin {id} cells use the comum user's ticket).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
           expect(res.getBody().user_id).to.equal(bru.getVar("adminUserId"));

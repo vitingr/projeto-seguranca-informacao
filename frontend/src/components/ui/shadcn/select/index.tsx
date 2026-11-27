@@ -11,12 +11,6 @@ import type {
   SelectTriggerProps
 } from './types'
 
-// shadcn select (base-nova, from `shadcn view select`), adapted to the
-// design rules: radius `sm`, a border instead of the shadow and ring, no
-// dark variants, the fade only under `motion-safe:`, lucide icons in place
-// of the registry's icon placeholder. The popup opens under the trigger
-// (`alignItemWithTrigger` off), like the menus of input-texto.mp4.
-
 const Select = SelectPrimitive.Root
 
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
@@ -46,8 +40,7 @@ function SelectTrigger({
       {...props}
     >
       {children}
-      {/* As a child, not `render`: Base UI's default "▼" text would end up
-          inside the svg and in the trigger's accessible name. */}
+      {/* A child, not `render`: Base UI's default "▼" text would reach the name */}
       <SelectPrimitive.Icon className="flex">
         <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4" />
       </SelectPrimitive.Icon>

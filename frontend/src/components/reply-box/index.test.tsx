@@ -19,7 +19,7 @@ const render = (props: Partial<Parameters<typeof ReplyBox>[0]> = {}) =>
 const sendButton = (html: string) =>
   /<button[^>]*data-testid="reply-send"[^>]*>/.exec(html)?.[0] ?? ''
 
-describe('ReplyBox (spec 003 AC-3.4, D-1)', () => {
+describe('ReplyBox', () => {
   it('has the sr-only label "Mensagem", the placeholder and a growing text area', () => {
     const html = render()
     expect(html).toContain(
@@ -82,7 +82,7 @@ describe('ReplyBox (spec 003 AC-3.4, D-1)', () => {
     )
   })
 
-  it('becomes the closed line with "Novo ticket" and no box (AC-3.8)', () => {
+  it('becomes the closed line with "Novo ticket" and no box', () => {
     const html = render({
       closed: true,
       closedAction: { href: '/usuarios/tickets/novo', label: 'Novo ticket' }
@@ -101,7 +101,6 @@ describe('ReplyBox (spec 003 AC-3.4, D-1)', () => {
     expect(html).not.toMatch(
       /lucide-(plus|mic|at-sign|paperclip)|Auto|to everyone|@/
     )
-    // Radius and shadows are checked by src/test/design-rules.test.ts.
     expect(html).toContain('rounded-sm')
   })
 })

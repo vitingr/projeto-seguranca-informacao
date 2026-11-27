@@ -22,12 +22,6 @@ export const CONFIRMATION_TEXTS = {
   viewTicket: 'Ver ticket'
 } as const
 
-/**
- * The confirmation of a created ticket (spec AC-5.2): "Ticket criado", the
- * number as "#<id>", the type, the title, a muted status badge and the
- * creation date, in the grouped rows of the review. Values are plain text
- * (S-8).
- */
 export const TicketConfirmation = ({
   headingId,
   headingRef,
@@ -68,7 +62,6 @@ export const TicketConfirmation = ({
         {formatDateTime(ticket.createdAt) ?? '—'}
       </DetailRow>
     </DetailList>
-    {/* Spec 003 AC-1.11: the new ticket's page, with its conversation. */}
     <Link
       className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-fit')}
       href={`/usuarios/tickets/${ticket.id}`}

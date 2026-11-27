@@ -23,9 +23,7 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        // A YAML file can only hold valid UTF-8, so the body is built from
-        // bytes: a valid registration with a 0xff byte (never valid in
-        // UTF-8) at the end of the password. A Buffer is sent as is.
+        // 0xff is never valid UTF-8 and YAML cannot hold it, so the body is built from bytes.
         const login = bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}.strict");
         const password = bru.interpolate("{{process.env.BRUNO_COMUM_PASSWORD}}");
         req.setBody(Buffer.concat([
@@ -35,8 +33,6 @@ runtime:
         ]));
     - type: tests
       code: |-
-        // encoding/json alone would store the password with U+FFFD in place
-        // of the byte (plan P-11); the body is refused before that.
         test("status is 400", function () {
           expect(res.getStatus()).to.equal(400);
         });

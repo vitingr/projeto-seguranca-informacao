@@ -17,13 +17,6 @@ import type {
   TicketValuesByType
 } from './types'
 
-// The field rules of spec section 4, the same as the backend's
-// (backend/internal/security/tickets.go), checked before sending so the user
-// sees the message under the field (S-2). The backend stays the authority:
-// it answers 422 for anything these rules miss. Each check takes the value
-// as typed, in the backend's order: valid text, trim, empty, each
-// character, then the length.
-
 export const FIELD_MESSAGES = {
   choice: 'Escolha uma opção.',
   controlMultiLine: 'Remova os caracteres de controle do texto.',
@@ -42,19 +35,12 @@ export const tooShortMessage = (min: number) =>
 export const tooLongMessage = (max: number) =>
   `Use no máximo ${max} caracteres.`
 
-// Character classes are built from strings with escapes, so the source never
-// holds an invisible character.
-
-/** A lone surrogate: the JavaScript form of text that is not valid UTF-8. */
 const LONE_SURROGATE = /\p{Surrogate}/u
 
-/** Go's unicode.IsControl: C0, DEL and C1. */
 const CONTROL = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f]')
 
-/** Line breaks of a single-line field, Unicode separators included. */
 const LINE_BREAK = new RegExp('[\\n\\r\\u2028\\u2029]')
 
-/** Go's unicode.IsSpace, for whitespace inside a URL. */
 const HAS_SPACE = new RegExp(
   '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]'
 )
@@ -77,7 +63,6 @@ const checkText = (
   return null
 }
 
-/** Single-line text: no control character, line or paragraph separator. */
 export const checkSingleLine = (
   raw: string,
   limits: { max: number; min: number }
@@ -88,7 +73,6 @@ export const checkSingleLine = (
     return null
   })
 
-/** Multi-line text: the only control characters allowed are \n, \r, \t. */
 export const checkMultiLine = (
   raw: string,
   limits: { max: number; min: number }
@@ -97,13 +81,8 @@ export const checkMultiLine = (
     CONTROL.test(char) && !/[\n\r\t]/.test(char) ? 'controlMultiLine' : null
   )
 
-/** `%` must start a valid escape (Go's url.Parse checks path and fragment). */
 const INVALID_ESCAPE = /%(?![0-9a-fA-F]{2})/
 
-/**
- * ASCII characters Go's url.Parse refuses in a host name (shouldEscape in
- * encodeHost mode); characters above ASCII are allowed.
- */
 const INVALID_HOST_CHAR = /[^A-Za-z0-9\-_.~!$&'()*+,;=:[\]<>"%]/
 
 const checkHost = (hostPort: string): FieldProblem | null => {
@@ -131,12 +110,7 @@ const checkHost = (hostPort: string): FieldProblem | null => {
   return null
 }
 
-/**
- * An absolute https URL with a host and no user name or password, up to
- * 300 code points, with no whitespace inside. It follows Go's url.Parse
- * rather than the browser's URL parser, which would accept forms the
- * backend refuses (`https:host/x`, `https:///x`).
- */
+// Follows Go's url.Parse, not the browser's URL parser, which accepts forms the backend refuses.
 export const checkHttpsUrl = (raw: string): FieldProblem | null => {
   const problem = checkSingleLine(raw, FIELD_LIMITS.url)
   if (problem) return problem
@@ -150,7 +124,6 @@ export const checkHttpsUrl = (raw: string): FieldProblem | null => {
   const fragment = hash >= 0 ? value.slice(hash + 1) : ''
   const beforeFragment = hash >= 0 ? value.slice(0, hash) : value
   const rest = beforeFragment.slice(scheme[0].length).split('?')[0]
-  // No "//": an opaque URL or one without a host.
   if (!rest.startsWith('//')) return 'notHttpsUrl'
 
   const afterSlashes = rest.slice(2)
@@ -167,7 +140,6 @@ export const checkHttpsUrl = (raw: string): FieldProblem | null => {
   return at >= 0 ? 'credentials' : null
 }
 
-/** The message shown under a field for a problem. */
 export const messageForProblem = (
   problem: FieldProblem,
   { max, min }: { max: number; min: number }
@@ -208,7 +180,6 @@ const textField = (kind: TextKind) => {
     .transform(trimField)
 }
 
-/** A fixed-choice field: only one of the listed codes, matched exactly. */
 const choiceField = <const Code extends string>(
   options: readonly { code: Code }[]
 ) => {
@@ -243,16 +214,11 @@ export const ticketSchemas = {
   })
 }
 
-/** Empty values for the form of a type. */
 export const emptyValues = (type: TicketType): TicketFormValues =>
   Object.fromEntries(
     Object.keys(ticketSchemas[type].shape).map(key => [key, ''])
   )
 
-/**
- * The request for validated values: trimmed, and with no empty optional
- * notes (absent and empty mean the same to the backend).
- */
 export const toTicketInput = <Type extends TicketType>(
   type: Type,
   values: TicketValuesByType[Type]
@@ -267,7 +233,6 @@ export const toTicketInput = <Type extends TicketType>(
   return { dados: values, tipo: type } as TicketInput
 }
 
-/** Validates the values of a type; `null` when any field is invalid. */
 export const parseTicket = (
   type: TicketType,
   values: TicketFormValues

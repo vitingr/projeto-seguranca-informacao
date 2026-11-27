@@ -1,7 +1,3 @@
-// User-facing messages, in Portuguese, chosen by the `error` code (spec
-// "Mensagens"). The backend `message` is used only for codes this table
-// does not know.
-
 import { NETWORK, STALE_STATUS, TICKET_CLOSED } from '@/domain/api-error'
 import type { ApiError } from '@/domain/api-error/types'
 
@@ -16,7 +12,6 @@ export const MESSAGES = {
   internal: 'Ocorreu um erro inesperado. Tente novamente mais tarde.',
   invalidCredentials: 'Login ou senha incorretos.',
   invalidData: 'Dados inválidos. Revise os campos e tente novamente.',
-  // Ticket tracking (spec 003 AC-2.4, AC-3.7, AC-6.3).
   invalidMessage: 'Dados inválidos. Revise a mensagem e tente novamente.',
   network: 'Não foi possível conectar ao servidor. Tente novamente.',
   sessionExpired: 'Sua sessão expirou. Entre novamente.',
@@ -28,7 +23,6 @@ export const MESSAGES = {
     'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
 } as const
 
-/** The texts of a reply or a status change on a ticket page (spec 003). */
 const ticketMessageFor = (
   error: ApiError,
   context: 'reply' | 'status'

@@ -26,7 +26,6 @@ var (
 	statusEntryKeys  = []string{"created_at", "from", "id", "kind", "mine", "side", "to"}
 )
 
-// entriesOf returns the entries of a thread answer.
 func entriesOf(t *testing.T, body map[string]any) []map[string]any {
 	t.Helper()
 	raw, ok := body["entries"].([]any)
@@ -40,7 +39,6 @@ func entriesOf(t *testing.T, body map[string]any) []map[string]any {
 	return out
 }
 
-// addMessage stores a message directly, as if a handler had.
 func (a trackingApp) addMessage(t *testing.T, ticket domain.TicketID, actor domain.UserID, text string) domain.TicketEntry {
 	t.Helper()
 	e, err := a.store.AddMessage(t.Context(), ticket, actor, text)
@@ -50,9 +48,6 @@ func (a trackingApp) addMessage(t *testing.T, ticket domain.TicketID, actor doma
 	return e
 }
 
-// TestOwnThread covers AC-3.1, AC-3.2 (data), P-11 and S-13 on R3: entries
-// oldest first, the author's on side "author" and marked mine, the admins'
-// on side "support", and no login or id of anyone.
 func TestOwnThread(t *testing.T) {
 	t.Parallel()
 
@@ -110,9 +105,6 @@ func TestOwnThread(t *testing.T) {
 	}
 }
 
-// TestAdminThread covers AC-5.3 (data) and P-11 on R8: every entry adds
-// actor_login; mine is true only for the requesting admin; the author's
-// entries are on side "author"; antes and the 100 limit as R3.
 func TestAdminThread(t *testing.T) {
 	t.Parallel()
 
@@ -155,7 +147,6 @@ func TestAdminThread(t *testing.T) {
 		}
 	}
 
-	// ana sees the status change as hers.
 	_, body = a.get(t, path, a.mustLogin(t, anaLogin))
 	if mine := entriesOf(t, body)[1]["mine"]; mine != true {
 		t.Errorf("ana's status change: mine = %v, want true", mine)
@@ -181,9 +172,6 @@ func TestAdminThread(t *testing.T) {
 	}
 }
 
-// TestOwnThreadPages covers P-4 and S-14: at most 100 entries, the latest
-// ones first answered, older ones with antes, has_more on the first page
-// only.
 func TestOwnThreadPages(t *testing.T) {
 	t.Parallel()
 
@@ -213,7 +201,6 @@ func TestOwnThreadPages(t *testing.T) {
 		t.Errorf("older page = ids %v to %v, want %v to %v", older[0]["id"], older[49]["id"], ids[0], ids[49])
 	}
 
-	// No entry yet: an empty page, never null.
 	empty := a.store.seed(trackMariaID, domain.TicketTypeOther, "Sem mensagens")
 	rr := a.send(t, http.MethodGet, fmt.Sprintf("/api/tickets/%d/mensagens", empty.ID), "", cookie, nil)
 	if got := rr.Body.String(); got != `{"entries":[],"has_more":false}` {
@@ -221,8 +208,6 @@ func TestOwnThreadPages(t *testing.T) {
 	}
 }
 
-// replyAs sends a reply as login on ticket with a valid CSRF token, plus
-// headers (which may replace the token).
 func (a trackingApp) replyAs(t *testing.T, login, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	cookie, token := a.loginAs(t, login)
@@ -236,9 +221,6 @@ func replyBody(text string) string {
 	return string(b)
 }
 
-// TestReplyOwnTicket covers AC-3.6 and BR-6, BR-8, S-8 on R4: 201 with the
-// stored entry, trimmed, the session user as actor, the last update moved
-// and the status unchanged.
 func TestReplyOwnTicket(t *testing.T) {
 	t.Parallel()
 
@@ -264,10 +246,10 @@ func TestReplyOwnTicket(t *testing.T) {
 
 	after := a.store.ticket(ticket.ID)
 	if after.Status != domain.TicketStatusResolved {
-		t.Errorf("status = %s, want resolvido (a reply never changes it, Q-5)", after.Status)
+		t.Errorf("status = %s, want resolvido (a reply never changes it)", after.Status)
 	}
 	if !after.UpdatedAt.After(ticket.UpdatedAt) {
-		t.Errorf("updated_at = %v, want later than %v (BR-8)", after.UpdatedAt, ticket.UpdatedAt)
+		t.Errorf("updated_at = %v, want later than %v", after.UpdatedAt, ticket.UpdatedAt)
 	}
 	_, thread := a.get(t, path, a.mustLogin(t, comumLogin))
 	entries := entriesOf(t, thread)
@@ -279,16 +261,12 @@ func TestReplyOwnTicket(t *testing.T) {
 	}
 }
 
-// mustLogin logs in and returns the session cookie only.
 func (a trackingApp) mustLogin(t *testing.T, login string) *http.Cookie {
 	t.Helper()
 	cookie, _ := a.loginAs(t, login)
 	return cookie
 }
 
-// TestReplyRefusals covers AC-3.5, AC-3.7, AC-3.8 (server), S-5, S-6, S-8
-// and BR-5, BR-10 on R4: every refused reply writes nothing and leaves the
-// ticket as it was.
 func TestReplyRefusals(t *testing.T) {
 	t.Parallel()
 
@@ -350,8 +328,6 @@ func TestReplyRefusals(t *testing.T) {
 	}
 }
 
-// TestReplyLongestMessage is the limit itself: 2000 code points of a
-// multi-byte character are accepted (S-6, BR-6).
 func TestReplyLongestMessage(t *testing.T) {
 	t.Parallel()
 
@@ -363,10 +339,6 @@ func TestReplyLongestMessage(t *testing.T) {
 	}
 }
 
-// TestReplyRateLimit covers S-9 and P-16 on R4: 30 replies a minute per
-// user, the 31st is a 429 with Retry-After and is not stored; another user
-// keeps their quota; requests refused by CSRF or by the role spend none;
-// requests on someone else's ticket do.
 func TestReplyRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -377,7 +349,7 @@ func TestReplyRateLimit(t *testing.T) {
 	cookie, token := a.loginAs(t, comumLogin)
 	headers := map[string]string{security.CSRFHeaderName: token}
 
-	for range 5 { // refused by CSRF: no quota spent
+	for range 5 {
 		if rr := a.send(t, http.MethodPost, path, replyBody("oi"), cookie, nil); rr.Code != http.StatusForbidden {
 			t.Fatalf("no token: status = %d, want 403", rr.Code)
 		}
@@ -399,13 +371,10 @@ func TestReplyRateLimit(t *testing.T) {
 		t.Errorf("%d entries, want %d (the 31st is not stored)", entries, security.MessageCreateLimit)
 	}
 
-	// Another user keeps their quota.
 	if rr := a.replyAs(t, joaoLogin, fmt.Sprintf("/api/tickets/%d/mensagens", ticketB.ID), replyBody("oi"), nil); rr.Code != http.StatusCreated {
 		t.Errorf("another user: status = %d, want 201", rr.Code)
 	}
 
-	// The role check runs before the limiter: an admin refused on the
-	// comum route spends nothing.
 	cookieAdmin, tokenAdmin := a.loginAs(t, flowLogin)
 	for range security.MessageCreateLimit + 5 {
 		if rr := a.send(t, http.MethodPost, path, replyBody("oi"), cookieAdmin, map[string]string{security.CSRFHeaderName: tokenAdmin}); rr.Code != http.StatusForbidden {
@@ -419,8 +388,6 @@ func TestReplyRateLimit(t *testing.T) {
 	}
 }
 
-// TestReplyRateLimitCountsOthersTickets is P-16: the limiter runs before
-// TicketAccess, so B's requests on A's ticket (404) spend B's quota.
 func TestReplyRateLimitCountsOthersTickets(t *testing.T) {
 	t.Parallel()
 
@@ -439,8 +406,6 @@ func TestReplyRateLimitCountsOthersTickets(t *testing.T) {
 	}
 }
 
-// TestReplyLogsNoText is S-12: the log of accepted and refused replies has
-// ids and fixed reasons, never the text.
 func TestReplyLogsNoText(t *testing.T) {
 	t.Parallel()
 
@@ -472,9 +437,6 @@ func TestReplyLogsNoText(t *testing.T) {
 	}
 }
 
-// TestReplyAdminTicket covers AC-5.4 (server), Q-6, S-13 and BR-8 on R9: 201
-// with the admin entry; the author's thread shows it on side support with
-// no login; the ticket moves to the top of "Meus tickets" and the queue.
 func TestReplyAdminTicket(t *testing.T) {
 	t.Parallel()
 
@@ -515,7 +477,6 @@ func TestReplyAdminTicket(t *testing.T) {
 	}
 }
 
-// TestReplyAdminRefusals covers BR-5, S-5, S-6, S-8 on R9, like R4.
 func TestReplyAdminRefusals(t *testing.T) {
 	t.Parallel()
 
@@ -555,8 +516,6 @@ func TestReplyAdminRefusals(t *testing.T) {
 	}
 }
 
-// TestReplyAdminRateLimit is S-9 on R9: an admin's quota is their own (30
-// a minute, the 31st is 429); the author keeps theirs.
 func TestReplyAdminRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -587,8 +546,6 @@ func statusBody(from, to string) string {
 	return fmt.Sprintf(`{"de":%q,"para":%q}`, from, to)
 }
 
-// patchStatus sends a status change as login with a valid CSRF token, plus
-// headers.
 func (a trackingApp) patchStatus(t *testing.T, login string, ticket domain.TicketID, body string, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	cookie, token := a.loginAs(t, login)
@@ -597,9 +554,6 @@ func (a trackingApp) patchStatus(t *testing.T, login string, ticket domain.Ticke
 	return a.send(t, http.MethodPatch, fmt.Sprintf("/api/administradores/tickets/%d/status", ticket), body, cookie, h)
 }
 
-// TestChangeStatus covers AC-6.2, AC-6.5, BR-3, BR-4, BR-8 on R10: the path
-// aberto → em_andamento → resolvido → fechado, each answer with the new
-// status and last update, one status_change entry per change.
 func TestChangeStatus(t *testing.T) {
 	t.Parallel()
 
@@ -642,16 +596,13 @@ func TestChangeStatus(t *testing.T) {
 	}
 }
 
-// TestChangeStatusRefusals covers AC-6.3, AC-6.4, AC-6.5, S-4, S-5, S-6,
-// S-7, S-8 on R10: every refused change leaves the ticket and the thread
-// as they were.
 func TestChangeStatusRefusals(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		login      string
-		status     domain.TicketStatus // the ticket's current status
+		status     domain.TicketStatus
 		body       string
 		headers    map[string]string
 		wantStatus int
@@ -707,9 +658,6 @@ func TestChangeStatusRefusals(t *testing.T) {
 	}
 }
 
-// TestChangeStatusRateLimit is S-9 on R10: 30 status requests a minute per
-// admin, valid or not; the 31st is 429; replies do not use the status
-// quota, and status requests do not use the reply quota.
 func TestChangeStatusRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -761,8 +709,6 @@ func TestNewHandlerRequiresMessageLimiter(t *testing.T) {
 	}
 }
 
-// TestOwnThreadRefusesQueries is plan P-9 for the cursor: anything but one
-// positive antes is a 400 with the generic body.
 func TestOwnThreadRefusesQueries(t *testing.T) {
 	t.Parallel()
 

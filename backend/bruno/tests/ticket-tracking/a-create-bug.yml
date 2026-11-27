@@ -27,7 +27,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // A's first ticket (ticketA1), used by the IDOR requests of B.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           bru.setVar("ticketA1", res.getBody().id);

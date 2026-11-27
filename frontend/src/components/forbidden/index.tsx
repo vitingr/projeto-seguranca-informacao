@@ -14,7 +14,6 @@ export const Forbidden: React.FC<ForbiddenProps> = ({ role }) => (
       {MESSAGES.forbiddenPage}
     </p>
     <Link
-      // `cn` lets the outline border win over the base `border-transparent`.
       className={cn(buttonVariants({ variant: 'outline' }))}
       href={landingFor(role)}
     >

@@ -5,7 +5,6 @@ import { LeaveGuardBar, installLeaveGuard } from '.'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }))
 
-/** A window stand-in that records its listeners. */
 const fakeWindow = () => {
   const listeners = new Map<string, EventListener>()
   return {
@@ -26,7 +25,7 @@ const options = (logoutRunning = false) => ({
   onRequest: vi.fn()
 })
 
-describe('installLeaveGuard (plan P-12)', () => {
+describe('installLeaveGuard', () => {
   it('listens for beforeunload and for clicks in the capture phase', () => {
     const win = fakeWindow()
     installLeaveGuard(win as never, options())

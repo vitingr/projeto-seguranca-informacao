@@ -84,19 +84,7 @@ const tipsFor = ({ step, type }: BuilderState): readonly string[] =>
         SECURITY_TIP
       ]
 
-/**
- * The ticket builder (spec 001-ticket-builder): one page with the steps
- * "Tipo", "Detalhes" and "Revisão" and a confirmation, laid out after
- * `design/references/tela-criacao-tickets.png` (plan 5.4): title, step
- * indicator, the step in a bordered card, "Dicas" and "Prévia" on the side,
- * and the actions under them. The typed data lives only in this component's
- * memory, in one react-hook-form form validated by the schema of the chosen
- * type (BR-7, S-2, S-10). On each step change the focus moves to the step
- * heading and the change is announced.
- */
 export const TicketBuilder = () => {
-  // Opt out of the React Compiler, like CadastroForm: react-hook-form keeps
-  // its own subscriptions.
   'use no memo'
 
   const [state, dispatch] = useReducer(builderReducer, initialState)
@@ -110,7 +98,6 @@ export const TicketBuilder = () => {
     typeRef.current = state.type
   }, [state.type])
 
-  // Validated with the schema of the type chosen when the check runs.
   const resolver: Resolver<TicketFormValues> = (values, context, options) => {
     const type = typeRef.current
     if (type === null) return { errors: {}, values }
@@ -127,24 +114,19 @@ export const TicketBuilder = () => {
   })
   const values = useWatch({ control: form.control }) as TicketFormValues
   const { errors } = form.formState
-  // What will be sent: the values as the schema leaves them (trimmed).
   const reviewInput =
     state.step === 'revisao' && state.type
       ? parseTicket(state.type, values)
       : null
 
   const done = state.step === 'confirmacao'
-  // On the confirmation, every step of the indicator is done.
   const stepIndex = done
     ? STEPS.length
     : STEPS.findIndex(step => step.id === state.step)
   const stepLabel = STEPS[stepIndex]?.label ?? ''
 
-  // AC-5.1: a second click while the request is pending sends nothing.
   const sendOnce = useRef(singleFlight(sendTicket)).current
 
-  // The send progress (AC-5.5 to AC-5.10): the real time since the click,
-  // and the names (never the values) of what is being sent.
   const [timing, setTiming] = useState<null | SendTiming>(null)
   const [now, setNow] = useState(0)
   const [chips, setChips] = useState<readonly string[]>([])
@@ -161,7 +143,6 @@ export const TicketBuilder = () => {
     setTiming({ end: null, start })
     setNow(start)
     setChips(progressChips(reviewInput))
-    // The request starts now; the progress only draws what happens.
     dispatch({ type: 'sendStarted' })
     const outcome = await sendOnce(api.createTicket, reviewInput)
     if (outcome) {
@@ -185,8 +166,6 @@ export const TicketBuilder = () => {
         ? 'done'
         : null
 
-  // One polite announcement per outcome (AC-5.10): the error is said by
-  // the inline alert, so this region keeps "Enviando ticket." meanwhile.
   const announcement =
     state.sending || state.sendError
       ? BUILDER_MESSAGES.sending
@@ -201,8 +180,6 @@ export const TicketBuilder = () => {
     }
   }, [state.step])
 
-  // The steps in the browser history (history.ts): Back moves one step and
-  // never sends (spec section 7, AC-5.3); the URL holds only `?etapa=`.
   const stepHistory = useRef<null | StepHistory>(null)
   const historyStep = useRef(state.step)
   const locked = state.sending || done
@@ -214,9 +191,7 @@ export const TicketBuilder = () => {
 
   useEffect(() => {
     const steps = createStepHistory(window, () => crypto.randomUUID())
-    // Started once the router has wrapped `history`, so every entry keeps
-    // the router's own state (the wrap runs after this component's effects
-    // when the page is loaded directly).
+    // Deferred until the router has wrapped `history`.
     const timer = window.setTimeout(() => {
       steps.start()
       stepHistory.current = steps
@@ -237,7 +212,6 @@ export const TicketBuilder = () => {
     const previous = historyStep.current
     historyStep.current = state.step
     const steps = stepHistory.current
-    // A step shown from the history is already the current entry.
     if (!steps || previous === state.step || steps.current() === state.step) {
       return
     }
@@ -248,24 +222,16 @@ export const TicketBuilder = () => {
     }
   }, [state.step])
 
-  // "Voltar", "Editar" and the step indicator go back through the history,
-  // so the browser's Back and Forward stay in step with the page.
   const goBackTo = (step: Step) => {
     if (!stepHistory.current?.back(step)) dispatch({ step, type: 'goToStep' })
   }
 
-  // AC-3.8: with typed data not sent, leaving warns first. Closing or
-  // reloading the tab gets the browser's own prompt; a link out of the
-  // builder and the header's "Sair" get the inline "Sair sem enviar?" bar
-  // instead (containers/leave-guard, shared with the reply box).
   const { leave, leaving, stay, stayRef } = useLeaveGuard(
     guardActive({ dirty: hasData(values), sent: done })
   )
 
   const selectType = (ticketType: TicketType) => {
     const data = hasData(form.getValues())
-    // A new type starts with its own empty fields, unless the change waits
-    // for the inline confirmation (AC-2.3, AC-2.4).
     if (ticketType !== state.type && (state.type === null || !data)) {
       form.reset(emptyValues(ticketType))
     }
@@ -280,7 +246,6 @@ export const TicketBuilder = () => {
   const continueFromType = () => {
     dispatch({ type: 'continueFromType' })
     if (state.type === null) {
-      // AC-3.5: the focus goes to the invalid choice.
       document
         .querySelector<HTMLElement>(
           `[aria-labelledby="${headingId}"] [role="radio"]`
@@ -289,9 +254,6 @@ export const TicketBuilder = () => {
     }
   }
 
-  // AC-3.2 to AC-3.6: an invalid form stays, shows each message under its
-  // field and focuses the first invalid field (react-hook-form, in screen
-  // order); a valid one moves on.
   const submitDetails = form.handleSubmit(() =>
     dispatch({ type: 'continueFromDetails' })
   )
@@ -377,7 +339,6 @@ export const TicketBuilder = () => {
         </div>
         {done ? null : (
           <Link
-            // `cn` lets the outline border win over the base `border-transparent`.
             className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
             href="/usuarios"
           >
@@ -512,8 +473,6 @@ export const TicketBuilder = () => {
             </>
           ) : done && state.ticket ? (
             <>
-              {/* The rows already on screen stay; the last step and the
-                  check row enter here. */}
               <SendProgress
                 chips={chips}
                 elapsedMs={elapsedMs}
@@ -564,7 +523,6 @@ export const TicketBuilder = () => {
             </>
           ) : state.step === 'revisao' ? (
             <>
-              {/* AC-4.2: back to the form, every value kept. */}
               <Button
                 className="w-full sm:w-auto"
                 disabled={state.sending}
@@ -575,8 +533,6 @@ export const TicketBuilder = () => {
                 <PencilIcon data-icon="inline-start" aria-hidden />
                 Editar
               </Button>
-              {/* AC-5.1: shows that it is sending; a second click does
-                  nothing. `aria-disabled` keeps the focus on it. */}
               <Button
                 aria-disabled={state.sending || undefined}
                 className="w-full aria-disabled:opacity-70 sm:w-auto"

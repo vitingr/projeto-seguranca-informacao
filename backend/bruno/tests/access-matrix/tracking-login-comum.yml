@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The comum user of the matrix again, for the cells 200-289.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
           expect(res.getBody().user_id).to.equal(bru.getVar("comumUserId"));

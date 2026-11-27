@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 AC-2.1, AC-2.2: every field of the bug ticket, as sent
-        // (line breaks kept), under the keys of the creation request.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

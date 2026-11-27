@@ -25,8 +25,7 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        // Spends the quota: 10 creations, each answered 201 (S-12). This request
-        // is then the 11th within the minute.
+        // 10 creations spend the quota; this is the 11th within the minute.
         const url = bru.interpolate("{{baseUrl}}/api/tickets");
         const statuses = [];
         for (let i = 1; i <= 10; i++) {

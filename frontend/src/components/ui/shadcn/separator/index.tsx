@@ -6,8 +6,6 @@ import { Separator as SeparatorPrimitive } from '@base-ui/react/separator'
 
 import type { SeparatorProps } from './types'
 
-// shadcn separator (base-nova), unchanged apart from the module layout.
-
 function Separator({
   className,
   orientation = 'horizontal',

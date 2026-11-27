@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        // The matrix logged out: this starts a new anonymous session.
         bru.setVar("csrfToken", res.getBody().csrf_token);
     - type: tests
       code: |-

@@ -18,20 +18,14 @@ const (
 )
 
 type handlers struct {
-	logger  *slog.Logger
-	sec     *security.Security
-	auth    AuthService
-	users   UserService
-	tickets TicketService
-	// ticketLimiter runs inside Authorize on POST /api/tickets, so only
-	// comum users that passed Session and CSRF use their quota (S-12).
-	ticketLimiter *security.RateLimiter
-	// messageLimiter runs inside Authorize and before TicketAccess on the
-	// reply routes (spec 003 S-9, plan P-16).
+	logger         *slog.Logger
+	sec            *security.Security
+	auth           AuthService
+	users          UserService
+	tickets        TicketService
+	ticketLimiter  *security.RateLimiter
 	messageLimiter *security.RateLimiter
-	// statusLimiter runs inside Authorize and before TicketAccess on the
-	// status change route (spec 003 S-9).
-	statusLimiter *security.RateLimiter
+	statusLimiter  *security.RateLimiter
 }
 
 type loginRequest struct {
@@ -46,15 +40,12 @@ type cadastroRequest struct {
 }
 
 type userResponse struct {
-	UserID domain.UserID `json:"user_id"`
-	Login  string        `json:"login,omitempty"`
-	Role   domain.Role   `json:"role"`
-	// CreatedAt is the registration time, sent by GET /api/me only.
-	CreatedAt *time.Time `json:"created_at,omitempty"`
+	UserID    domain.UserID `json:"user_id"`
+	Login     string        `json:"login,omitempty"`
+	Role      domain.Role   `json:"role"`
+	CreatedAt *time.Time    `json:"created_at,omitempty"`
 }
 
-// ticketResponse is what the confirmation shows (spec AC-5.2). It never
-// echoes the field contents.
 type ticketResponse struct {
 	ID        domain.TicketID     `json:"id"`
 	Type      domain.TicketType   `json:"type"`
@@ -76,8 +67,6 @@ type areaResponse struct {
 type statusResponse struct {
 	Status string `json:"status"`
 }
-
-// --- handlers ---------------------------------------------------------------
 
 func (h *handlers) healthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, statusResponse{Status: "ok"})
@@ -166,8 +155,6 @@ func (h *handlers) cadastro(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// auditRegistered records who registered whom (003 D-11). It logs IDs and
-// the role only: never the login or the password.
 func (h *handlers) auditRegistered(r *http.Request, user domain.User) {
 	var actor domain.UserID
 	if p, ok := security.PrincipalFrom(r.Context()); ok {
@@ -180,12 +167,6 @@ func (h *handlers) auditRegistered(r *http.Request, user domain.User) {
 	)
 }
 
-// createTicket creates a support ticket for the comum user of the session
-// (spec 001-ticket-builder). A body that is not well-formed for the type is
-// 400; a well-formed body with an invalid value is 422 with the generic
-// message, never naming the field (Q-12). The author comes only from the
-// session (S-4). The log holds ids, the type and a fixed reason, never a
-// field value (S-7).
 func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 	p, ok := security.PrincipalFrom(r.Context())
 	if !ok {
@@ -226,9 +207,6 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ticketRefused logs a refused ticket request. The reason is the error
-// text, which the security and service layers build from fixed strings and
-// field names only, never from the body.
 func (h *handlers) ticketRefused(r *http.Request, author domain.UserID, err error) {
 	h.logger.InfoContext(r.Context(), "ticket refused",
 		slog.Int64("author_id", int64(author)),

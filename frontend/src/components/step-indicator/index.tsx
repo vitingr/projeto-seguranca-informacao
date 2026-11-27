@@ -3,16 +3,6 @@ import { CheckIcon, ChevronRightIcon } from 'lucide-react'
 
 import type { StepIndicatorProps } from './types'
 
-/**
- * The steps in a row, as in `design/references/tela-criacao-tickets.png`:
- * an icon in a circle, a label and a muted description, with a chevron
- * between steps. It is its own navigation element, never a label above the
- * page title. The active circle uses the brand accent (spec Q-18); steps
- * already done show a check and are buttons that go back to them; later
- * steps cannot be skipped to. Below `md` only the circles stay in the row
- * and the active step's label goes under it; the hidden labels remain for
- * screen readers.
- */
 export const StepIndicator = ({
   current,
   locked = false,

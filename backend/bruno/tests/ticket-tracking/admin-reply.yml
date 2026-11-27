@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-5.4: the admin answers A's second ticket (A sees it in 500).
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           expect(res.getBody().side).to.equal("support");

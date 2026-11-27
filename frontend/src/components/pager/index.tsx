@@ -17,16 +17,9 @@ export const PAGER_TEXTS = {
 
 const pageOf = (page: number, pages: number) => `Página ${page} de ${pages}`
 
-/** An end of the pager: the same box as the link, as quiet text. */
 const END =
   'text-muted-foreground inline-flex h-8 items-center gap-1 px-2.5 text-sm'
 
-/**
- * The pages of a list (spec 003 AC-1.7, plan 6.3): "Anterior", "Página N de
- * M" and "Próxima" as links, with the ends as plain text. A page past the
- * end (P-9: the backend answers it with no items) says so and offers the
- * first page.
- */
 export const Pager = ({ pages, query }: PagerProps) => {
   const { page } = query
   if (page > pages) {

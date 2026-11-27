@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // BR-2, S-4: the author cannot change the status of their ticket.
         test("status is 403", function () {
           expect(res.getStatus()).to.equal(403);
           expect(res.getBody().error).to.equal("forbidden");

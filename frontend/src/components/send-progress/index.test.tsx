@@ -19,7 +19,7 @@ const steps = (html: string) =>
   )
 
 describe('SendProgress', () => {
-  it('names only steps that really happen (AC-5.5)', () => {
+  it('names only steps that really happen', () => {
     expect(SEND_STEPS).toEqual([
       'Validando campos',
       'Registrando ticket',
@@ -44,7 +44,7 @@ describe('SendProgress', () => {
     expect(render()).not.toContain(SEND_TEXTS.done)
   })
 
-  it('on an error: "Registrando ticket" failed and nothing after it (AC-5.7)', () => {
+  it('on an error: "Registrando ticket" failed and nothing after it', () => {
     const html = render({ phase: 'failed' })
     expect(steps(html).map(step => step.state)).toEqual(['done', 'failed'])
     expect(html).toContain(SEND_TEXTS.failed)
@@ -52,7 +52,7 @@ describe('SendProgress', () => {
     expect(html).not.toContain(SEND_TEXTS.done)
   })
 
-  it('only after the ticket was created: every step done and the check row (AC-5.8)', () => {
+  it('only after the ticket was created: every step done and the check row', () => {
     const html = render({ phase: 'done' })
     expect(steps(html).map(step => step.state)).toEqual([
       'done',
@@ -63,7 +63,7 @@ describe('SendProgress', () => {
     expect(html).toContain(SEND_TEXTS.done)
   })
 
-  it('says each state in words and hides the decorations (AC-5.10)', () => {
+  it('says each state in words and hides the decorations', () => {
     const html = render()
     expect(html).toContain(`<ol aria-label="${SEND_TEXTS.list}"`)
     expect(html).toContain(
@@ -88,7 +88,7 @@ describe('SendProgress', () => {
     expect(html).toContain('>+2</li>')
   })
 
-  it('moves only under motion-safe, with no gradient (AC-5.9)', () => {
+  it('moves only under motion-safe, with no gradient', () => {
     for (const phase of ['registering', 'failed', 'done'] as const) {
       const html = render({ phase })
       const animated = [
@@ -98,7 +98,6 @@ describe('SendProgress', () => {
       for (const name of animated) {
         expect(name).toMatch(/^motion-safe:animate-/)
       }
-      // Gradient classes are also refused by src/test/design-rules.test.ts.
       expect(html).not.toMatch(/gradient|shimmer/)
     }
   })

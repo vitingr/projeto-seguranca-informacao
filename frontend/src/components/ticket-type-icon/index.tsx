@@ -16,10 +16,6 @@ const ICONS = {
   outro: MessageSquareIcon
 } as const
 
-/**
- * The icon of a ticket type in a small muted tile (type cards and the
- * preview). Decorative: the type label is always written next to it.
- */
 export const TicketTypeIcon = ({
   className,
   selected = false,

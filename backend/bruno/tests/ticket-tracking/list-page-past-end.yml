@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Plan P-9: a page past the end is 200 with no items and the real
-        // totals.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

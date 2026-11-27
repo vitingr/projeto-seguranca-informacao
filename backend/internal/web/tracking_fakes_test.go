@@ -7,10 +7,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// The spec 003 methods of service.TicketRepository on the fake of
-// tickets_test.go, so that file stays as it is. The ticket tracking routes
-// do not exist yet; their tests use fakes of their own.
-
 var errNotInWebFake = errors.New("not implemented by this fake")
 
 func (m *memTicketRepo) Get(context.Context, domain.TicketID) (domain.Ticket, string, error) {

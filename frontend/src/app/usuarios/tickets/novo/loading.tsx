@@ -1,7 +1,5 @@
 import { Skeleton } from '@/components/ui/shadcn/skeleton'
 
-// A quiet skeleton of the builder while the session is checked (spec
-// section 7, "Loading"), with the layout of plan 5.4.
 const Loading = () => (
   <main
     aria-busy="true"

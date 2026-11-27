@@ -20,8 +20,6 @@ import {
 import type { TicketInput } from './types'
 import type { TicketStatus } from './types'
 
-// Invisible characters are built from their code points, so the source
-// shows which one each test uses.
 const NBSP = String.fromCodePoint(0xa0)
 const NEXT_LINE = String.fromCodePoint(0x85)
 const LINE_SEPARATOR = String.fromCodePoint(0x2028)
@@ -71,7 +69,7 @@ describe('codes match backend/api/openapi.json', () => {
   })
 })
 
-describe('labels and help texts (spec section 4)', () => {
+describe('labels and help texts', () => {
   it('types', () => {
     expect(TICKET_TYPES.map(option => option.label)).toEqual([
       'Solicitar acesso',
@@ -127,7 +125,6 @@ describe('trimField and codePoints', () => {
     ['\n\r\v\f Grafana', 'Grafana'],
     [`${NBSP}Grafana${IDEOGRAPHIC_SPACE}`, 'Grafana'],
     [`${NEXT_LINE}Grafana${LINE_SEPARATOR}`, 'Grafana'],
-    // U+FEFF is not whitespace for the backend (Go's unicode.IsSpace).
     [`${BOM}Grafana`, `${BOM}Grafana`],
     ['Portal  do aluno', 'Portal  do aluno']
   ])('trimField(%j) → %j', (raw, want) => {
@@ -140,8 +137,7 @@ describe('trimField and codePoints', () => {
   })
 })
 
-// The BR-3 vectors of backend/internal/service/tickets_test.go
-// (titleVectors), so both sides build the same title.
+// Same vectors as backend/internal/service/tickets_test.go (titleVectors)
 const rep = (value: string, n: number) => value.repeat(n)
 
 const access = (sistema: string): TicketInput => ({
@@ -243,7 +239,7 @@ const titleVectors: [string, TicketInput, string][] = [
   ]
 ]
 
-describe('ticketTitle (BR-3)', () => {
+describe('ticketTitle', () => {
   it.each(titleVectors)('%s', (_name, input, want) => {
     const title = ticketTitle(input)
     expect(title).toBe(want)
@@ -252,8 +248,7 @@ describe('ticketTitle (BR-3)', () => {
   })
 })
 
-// Copied from the Go table of backend/internal/security/ticket_status_test.go
-// (spec 003 BR-3): every from × to pair and whether it is allowed.
+// Same table as backend/internal/security/ticket_status_test.go
 const transitionVectors: [TicketStatus, TicketStatus, boolean][] = [
   ['aberto', 'aberto', false],
   ['aberto', 'em_andamento', true],
@@ -273,7 +268,7 @@ const transitionVectors: [TicketStatus, TicketStatus, boolean][] = [
   ['fechado', 'fechado', false]
 ]
 
-describe('ALLOWED_NEXT_STATUSES (BR-3)', () => {
+describe('ALLOWED_NEXT_STATUSES', () => {
   it.each(transitionVectors)('%s → %s: %s', (from, to, allowed) => {
     const next: readonly TicketStatus[] = ALLOWED_NEXT_STATUSES[from]
     expect(next.includes(to)).toBe(allowed)
@@ -290,7 +285,7 @@ describe('ALLOWED_NEXT_STATUSES (BR-3)', () => {
   })
 })
 
-describe('checkMessage and messageSchema (spec 003 BR-6)', () => {
+describe('checkMessage and messageSchema', () => {
   it.each([
     ['one character', 'a'],
     ['2000 characters', 'a'.repeat(2000)],
@@ -326,7 +321,7 @@ describe('checkMessage and messageSchema (spec 003 BR-6)', () => {
   })
 })
 
-describe('ticketDetailRows (spec 003 AC-2.2)', () => {
+describe('ticketDetailRows', () => {
   const show = (rows: ReturnType<typeof ticketDetailRows>) =>
     rows.map(
       row => `${row.label}: ${row.value ?? 'null'}${row.risky ? '!' : ''}`

@@ -8,8 +8,6 @@ import (
 func TestTicketConflictErrors(t *testing.T) {
 	t.Parallel()
 
-	// Plan P-14: both are a 409 (ErrConflict) and stay distinct, so each
-	// can carry its own message.
 	tests := []struct {
 		name   string
 		err    error

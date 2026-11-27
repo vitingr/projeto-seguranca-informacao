@@ -27,7 +27,6 @@ test.describe('registration as admin', () => {
 
   test('registers a user, then the same login is taken', async ({ page }) => {
     const user = newUser()
-    // Typed in upper case: the backend answers with the normalized login.
     await fillCadastro(page, {
       login: user.login.toUpperCase(),
       papel: 'comum',
@@ -70,8 +69,6 @@ test.describe('registration as admin', () => {
     context,
     page
   }) => {
-    // A first submission (409: the login is taken) leaves the CSRF token in
-    // memory, as during normal use. Nothing is created.
     await fillCadastro(page, {
       login: seedAdmin().login,
       papel: 'comum',
@@ -84,8 +81,6 @@ test.describe('registration as admin', () => {
     )
     expect(session).toBeDefined()
 
-    // The session is deleted on the server (as an idle timeout would do),
-    // but this tab still holds the old cookie.
     const other = await context.newPage()
     await other.goto('/')
     await other.evaluate(async () => {
@@ -106,14 +101,12 @@ test.describe('registration as admin', () => {
       senha: user.password
     })
 
-    // 403 (no session) → new token → retry → 401 → login with the notice.
     await expect(page).toHaveURL('/login?next=%2Fcadastro&sessao=expirada')
     await expect(page.getByTestId('form-error')).toHaveText(
       'Sua sessão expirou. Entre novamente.'
     )
     expect(calls.filter(c => c === 'POST /api/cadastro')).toHaveLength(2)
 
-    // The user was not created: the same login can still be registered.
     await loginAs(page, seedAdmin(), '/cadastro', '?next=%2Fcadastro')
     await fillCadastro(page, {
       login: user.login,

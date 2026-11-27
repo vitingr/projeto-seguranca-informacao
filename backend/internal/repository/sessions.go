@@ -30,8 +30,6 @@ func (r *Sessions) Create(ctx context.Context, s domain.Session) error {
 }
 
 func (r *Sessions) Get(ctx context.Context, tokenHash []byte) (domain.Session, error) {
-	// The login and registration date of the user come from the same JOIN
-	// as the role, so GET /api/me costs no extra query.
 	const q = `SELECT s.token_hash, s.user_id, u.role, u.login, u.created_at, s.csrf_token, s.created_at, s.last_seen_at, s.expires_at
 		FROM sessions s
 		LEFT JOIN users u ON u.id = s.user_id

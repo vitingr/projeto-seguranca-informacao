@@ -9,7 +9,7 @@ const render = (props: Partial<Parameters<typeof TextAreaField>[0]> = {}) =>
   )
 
 describe('TextAreaField', () => {
-  it('shows the count against the limit inside the box (AC-3.1)', () => {
+  it('shows the count against the limit inside the box', () => {
     const html = render({ count: 12 })
     expect(html).toMatch(
       /<span class="text-xs tabular-nums text-muted-foreground" data-testid="d-counter" aria-hidden="true">12 \/ 2000<\/span>/

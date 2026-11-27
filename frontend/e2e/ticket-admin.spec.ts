@@ -11,11 +11,6 @@ import {
   reply
 } from './support/tracking'
 
-// The admin's ticket page (spec 003 US-5, task T10.2): header with the
-// author, "Detalhes", the support view of the thread, the reply box and the
-// way back to the queue. A second admin of this file shows how other admins
-// appear.
-
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 const PAYLOAD = '<img src=x onerror=alert(1)> <b>negrito</b>'
 
@@ -57,7 +52,7 @@ test.describe('as admin', () => {
     await loginAs(page, seedAdmin(), '/administradores')
   })
 
-  test('opens a ticket from the queue, with "Usuário" in the header (AC-5.1, AC-5.2)', async ({
+  test('opens a ticket from the queue, with "Usuário" in the header', async ({
     page
   }) => {
     await page.goto(`/administradores?usuario=${author.login}`)
@@ -83,7 +78,7 @@ test.describe('as admin', () => {
     await expect(page).toHaveURL(`/administradores?usuario=${author.login}`)
   })
 
-  test('shows the support view of the thread (AC-5.3)', async ({ page }) => {
+  test('shows the support view of the thread', async ({ page }) => {
     await page.goto(`${adminPath(id)}?aba=conversa`)
     await expect(items(page).nth(0)).toHaveText(
       new RegExp(`^${author.login.replaceAll('.', '\\.')} abriu o ticket`)
@@ -103,7 +98,7 @@ test.describe('as admin', () => {
     await expect(fromColleague.locator('[data-support-mark]')).toBeAttached()
   })
 
-  test('replies to the author; the author sees "Suporte" (AC-5.4)', async ({
+  test('replies to the author; the author sees "Suporte"', async ({
     browser,
     page
   }) => {
@@ -150,14 +145,14 @@ test.describe('as admin', () => {
   })
 })
 
-test('a comum user gets the forbidden screen (S-1)', async ({ page }) => {
+test('a comum user gets the forbidden screen', async ({ page }) => {
   await loginAs(page, author, '/usuarios')
   await page.goto(adminPath(id))
   await expect(page.getByTestId('forbidden')).toHaveText(FORBIDDEN)
   await expect(page.getByTestId('ticket-header')).toHaveCount(0)
 })
 
-test('without a session, the login brings the admin back to the ticket (S-15)', async ({
+test('without a session, the login brings the admin back to the ticket', async ({
   page
 }) => {
   await page.goto(adminPath(id))

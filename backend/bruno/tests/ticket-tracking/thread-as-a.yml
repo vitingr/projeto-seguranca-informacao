@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 AC-3.3: a new ticket has no entry yet (the opening line
-        // comes from created_at, it is not stored).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

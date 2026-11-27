@@ -19,21 +19,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Mantenha alinhado ao go.mod e ao Dockerfile (ver README, "Versão do Go").
   GO_VERSION: "1.27.x"
   GOLANGCI_LINT_VERSION: v2.14.0
   GOVULNCHECK_VERSION: v1.9.0
-  # Node.js runs the Bruno and Redocly CLIs through npx (versions pinned in
-  # backend/magefiles).
   NODE_VERSION: "24"
 
-# The backend lives in backend/ inside the repository; every run step uses it
-# as the working directory.
 defaults:
   run:
     working-directory: backend
 
-# Actions fixadas por SHA de commit (proteção da cadeia de suprimentos).
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -85,7 +79,6 @@ jobs:
       - name: Magefile tests
         run: go test -race -tags mage ./magefiles
 
-  # The contract is valid OpenAPI 3.1 and the generated Bruno folders match it.
   contract:
     runs-on: ubuntu-latest
     steps:
@@ -105,7 +98,6 @@ jobs:
       - name: Check that the Bruno collection matches the contract
         run: |
           go tool mage bruno
-          # --porcelain also lists new untracked files, which git diff misses.
           if [ -n "$(git status --porcelain -- bruno/)" ]; then
             echo "::error::bruno/ does not match api/openapi.json: run 'mage bruno' and commit the result"
             git status --porcelain -- bruno/
@@ -113,7 +105,6 @@ jobs:
             exit 1
           fi
 
-  # Runs the Bruno assertions against the full stack (app + PostgreSQL).
   e2e:
     runs-on: ubuntu-latest
     needs: [test]

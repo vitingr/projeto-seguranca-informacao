@@ -32,9 +32,6 @@ func DefaultArgon2Params() Argon2Params {
 	}
 }
 
-// Limits for the parameters of a stored hash (D-15). A PHC string outside
-// them is rejected before any work, so a tampered hash cannot make
-// VerifyPassword allocate or compute without bound.
 const (
 	maxArgon2Memory      = 256 * 1024 // KiB (256 MiB)
 	maxArgon2Iterations  = 10
@@ -43,7 +40,6 @@ const (
 	maxArgon2Bytes       = 64
 )
 
-// validate reports whether p is within the D-15 limits.
 func (p Argon2Params) validate() error {
 	switch {
 	case p.Memory < 8*uint32(p.Parallelism) || p.Memory > maxArgon2Memory:
@@ -62,8 +58,6 @@ func (p Argon2Params) validate() error {
 
 var phcEncoding = base64.RawStdEncoding.Strict()
 
-// errBadHash is returned for every malformed or out-of-limits PHC string.
-// It does not say which part is wrong, so the error is safe to log.
 var errBadHash = fmt.Errorf("security: verify password: malformed hash: %w", domain.ErrInvalidCredentials)
 
 func (s *Security) HashPassword(ctx context.Context, password string) (string, error) {
@@ -97,7 +91,6 @@ func (s *Security) VerifyPassword(ctx context.Context, encodedHash, password str
 	return nil
 }
 
-// deriveKey runs Argon2id while holding a slot of the hash semaphore.
 func (s *Security) deriveKey(ctx context.Context, password string, salt []byte, p Argon2Params) ([]byte, error) {
 	if err := s.acquireHashSlot(ctx); err != nil {
 		return nil, err
@@ -106,8 +99,6 @@ func (s *Security) deriveKey(ctx context.Context, password string, salt []byte, 
 	return argon2.IDKey([]byte(password), salt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength), nil
 }
 
-// acquireHashSlot waits for a free slot or for ctx to end. A context that
-// has already ended never takes a slot.
 func (s *Security) acquireHashSlot(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("wait for hash slot: %w", err)
@@ -128,9 +119,6 @@ func formatParams(p Argon2Params) string {
 	return fmt.Sprintf("m=%d,t=%d,p=%d", p.Memory, p.Iterations, p.Parallelism)
 }
 
-// parsePHC decodes $argon2id$v=19$m=<m>,t=<t>,p=<p>$<salt>$<key>. Only the
-// canonical form is accepted: the exact field order, decimal numbers
-// without leading zeros or signs, and strict unpadded base64.
 func parsePHC(encoded string) (p Argon2Params, salt, key []byte, ok bool) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" ||
@@ -157,7 +145,6 @@ func parsePHC(encoded string) (p Argon2Params, salt, key []byte, ok bool) {
 		return p, nil, nil, false
 	}
 
-	// Bounds checked here, next to the conversions below.
 	saltLen, keyLen := len(salt), len(key)
 	if par > maxArgon2Parallelism ||
 		saltLen < minArgon2Bytes || saltLen > maxArgon2Bytes ||
@@ -177,7 +164,6 @@ func parsePHC(encoded string) (p Argon2Params, salt, key []byte, ok bool) {
 	return p, salt, key, true
 }
 
-// parseParam parses "<prefix><n>" with 0 < n ≤ limit.
 func parseParam(field, prefix string, limit uint32) (uint32, bool) {
 	digits, found := strings.CutPrefix(field, prefix)
 	if !found || digits == "" || len(digits) > 10 {

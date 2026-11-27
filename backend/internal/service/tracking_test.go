@@ -11,10 +11,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Tests of the spec 003 methods of Tickets. The fakes of tickets_test.go
-// gain here the methods the grown interfaces need, so that file stays as
-// it is; they are not used by these tests.
-
 var errNotInFake = errors.New("not implemented by this fake")
 
 func (m *memTickets) Get(context.Context, domain.TicketID) (domain.Ticket, string, error) {
@@ -33,7 +29,6 @@ func (m *memTickets) QueueAuthors(context.Context, int) ([]string, error) {
 	return nil, errNotInFake
 }
 
-// trackingCall is one call a trackingRepo received.
 type trackingCall struct {
 	method string
 	author domain.UserID
@@ -47,8 +42,6 @@ type trackingCall struct {
 	to     domain.TicketStatus
 }
 
-// trackingRepo is a TicketRepository and a TicketEntryRepository that
-// records every call and answers with fixed values, or err when set.
 type trackingRepo struct {
 	calls  []trackingCall
 	err    error
@@ -118,7 +111,6 @@ func TestListOwnTakesTheAuthorFromTheCaller(t *testing.T) {
 		Total: 1, Page: 1, Pages: 1,
 	}}
 	s := newTrackingService(repo)
-	// S-3: an author login in the query never chooses whose list it is.
 	q := domain.TicketListQuery{Status: domain.TicketStatusOpen, Type: domain.TicketTypeBug, AuthorLogin: "outra.pessoa", Page: 2}
 	got, err := s.ListOwn(t.Context(), author, q)
 	if err != nil {
@@ -245,8 +237,6 @@ func (r *trackingRepo) ChangeStatus(_ context.Context, ticket domain.TicketID, a
 	return domain.TicketEntry{ID: 78, TicketID: ticket, ActorID: actor, Kind: domain.EntryKindStatusChange, From: from, To: to, CreatedAt: trackingTime}, nil
 }
 
-// orderValidator is a TicketValidator that records the order of the calls
-// in log, shared with the repository fake through record.
 type orderValidator struct {
 	repo      *trackingRepo
 	text      string
@@ -291,7 +281,6 @@ func TestReplyValidatesThenStores(t *testing.T) {
 	if methods(repo.calls) != "ValidateMessage,AddMessage" {
 		t.Fatalf("calls = %s, want the rule first, then the store", methods(repo.calls))
 	}
-	// The trimmed text, the session actor and the ticket of TicketAccess.
 	want := trackingCall{method: "AddMessage", ticket: 9, actor: author, text: "Oi, tudo bem?"}
 	if repo.calls[1] != want {
 		t.Errorf("AddMessage call = %+v, want %+v", repo.calls[1], want)
@@ -341,8 +330,6 @@ func TestReplyRefusals(t *testing.T) {
 	}
 }
 
-// failingEntries answers every write of the embedded fake with err, after
-// recording it.
 type failingEntries struct {
 	*trackingRepo
 	err error
@@ -393,7 +380,7 @@ func TestChangeStatusRefusals(t *testing.T) {
 		want      error
 		calls     string
 	}{
-		{"pair BR-3 never allows", adminActor, forbidden, nil, domain.ErrInvalidInput, "CheckStatusChange"},
+		{"pair the transition table never allows", adminActor, forbidden, nil, domain.ErrInvalidInput, "CheckStatusChange"},
 		{"change from fechado", adminActor, fromClosed, nil, domain.ErrStaleStatus, "CheckStatusChange"},
 		{"stale status in the database", adminActor, nil, stale, domain.ErrStaleStatus, "CheckStatusChange,ChangeStatus"},
 		{"no actor is a server error", 0, nil, nil, errNoAuthor, ""},
@@ -434,9 +421,6 @@ func TestWritesWithoutEntryRepositoryFailClosed(t *testing.T) {
 	}
 }
 
-// TestWritesWithTheSecurityRules wires the real security rules, so the
-// service and security.Security agree on the message rule and the BR-3
-// codes (422 for a forbidden pair, 409 from "fechado").
 func TestWritesWithTheSecurityRules(t *testing.T) {
 	t.Parallel()
 
@@ -464,7 +448,6 @@ func TestWritesWithTheSecurityRules(t *testing.T) {
 	if _, err := s.ChangeStatus(ctx, adminActor, 9, domain.TicketStatusResolved, domain.TicketStatusInProgress); err != nil {
 		t.Errorf("resolvido → em_andamento = %v, want allowed", err)
 	}
-	// Only the accepted reply and the allowed change reached the store.
 	if got := methods(repo.calls); got != "AddMessage,ChangeStatus" {
 		t.Errorf("store calls = %s, want AddMessage,ChangeStatus", got)
 	}

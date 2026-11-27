@@ -7,11 +7,6 @@ import { Button } from '@/components/ui/shadcn/button'
 
 import type { SideCardProps } from './types'
 
-/**
- * A small bordered card of the side column ("Dicas", "Prévia"), as in
- * `design/references/tela-criacao-tickets.png`: an icon, a title and a
- * button on a light gray square that collapses the body.
- */
 export const SideCard = ({
   children,
   defaultOpen = true,

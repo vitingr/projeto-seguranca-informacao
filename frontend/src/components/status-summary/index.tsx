@@ -9,11 +9,6 @@ import type { StatusSummaryProps } from './types'
 
 export const SUMMARY_LABEL = 'Tickets por status'
 
-/**
- * The summary of the queue (spec 003 AC-4.5): "Aberto 4 · Em andamento 2 ·
- * Resolvido 9 · Fechado 1" over the whole queue, whatever the filters; each
- * item is a link that sets the status filter (back on page 1).
- */
 export const StatusSummary = ({ counts, query }: StatusSummaryProps) => (
   <nav aria-label={SUMMARY_LABEL}>
     <ul className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">

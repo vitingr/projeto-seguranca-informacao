@@ -10,11 +10,6 @@ import {
   reply
 } from './support/tracking'
 
-// The "Conversa" tab of the author's ticket page (spec 003 US-3, task T8.3):
-// both sides of the thread, the status lines, the position on open, the
-// explicit refresh and the empty thread. Entries are created through the
-// API, as the author and as the seed admin.
-
 const OTHER = (titulo: string) =>
   ({
     dados: {
@@ -32,7 +27,6 @@ const openConversa = async (page: Page, id: number) => {
 const thread = (page: Page) =>
   page.getByRole('list', { name: 'Conversa do ticket' })
 
-/** The thread region is scrolled to its end and fits the screen. */
 const expectLatestInView = async (page: Page) => {
   const region = page.getByTestId('thread-scroll')
   await expect
@@ -79,7 +73,7 @@ test.beforeEach(async ({ page }) => {
   await loginAs(page, author, '/usuarios')
 })
 
-test('shows both sides and the status lines in date order (AC-3.1, AC-3.2)', async ({
+test('shows both sides and the status lines in date order', async ({
   page
 }) => {
   await openConversa(page, talked)
@@ -100,22 +94,20 @@ test('shows both sides and the status lines in date order (AC-3.1, AC-3.2)', asy
   await expect(items.nth(3)).toContainText('Estamos olhando agora.')
   await expect(items.nth(3).locator('[data-support-mark]')).toBeAttached()
   await expect(items.nth(4)).toHaveAttribute('data-side', 'own')
-  // The comum author never sees an admin login (S-13).
   await expect(thread(page)).not.toContainText(seedAdmin().login)
 })
 
-test('opens on the latest entry, inside a bounded scroll region (AC-3.4a)', async ({
+test('opens on the latest entry, inside a bounded scroll region', async ({
   page
 }) => {
   await openConversa(page, long)
   const items = thread(page).locator(':scope > li')
   await expect(items).toHaveCount(15)
   await expectLatestInView(page)
-  // Older entries are reached by scrolling up inside the region.
   await expect(items.first()).not.toBeInViewport()
 })
 
-test('opening "Conversa" from "Detalhes" also shows the latest entry (AC-3.4a)', async ({
+test('opening "Conversa" from "Detalhes" also shows the latest entry', async ({
   page
 }) => {
   await page.goto(`/usuarios/tickets/${long}`)
@@ -123,7 +115,7 @@ test('opening "Conversa" from "Detalhes" also shows the latest entry (AC-3.4a)',
   await expectLatestInView(page)
 })
 
-test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself (AC-3.10, BR-9)', async ({
+test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself', async ({
   browser,
   page
 }) => {
@@ -141,7 +133,7 @@ test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself (AC
   )
 })
 
-test('an empty thread shows the opening line and the invitation (AC-3.3)', async ({
+test('an empty thread shows the opening line and the invitation', async ({
   page
 }) => {
   await openConversa(page, empty)

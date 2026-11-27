@@ -6,8 +6,6 @@ import { comumUser, generateComumCredentials, seedAdmin } from './support/env'
 import { loginAs, recordApiCalls, submitLogin } from './support/login'
 import { expectNothingInBrowserStorage } from './support/storage'
 
-// The ticket builder (spec 001-ticket-builder) at /usuarios/tickets/novo.
-
 const BUILDER = '/usuarios/tickets/novo'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
@@ -18,9 +16,7 @@ const stepHeading = (page: Page, name: string) =>
   page.getByRole('heading', { level: 2, name })
 
 test.describe('opening the builder', () => {
-  test('comum opens it from "Novo ticket" on /usuarios (AC-1.1)', async ({
-    page
-  }) => {
+  test('comum opens it from "Novo ticket" on /usuarios', async ({ page }) => {
     await loginAs(page, comumUser(), '/usuarios')
     await page.getByRole('link', { name: 'Novo ticket' }).click()
     await expect(page).toHaveURL(BUILDER)
@@ -30,7 +26,7 @@ test.describe('opening the builder', () => {
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
   })
 
-  test('admin sees no link to it and gets the forbidden screen (AC-1.2)', async ({
+  test('admin sees no link to it and gets the forbidden screen', async ({
     page
   }) => {
     await loginAs(page, seedAdmin(), '/administradores')
@@ -47,9 +43,7 @@ test.describe('opening the builder', () => {
     await expect(typeGroup(page)).toHaveCount(0)
   })
 
-  test('anonymous goes to login and comes back after it (AC-1.3)', async ({
-    page
-  }) => {
+  test('anonymous goes to login and comes back after it', async ({ page }) => {
     await page.goto(BUILDER)
     await expect(page).toHaveURL(`/login?next=${encodeURIComponent(BUILDER)}`)
     await submitLogin(page, comumUser())
@@ -64,7 +58,7 @@ test.describe('type step', () => {
     await page.goto(BUILDER)
   })
 
-  test('shows the four types with none selected (AC-2.1)', async ({ page }) => {
+  test('shows the four types with none selected', async ({ page }) => {
     const radios = typeGroup(page).getByRole('radio')
     await expect(radios).toHaveCount(4)
     for (const name of [
@@ -82,17 +76,14 @@ test.describe('type step', () => {
     ).toContainText('TipoEscolha do pedido')
   })
 
-  test('continuing with no type stays and explains (AC-2.2)', async ({
-    page
-  }) => {
+  test('continuing with no type stays and explains', async ({ page }) => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByText('Escolha um tipo de ticket.')).toBeVisible()
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
-    // The focus goes to the group (AC-3.5).
     await expect(typeGroup(page).getByRole('radio').first()).toBeFocused()
   })
 
-  test('works with the keyboard alone (AC-2.5)', async ({ page }) => {
+  test('works with the keyboard alone', async ({ page }) => {
     const radio = (name: string) => typeGroup(page).getByRole('radio', { name })
     await radio('Solicitar acesso').focus()
     await page.keyboard.press('Space')
@@ -118,10 +109,7 @@ test.describe('type step', () => {
     )
   })
 
-  test('a selected type continues to the details step (AC-2.3)', async ({
-    page
-  }) => {
-    // A click anywhere on the card selects it.
+  test('a selected type continues to the details step', async ({ page }) => {
     await typeGroup(page).getByText('Outro', { exact: true }).click()
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Detalhes')).toBeFocused()
@@ -132,9 +120,6 @@ test.describe('type step', () => {
     ).toHaveText(['TipoEscolha do pedido(concluída)'])
   })
 })
-
-// The details step (task T9.6). No ticket is sent here, so the shared comum
-// user stays far from the rate limit.
 
 const goToDetails = async (page: Page, typeLabel: string) => {
   await typeGroup(page).getByText(typeLabel, { exact: true }).click()
@@ -184,7 +169,7 @@ test.describe('details step', () => {
     await page.goto(BUILDER)
   })
 
-  test('shows the fields of the type, marked, with the session note (AC-2.3, AC-3.1, AC-3.7)', async ({
+  test('shows the fields of the type, marked, with the session note', async ({
     page
   }) => {
     await goToDetails(page, 'Deploy de projeto')
@@ -194,7 +179,6 @@ test.describe('details step', () => {
     await expect(
       page.getByRole('combobox', { name: 'Ambiente' })
     ).toHaveAttribute('aria-required', 'true')
-    // Required: a red asterisk, read as "obrigatório"; optional: "(opcional)".
     await expect(
       page.locator('label', { hasText: 'Nome do projeto' })
     ).toHaveText('Nome do projeto*(obrigatório)')
@@ -211,14 +195,13 @@ test.describe('details step', () => {
     ).toBeVisible()
   })
 
-  test('an empty form stays, explains each field and sends nothing (AC-3.2, AC-3.5, S-2)', async ({
+  test('an empty form stays, explains each field and sends nothing', async ({
     page
   }) => {
     const calls = recordApiCalls(page)
     await goToDetails(page, 'Suporte em bug')
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Detalhes')).toBeVisible()
-    // The first invalid field, in screen order, gets the focus.
     await expect(page.getByLabel('Sistema afetado')).toBeFocused()
     await expect(page.getByText('Preencha este campo.')).toHaveCount(3)
     await expect(page.getByText('Escolha uma opção.')).toHaveCount(1)
@@ -231,9 +214,7 @@ test.describe('details step', () => {
     )
   })
 
-  test('format and length errors say what is expected (AC-3.3, AC-3.4)', async ({
-    page
-  }) => {
+  test('format and length errors say what is expected', async ({ page }) => {
     const calls = recordApiCalls(page)
     await goToDetails(page, 'Deploy de projeto')
     await VALID['Deploy de projeto'](page)
@@ -253,7 +234,7 @@ test.describe('details step', () => {
     )
   })
 
-  test('a field left empty explains itself when the user leaves it (AC-3.2)', async ({
+  test('a field left empty explains itself when the user leaves it', async ({
     page
   }) => {
     await goToDetails(page, 'Outro')
@@ -265,7 +246,6 @@ test.describe('details step', () => {
   test('the counter and the preview follow what is typed', async ({ page }) => {
     await goToDetails(page, 'Outro')
     await page.getByLabel('Título').fill('Liberar porta')
-    // Code points, as the server counts them: the emoji is one.
     await page.getByLabel('Descrição').fill('ação 🚀')
     await expect(page.getByTestId(/-descricao-counter$/)).toHaveText('6 / 2000')
     const preview = page.getByRole('region', { name: 'Prévia' })
@@ -273,7 +253,7 @@ test.describe('details step', () => {
     await expect(preview).toContainText('Outro')
   })
 
-  test('the choice menu shows descriptions, a check and risky options in red (Q-17)', async ({
+  test('the choice menu shows descriptions, a check and risky options in red', async ({
     page
   }) => {
     await goToDetails(page, 'Suporte em bug')
@@ -294,7 +274,7 @@ test.describe('details step', () => {
   })
 
   for (const typeLabel of Object.keys(VALID)) {
-    test(`a valid "${typeLabel}" form continues to the review (AC-3.6)`, async ({
+    test(`a valid "${typeLabel}" form continues to the review`, async ({
       page
     }) => {
       const calls = recordApiCalls(page)
@@ -302,7 +282,6 @@ test.describe('details step', () => {
       await VALID[typeLabel](page)
       await page.getByRole('button', { name: 'Continuar' }).click()
       await expect(stepHeading(page, 'Revisão')).toBeFocused()
-      // Back to the form, every value is kept (AC-4.2).
       await page.getByRole('button', { name: 'Editar' }).click()
       await expect(stepHeading(page, 'Detalhes')).toBeFocused()
       await expect(
@@ -314,9 +293,7 @@ test.describe('details step', () => {
     })
   }
 
-  test('changing the type with data asks inline first (AC-2.4)', async ({
-    page
-  }) => {
+  test('changing the type with data asks inline first', async ({ page }) => {
     await goToDetails(page, 'Outro')
     await page.getByLabel('Título').fill('Liberar porta')
     await page.getByRole('button', { name: 'Voltar' }).click()
@@ -331,13 +308,11 @@ test.describe('details step', () => {
       typeGroup(page).getByRole('radio', { name: 'Outro' })
     ).toHaveAttribute('aria-checked', 'true')
 
-    // Keep: nothing is lost.
     await confirm.getByRole('button', { name: 'Manter o tipo atual' }).click()
     await expect(confirm).toHaveCount(0)
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
 
-    // Change: the new type starts empty.
     await page.getByRole('button', { name: 'Voltar' }).click()
     await typeGroup(page).getByText('Suporte em bug', { exact: true }).click()
     await page
@@ -363,12 +338,8 @@ test.describe('details step', () => {
   })
 })
 
-// The review step (task T9.7).
-
 const reviewCard = (page: Page) => page.getByRole('region', { name: 'Revisão' })
 
-// The value next to a label. For "Outro", "Título" is only the ticket title
-// of the "Pedido" group: the field is not repeated in "Detalhes" (T9.8b).
 const reviewValue = (page: Page, label: string) =>
   reviewCard(page)
     .locator('dt', { hasText: new RegExp(`^${label}$`) })
@@ -380,7 +351,7 @@ test.describe('review step', () => {
     await page.goto(BUILDER)
   })
 
-  test('shows the type, the title and every field as it will be sent (AC-4.1)', async ({
+  test('shows the type, the title and every field as it will be sent', async ({
     page
   }) => {
     await goToDetails(page, 'Deploy de projeto')
@@ -394,7 +365,6 @@ test.describe('review step', () => {
     await expect(reviewValue(page, 'Título')).toHaveText(
       'Deploy de api-pagamentos em Produção'
     )
-    // Trimmed, as the server stores it (BR-4).
     await expect(reviewValue(page, 'Nome do projeto')).toHaveText(
       'api-pagamentos'
     )
@@ -402,7 +372,7 @@ test.describe('review step', () => {
     await expect(reviewValue(page, 'Observações')).toHaveText('Não informado')
   })
 
-  test('shows HTML and markdown literally and runs nothing (AC-4.3, S-8)', async ({
+  test('shows HTML and markdown literally and runs nothing', async ({
     page
   }) => {
     let dialogs = 0
@@ -418,12 +388,10 @@ test.describe('review step', () => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Revisão')).toBeFocused()
 
-    // One "Título" row: the title is not repeated in "Detalhes" (T9.8b).
     await expect(reviewValue(page, 'Título')).toHaveCount(1)
     await expect(reviewValue(page, 'Título')).toHaveText(title)
     await expect(reviewValue(page, 'Descrição')).toHaveText(description)
     await expect(reviewCard(page).locator('img, script, strong')).toHaveCount(0)
-    // The preview shows the same title as text too.
     await expect(
       page.getByRole('region', { name: 'Prévia' }).getByText(title)
     ).toBeVisible()
@@ -431,7 +399,7 @@ test.describe('review step', () => {
     expect(dialogs).toBe(0)
   })
 
-  test('"Editar" goes back to the form with every value kept (AC-4.2)', async ({
+  test('"Editar" goes back to the form with every value kept', async ({
     page
   }) => {
     await goToDetails(page, 'Suporte em bug')
@@ -451,11 +419,6 @@ test.describe('review step', () => {
     )
   })
 })
-
-// Sending and the confirmation (task T9.8). Real tickets are created by a
-// user of their own, registered here, so the shared comum user never gets
-// near the limit of 10 per minute (S-12, plan risk table). The error
-// answers are simulated in the browser and create nothing.
 
 const registerComum = async (browser: Browser) => {
   const user = generateComumCredentials(randomBytes)
@@ -497,8 +460,6 @@ const toReview = async (page: Page, typeLabel: string) => {
 const posts = (calls: string[]) =>
   calls.filter(call => call === 'POST /api/tickets')
 
-// The send progress (task T9.8a, AC-5.5 to AC-5.10).
-
 const progress = (page: Page) => page.getByTestId('send-progress')
 
 const stepStates = (page: Page) =>
@@ -534,7 +495,6 @@ const CREATED = {
   status: 201
 }
 
-/** Holds the POST until `release()`, then answers a fake 201. */
 const holdCreation = async (page: Page) => {
   let release = () => {}
   const gate = new Promise<void>(done => {
@@ -561,7 +521,7 @@ test.describe('sending a ticket', () => {
   })
 
   for (const typeLabel of Object.keys(VALID)) {
-    test(`a "${typeLabel}" ticket reaches the confirmation (AC-5.2)`, async ({
+    test(`a "${typeLabel}" ticket reaches the confirmation`, async ({
       page
     }) => {
       await toReview(page, typeLabel)
@@ -575,7 +535,6 @@ test.describe('sending a ticket', () => {
           .locator('xpath=following-sibling::dd[1]')
       await expect(value('Número')).toHaveText(/^#\d+$/)
       await expect(value('Tipo')).toHaveText(typeLabel)
-      // The title is shown once, also for "Outro" (T9.8b).
       await expect(value('Título')).toHaveCount(1)
       await expect(value('Título')).toHaveText(TITLES[typeLabel])
       await expect(value('Status')).toHaveText('Aberto')
@@ -585,7 +544,6 @@ test.describe('sending a ticket', () => {
       await expect(page.getByRole('status').last()).toHaveText(
         /^Ticket #\d+ criado\.$/
       )
-      // No step can be revisited after sending.
       await expect(
         page
           .getByRole('navigation', { name: 'Etapas do ticket' })
@@ -594,7 +552,7 @@ test.describe('sending a ticket', () => {
     })
   }
 
-  test('a double click sends one request (AC-5.1)', async ({ page }) => {
+  test('a double click sends one request', async ({ page }) => {
     const calls = recordApiCalls(page)
     await toReview(page, 'Outro')
     await page.getByRole('button', { name: 'Enviar ticket' }).dblclick()
@@ -602,7 +560,7 @@ test.describe('sending a ticket', () => {
     expect(posts(calls)).toHaveLength(1)
   })
 
-  test('nothing typed stays in storage or in the URL (S-10), and "Criar outro ticket" starts over (AC-5.4)', async ({
+  test('nothing typed stays in storage or in the URL, and "Criar outro ticket" starts over', async ({
     page
   }) => {
     await toReview(page, 'Suporte em bug')
@@ -628,8 +586,6 @@ test.describe('sending a ticket', () => {
     await expect(page).toHaveURL('/usuarios')
   })
 
-  // Spec 003 AC-1.11: the confirmation opens the new ticket, and the list
-  // holds it at the top.
   test('"Ver ticket" opens the new ticket; the list shows it first', async ({
     page
   }) => {
@@ -680,22 +636,22 @@ test.describe('errors when sending (US-6)', () => {
 
   for (const [name, reply, message] of [
     [
-      'invalid data (422, AC-6.1)',
+      'invalid data (422)',
       answer(422, 'unprocessable_entity'),
       'Dados inválidos. Revise os campos e tente novamente.'
     ],
     [
-      'too many requests (429, AC-6.7)',
+      'too many requests (429)',
       answer(429, 'too_many_requests'),
       'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
     ],
     [
-      'lost permission (403, AC-6.5)',
+      'lost permission (403)',
       answer(403, 'forbidden'),
       'Você não tem permissão para realizar esta ação.'
     ],
     [
-      'server error (500, AC-6.4)',
+      'server error (500)',
       answer(500, 'internal'),
       'Ocorreu um erro inesperado. Tente novamente mais tarde. (código: req-e2e-1)'
     ]
@@ -710,13 +666,11 @@ test.describe('errors when sending (US-6)', () => {
         'role',
         'status'
       )
-      // The progress stops on "Registrando ticket" (AC-5.7).
       await expectStoppedProgress(page)
       await expect(stepHeading(page, 'Revisão')).toBeVisible()
       await expect(
         page.getByRole('button', { name: 'Enviar ticket' })
       ).toBeEnabled()
-      // The data is kept: back on the form, every value is there.
       await page.getByRole('button', { name: 'Editar' }).click()
       await expect(page.getByLabel('Título')).toHaveValue(
         'Liberar porta no firewall'
@@ -724,7 +678,7 @@ test.describe('errors when sending (US-6)', () => {
     })
   }
 
-  test('a network failure keeps the data and allows sending again (AC-6.3)', async ({
+  test('a network failure keeps the data and allows sending again', async ({
     page
   }) => {
     let fail = true
@@ -756,7 +710,7 @@ test.describe('errors when sending (US-6)', () => {
     await expect(page.getByTestId('send-error')).toHaveCount(0)
   })
 
-  test('the 429 is not retried by the page (AC-6.7)', async ({ page }) => {
+  test('the 429 is not retried by the page', async ({ page }) => {
     const calls = recordApiCalls(page)
     await page.route('**/api/tickets', route =>
       route.fulfill(answer(429, 'too_many_requests'))
@@ -767,10 +721,7 @@ test.describe('errors when sending (US-6)', () => {
     expect(posts(calls)).toHaveLength(1)
   })
 
-  test('an expired session goes to the login page (AC-6.2)', async ({
-    page
-  }) => {
-    // A real expiry: the session cookie is gone when the user sends.
+  test('an expired session goes to the login page', async ({ page }) => {
     await toReview(page, 'Outro')
     await page.context().clearCookies()
     await page.getByRole('button', { name: 'Enviar ticket' }).click()
@@ -783,7 +734,7 @@ test.describe('errors when sending (US-6)', () => {
   })
 })
 
-test('an admin cannot create a ticket, even calling the API (S-6)', async ({
+test('an admin cannot create a ticket, even calling the API', async ({
   page
 }) => {
   await loginAs(page, seedAdmin(), '/administradores')
@@ -802,13 +753,12 @@ test('an admin cannot create a ticket, even calling the API (S-6)', async ({
   expect(status).toBe(403)
 })
 
-// The answers here are simulated, so nothing is created.
 test.describe('send progress', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, comumUser(), '/usuarios')
   })
 
-  test('the request starts on the click and the steps follow the real events (AC-5.5, AC-5.6, AC-5.8, AC-5.10)', async ({
+  test('the request starts on the click and the steps follow the real events', async ({
     page
   }) => {
     const hold = await holdCreation(page)
@@ -816,12 +766,9 @@ test.describe('send progress', () => {
     const clicked = Date.now()
     await page.getByRole('button', { name: 'Enviar ticket' }).click()
 
-    // The POST left at once, before any answer.
     await expect.poll(() => hold.seen.length).toBe(1)
     expect(hold.seen[0] - clicked).toBeLessThan(1000)
 
-    // While pending: fields checked, "Registrando ticket" in progress, no
-    // confirmation step and no confirmation.
     await expect(progress(page)).toHaveAttribute('data-phase', 'registering')
     expect(await stepStates(page)).toEqual([
       ['Validando campos', 'done'],
@@ -831,12 +778,10 @@ test.describe('send progress', () => {
     await expect(stepHeading(page, 'Ticket criado')).toHaveCount(0)
     await expect(progress(page)).toContainText('Enviando ticket')
     await expect(page.getByRole('status').last()).toHaveText('Enviando ticket.')
-    // Chips with the type and the field names, never the values.
     const chips = progress(page).locator('ul li')
     await expect(chips).toHaveText(['Outro', 'Título', 'Descrição'])
     await expect(progress(page)).not.toContainText('Liberar porta')
 
-    // The answer arrives: the confirmation shows with no fixed wait.
     const released = Date.now()
     hold.release()
     await expect(stepHeading(page, 'Ticket criado')).toBeVisible()
@@ -854,7 +799,7 @@ test.describe('send progress', () => {
     )
   })
 
-  test.describe('with reduced motion (AC-5.9)', () => {
+  test.describe('with reduced motion', () => {
     test.use({ reducedMotion: 'reduce' })
 
     const animations = (page: Page) =>
@@ -889,9 +834,6 @@ test.describe('send progress', () => {
   })
 })
 
-// The steps in the browser history and the leave warning (task T9.9). The
-// one send is answered in the browser, so nothing is created.
-
 const atStep = (step?: string) =>
   new RegExp(`${BUILDER}${step ? `\\?etapa=${step}` : ''}$`)
 
@@ -907,13 +849,13 @@ const sendFakeTicket = async (page: Page) => {
   await expect(page).toHaveURL(atStep('confirmacao'))
 }
 
-test.describe('step history and leaving (T9.9)', () => {
+test.describe('step history and leaving', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, comumUser(), '/usuarios')
     await page.goto(BUILDER)
   })
 
-  test('Back moves one step with the values kept and never sends (spec section 7, S-10)', async ({
+  test('Back moves one step with the values kept and never sends', async ({
     page
   }) => {
     const calls = recordApiCalls(page)
@@ -922,7 +864,6 @@ test.describe('step history and leaving (T9.9)', () => {
     await VALID.Outro(page)
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(stepHeading(page, 'Revisão')).toBeFocused()
-    // Only the step is in the URL, never a typed value.
     await expect(page).toHaveURL(atStep('revisao'))
 
     await page.goBack()
@@ -932,7 +873,6 @@ test.describe('step history and leaving (T9.9)', () => {
       'Liberar porta no firewall'
     )
 
-    // Forward does not skip the check of "Continuar".
     await page.goForward()
     await expect(page).toHaveURL(atStep('detalhes'))
     await expect(stepHeading(page, 'Detalhes')).toBeVisible()
@@ -957,38 +897,33 @@ test.describe('step history and leaving (T9.9)', () => {
     await expect(page).toHaveURL(atStep('detalhes'))
     await page.getByRole('button', { name: 'Voltar' }).click()
     await expect(page).toHaveURL(atStep())
-    // Forward again is undone, as above.
     await page.goForward()
     await expect(page).toHaveURL(atStep())
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
   })
 
-  test('reload on the confirmation sends nothing (AC-5.3)', async ({
-    page
-  }) => {
+  test('reload on the confirmation sends nothing', async ({ page }) => {
     const calls = recordApiCalls(page)
     await sendFakeTicket(page)
     expect(posts(calls)).toHaveLength(1)
 
     await page.reload()
-    // The typed data lived in the page only (BR-7): the builder starts over.
     await expect(stepHeading(page, 'Qual é o tipo do pedido?')).toBeVisible()
     await expect(page).toHaveURL(atStep())
     expect(posts(calls)).toHaveLength(1)
   })
 
-  test('Back from the confirmation leaves the builder and sends nothing (AC-5.3)', async ({
+  test('Back from the confirmation leaves the builder and sends nothing', async ({
     page
   }) => {
     const calls = recordApiCalls(page)
     await sendFakeTicket(page)
-    // Sent: no warning, and the steps of the sent ticket are skipped.
     await page.goBack()
     await expect(page).toHaveURL(/\/usuarios$/)
     expect(posts(calls)).toHaveLength(1)
   })
 
-  test('a header link with typed data shows "Sair sem enviar?" and staying keeps the data (AC-3.8)', async ({
+  test('a header link with typed data shows "Sair sem enviar?" and staying keeps the data', async ({
     page
   }) => {
     await goToDetails(page, 'Outro')
@@ -1007,7 +942,6 @@ test.describe('step history and leaving (T9.9)', () => {
     await expect(leaveGuard(page)).toHaveCount(0)
     await expect(page.getByLabel('Título')).toHaveValue('Liberar porta')
 
-    // "Cancelar" goes through the same warning; leaving works.
     await page.getByRole('link', { name: 'Cancelar' }).click()
     await leaveGuard(page)
       .getByRole('button', { name: 'Sair sem enviar' })
@@ -1021,7 +955,7 @@ test.describe('step history and leaving (T9.9)', () => {
     await expect(leaveGuard(page)).toHaveCount(0)
   })
 
-  test('closing the tab with typed data asks the browser first (AC-3.8)', async ({
+  test('closing the tab with typed data asks the browser first', async ({
     page
   }) => {
     await goToDetails(page, 'Outro')
@@ -1037,15 +971,13 @@ test.describe('step history and leaving (T9.9)', () => {
   })
 })
 
-// "Sair" ends the session, so it is warned like a link out (T9.12a, P-16).
-test.describe('logging out with an unsent ticket (T9.12a)', () => {
+test.describe('logging out with an unsent ticket', () => {
   const logoutButton = (page: Page) =>
     page.getByRole('button', { exact: true, name: 'Sair' })
 
   const logouts = (calls: string[]) =>
     calls.filter(call => call === 'POST /api/logout')
 
-  /** Every browser dialog the page opens, dismissed so nothing hangs. */
   const recordDialogs = (page: Page) => {
     const dialogs: string[] = []
     page.on('dialog', async prompt => {
@@ -1064,7 +996,7 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
     { name: 'in the header', width: 1280 },
     { name: 'next to "Menu" on a small screen', width: 360 }
   ]) {
-    test(`"Sair" ${name} with typed data asks inline first (AC-3.8)`, async ({
+    test(`"Sair" ${name} with typed data asks inline first`, async ({
       page
     }) => {
       await page.setViewportSize({ height: 800, width })
@@ -1086,7 +1018,6 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
       })
       await expect(stay).toBeFocused()
 
-      // Staying keeps the session, the data, and gives the focus back.
       await stay.click()
       await expect(leaveGuard(page)).toHaveCount(0)
       await expect(logoutButton(page)).toBeFocused()
@@ -1097,7 +1028,6 @@ test.describe('logging out with an unsent ticket (T9.12a)', () => {
       )
       expect(session).toBe(200)
 
-      // Leaving logs out as "Sair" always does.
       await logoutButton(page).click()
       expect(logouts(calls)).toHaveLength(0)
       await leaveGuard(page)

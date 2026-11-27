@@ -14,26 +14,12 @@ export const THREAD_TEXTS = {
   you: 'Você'
 } as const
 
-/**
- * Who wrote an entry, as the viewer sees it (plan P-11, spec Q-6): "Você"
- * for the viewer; for the comum author every admin is "Suporte"; for an
- * admin, the login of whoever acted.
- */
 export const actorName = (entry: ThreadEntry, view: ThreadView): string => {
   if (entry.mine) return THREAD_TEXTS.you
   if (view === 'own') return THREAD_TEXTS.support
   return entry.actorLogin ?? THREAD_TEXTS.support
 }
 
-/**
- * The entries of a ticket thread (spec 003 AC-3.1 to AC-3.3, AC-5.3), oldest
- * first: the opening line, then the messages and the status lines in date
- * order. The other side is on the left with its mark (the support mark for
- * the comum user; for an admin, the author's generated avatar, and the
- * support mark for other admins); own messages are on the right. Everything
- * is plain text (S-10). With no entry yet, a muted line invites the first
- * message.
- */
 export const Thread = ({
   authorLogin,
   entries,

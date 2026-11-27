@@ -5,7 +5,7 @@ import { ThreadEvent } from '.'
 
 const NOW = '2026-11-26T17:30:00Z'
 
-describe('ThreadEvent (spec 003 AC-3.2)', () => {
+describe('ThreadEvent', () => {
   it('is the opening line with no status', () => {
     const html = renderToStaticMarkup(
       <ThreadEvent actor="Você" now={NOW} time="2026-11-26T17:02:00Z" />

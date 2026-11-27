@@ -13,7 +13,7 @@ const own = readListQuery({ pagina: '3', status: 'aberto' }, 'own')
 const queue = readListQuery({ pagina: '2', tipo: 'bug' }, 'queue')
 const LOGINS = ['ana.lima', 'maria.souza']
 
-describe('filterHref (spec 003 AC-1.5, AC-1.6, AC-4.4)', () => {
+describe('filterHref', () => {
   it('sets the type, keeps the status and goes back to page 1', () => {
     expect(filterHref(own, 'type', 'deploy')).toBe(
       '/usuarios?status=aberto&tipo=deploy'

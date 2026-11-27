@@ -23,7 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // User B, who tries to reach A's tickets.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           expect(res.getBody().role).to.equal("comum");

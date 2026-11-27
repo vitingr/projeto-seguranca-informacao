@@ -5,7 +5,7 @@ import { ThreadMessage, ThreadTime } from '.'
 
 const NOW = '2026-11-26T17:30:00Z'
 
-describe('ThreadTime (spec 003 section 7, "The time")', () => {
+describe('ThreadTime', () => {
   it.each([
     ['2026-11-26T17:04:00Z', '14:04'],
     ['2026-11-25T17:04:00Z', '25/11 14:04'],

@@ -22,8 +22,6 @@ const (
 
 var errStore = errors.New("store is down")
 
-// memStore is an in-memory SessionStore. Get fills Role from roles, like
-// the repository JOIN. Each *Err field makes that method fail.
 type memStore struct {
 	mu                                  sync.Mutex
 	rows                                map[string]domain.Session
@@ -146,7 +144,6 @@ func (m *memStore) resetCalls() {
 	m.calls = nil
 }
 
-// clock is an adjustable time source for Options.Now.
 type clock struct {
 	mu  sync.Mutex
 	now time.Time
@@ -179,7 +176,6 @@ func newSessionSecurity(t *testing.T, store *memStore, clk *clock, logOut *bytes
 	})
 }
 
-// observed is what a handler behind Session saw.
 type observed struct {
 	called    bool
 	principal Principal
@@ -188,8 +184,6 @@ type observed struct {
 	session   bool
 }
 
-// serve sends a request (with the session cookie when token is set)
-// through Session and returns the response and what the handler saw.
 func serve(t *testing.T, s *Security, token string) (*httptest.ResponseRecorder, observed) {
 	t.Helper()
 	var o observed
@@ -210,7 +204,6 @@ func serve(t *testing.T, s *Security, token string) (*httptest.ResponseRecorder,
 	return rr, o
 }
 
-// reqCookie is the session cookie a browser sends back.
 func reqCookie(token string) *http.Cookie {
 	return &http.Cookie{
 		Name:     SessionCookieName,
@@ -221,7 +214,6 @@ func reqCookie(token string) *http.Cookie {
 	}
 }
 
-// sessionCookieFrom returns the session cookie set in rr.
 func sessionCookieFrom(t *testing.T, rr *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, c := range rr.Result().Cookies() {
@@ -242,8 +234,6 @@ func hasSessionCookie(rr *httptest.ResponseRecorder) bool {
 	return false
 }
 
-// login creates an authenticated session for userID through StartSession
-// and returns its token.
 func login(t *testing.T, s *Security, userID domain.UserID, role domain.Role) string {
 	t.Helper()
 	rr := httptest.NewRecorder()
@@ -325,9 +315,6 @@ func TestSessionLoadsAndTouches(t *testing.T) {
 	}
 }
 
-// TestSessionPrincipalCarriesTheProfile covers spec Q-16: the login and the
-// registration time the store reads with the role reach the principal, for
-// GET /api/me.
 func TestSessionPrincipalCarriesTheProfile(t *testing.T) {
 	t.Parallel()
 
@@ -373,7 +360,6 @@ func TestSessionRoleComesFromStore(t *testing.T) {
 	s := newSessionSecurity(t, store, newClock(), nil)
 	token := login(t, s, 2, domain.RoleComum)
 
-	// The user's role changes (or the user row is gone): the session follows.
 	store.mu.Lock()
 	store.roles[2] = ""
 	store.mu.Unlock()
@@ -406,8 +392,6 @@ func TestSessionTimeouts(t *testing.T) {
 			s := newSessionSecurity(t, store, clk, nil)
 			token := login(t, s, 1, domain.RoleAdmin)
 
-			// Continuous activity (always before the absolute limit) keeps
-			// the idle timeout from firing.
 			var spent time.Duration
 			for tt.activity > 0 && spent+tt.activity < min(tt.elapsed, testAbsolute) {
 				clk.Advance(tt.activity)
@@ -444,7 +428,6 @@ func TestSessionStoredExpiryIsNeverExtended(t *testing.T) {
 	s := newSessionSecurity(t, store, clk, nil)
 	token := login(t, s, 1, domain.RoleAdmin)
 
-	// A row whose stored expiry is earlier than both timeouts allow.
 	store.mu.Lock()
 	h := string(hashToken(token))
 	row := store.rows[h]
@@ -536,7 +519,6 @@ func TestStartSession(t *testing.T) {
 	clk := newClock()
 	s := newSessionSecurity(t, store, clk, nil)
 
-	// An anonymous session first, as GET /api/csrf creates.
 	rr := httptest.NewRecorder()
 	anonCSRF, err := s.CSRFToken(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/csrf", http.NoBody))
 	if err != nil {
@@ -544,7 +526,6 @@ func TestStartSession(t *testing.T) {
 	}
 	anonToken := sessionCookieFrom(t, rr).Value
 
-	// Login runs behind Session, which loads the anonymous session.
 	clk.Advance(time.Minute)
 	rr = httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", http.NoBody)
@@ -617,8 +598,6 @@ func TestStartSessionFailures(t *testing.T) {
 			if hasSessionCookie(rr) || store.size() != 0 {
 				t.Error("a failed StartSession must not set a cookie or store a session")
 			}
-			// D-4: an invalid user is an internal error, so login answers 500
-			// after the RespondError mapping, never 400.
 			if errors.Is(err, domain.ErrInvalidInput) {
 				t.Errorf("StartSession() = %v, must not wrap ErrInvalidInput", err)
 			}
@@ -658,7 +637,6 @@ func TestEndSession(t *testing.T) {
 		t.Errorf("Set-Cookie = %q, want Max-Age=0", rr.Header().Get("Set-Cookie"))
 	}
 
-	// The old cookie is now anonymous.
 	if _, o := serve(t, s, token); o.auth || o.session {
 		t.Errorf("old cookie after logout: %+v, want anonymous", o)
 	}
@@ -721,7 +699,6 @@ func TestCSRFToken(t *testing.T) {
 		t.Error("the session token and the CSRF token must differ")
 	}
 
-	// With the session loaded, the same token comes back and nothing is created.
 	store.resetCalls()
 	rr = httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/csrf", http.NoBody)
@@ -821,7 +798,6 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 }
 
-// syncBuffer is a bytes.Buffer safe for a logger in another goroutine.
 type syncBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer

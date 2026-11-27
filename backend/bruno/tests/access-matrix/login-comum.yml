@@ -22,7 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The Argon2id hash stored by the registration verifies.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

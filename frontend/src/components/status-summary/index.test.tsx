@@ -14,7 +14,7 @@ const links = (html: string) =>
     text: body.replace(/<[^>]+>/g, '')
   }))
 
-describe('StatusSummary (spec 003 AC-4.5)', () => {
+describe('StatusSummary', () => {
   it('shows the four counts in order, as links that set the status filter', () => {
     const query = readListQuery(
       { pagina: '2', tipo: 'bug', usuario: 'maria.souza' },

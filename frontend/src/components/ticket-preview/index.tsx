@@ -8,12 +8,6 @@ export const PREVIEW_TEXTS = {
   noType: 'Tipo não escolhido'
 } as const
 
-/**
- * What the ticket will look like, as the "Preview" card of
- * `design/references/tela-criacao-tickets.png`: the type icon, the title
- * (spec BR-3), the type and the chosen options as badges. Every value is
- * rendered as text (spec S-8).
- */
 export const TicketPreview = ({
   badges = [],
   title,

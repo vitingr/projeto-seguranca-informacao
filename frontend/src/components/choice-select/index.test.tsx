@@ -6,8 +6,6 @@ import { Select } from '@base-ui/react/select'
 
 import { ChoiceOptionRow, ChoiceSelect } from '.'
 
-// Static markup only (Node, no DOM): the open menu is checked in
-// e2e/tickets.spec.ts. A row needs the Select and Item context to render.
 const row = (
   option: (typeof SEVERITIES)[number] | (typeof ENVIRONMENTS)[number]
 ) =>

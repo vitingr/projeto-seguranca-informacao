@@ -39,7 +39,6 @@ export interface BugTicketData {
 
 export interface DeployTicketData {
   ambiente: Environment
-  /** Optional: absent, `null` and empty all mean no notes. */
   observacoes?: null | string
   projeto: string
   repositorio: string
@@ -57,7 +56,6 @@ export interface TicketDataByType {
   outro: OtherTicketData
 }
 
-/** `tipo` and the `dados` of that type, with no other key. */
 export type CreateTicketRequest = {
   [Type in TicketType]: { dados: TicketDataByType[Type]; tipo: Type }
 }[TicketType]
@@ -71,13 +69,10 @@ export interface TicketResponse {
   updated_at: string
 }
 
-// Ticket tracking (spec 003).
-
 export type EntryKind = (typeof ENTRY_KINDS)[number]
 
 export type EntrySide = (typeof ENTRY_SIDES)[number]
 
-/** A row of "Meus tickets": never the fields of the type nor author data. */
 export interface TicketSummary {
   created_at: string
   id: number
@@ -87,7 +82,6 @@ export interface TicketSummary {
   updated_at: string
 }
 
-/** A row of the queue: the summary plus the author's login. */
 export interface AdminTicketSummary extends TicketSummary {
   author_login: string
 }
@@ -115,7 +109,6 @@ export interface AuthorList {
   logins: string[]
 }
 
-/** The stored fields of a type: `observacoes` is always there, maybe null. */
 export interface TicketDetailDataByType {
   acesso: AccessTicketData
   bug: BugTicketData
@@ -211,7 +204,6 @@ export interface LoginRequest {
 }
 
 export interface UserResponse {
-  /** When the user was registered (UTC); sent by GET /api/me only. */
   created_at?: string
   login?: string
   role: Role

@@ -50,9 +50,6 @@ func (s *Security) RespondError(w http.ResponseWriter, r *http.Request, err erro
 	s.renderError(w, r, status)
 }
 
-// statusFor maps a domain error to its HTTP status, checked in this order
-// with errors.Is: ErrInvalidInput → 400, ErrNotFound → 404, ErrConflict →
-// 409. Any other error, and nil, is 500 (fail closed).
 func statusFor(err error) int {
 	switch {
 	case err == nil:
@@ -68,7 +65,4 @@ func statusFor(err error) int {
 	}
 }
 
-// errInvalidSessionUser is returned by StartSession for a user that cannot
-// hold a session. It is an internal invariant, not a client error, so it
-// wraps no domain error and RespondError answers 500 (003 D-4).
 var errInvalidSessionUser = errors.New("security: start session: invalid user")

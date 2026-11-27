@@ -31,14 +31,12 @@ describe('formatDate', () => {
   })
 })
 
-describe('formatThreadTime (spec 003 section 7)', () => {
-  const now = '2026-11-26T18:00:00Z' // 26/11/2026 15:00 in São Paulo
-
+describe('formatThreadTime', () => {
+  const now = '2026-11-26T18:00:00Z'
   it.each([
     ['the same day: time only', '2026-11-26T17:04:00Z', '14:04'],
     ['earlier this year: day and month', '2026-11-25T17:04:00Z', '25/11 14:04'],
     ['another year: full date', '2025-11-25T17:04:00Z', '25/11/2025 14:04'],
-    // 02:30 UTC on the 26th is still the 25th in São Paulo
     ['the day boundary of São Paulo', '2026-11-26T02:30:00Z', '25/11 23:30']
   ])('%s', (_name, iso, want) => {
     expect(formatThreadTime(iso, now)).toBe(want)

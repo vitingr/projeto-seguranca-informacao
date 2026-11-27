@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 Q-6, S-13: A sees the admin reply of 240 as "support",
-        // with no login or id of the admin.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

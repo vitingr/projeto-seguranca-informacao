@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-3.5, BR-6: whitespace only is empty after trimming.
         test("status is 422", function () {
           expect(res.getStatus()).to.equal(422);
         });

@@ -24,7 +24,7 @@ describe('Avatar', () => {
     expect(squares).toHaveLength(cells.filter(Boolean).length)
   })
 
-  it('is decorative and loads nothing: no img, link, src or url() (AC-7.2)', () => {
+  it('is decorative and loads nothing: no img, link, src or url()', () => {
     for (const login of ['maria.silva', 'joao', 'x', '<img src=x>']) {
       const html = render(login)
       expect(html).toMatch(/^<span[^>]*aria-hidden="true"/)
@@ -55,8 +55,6 @@ describe('Avatar', () => {
 describe('contrastRatio', () => {
   it('agrees with known pairs', () => {
     expect(contrastRatio('oklch(1 0 0)', 'oklch(0 0 0)')).toBeCloseTo(21, 1)
-    // globals.css notes 5.2:1 for the brand blue against white; the same
-    // color as #155dfc gives 5.25:1 with the WCAG sRGB formula.
     const brand = contrastRatio(
       themeToken('brand'),
       themeToken('brand-foreground')

@@ -14,13 +14,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// Ticket field rules (spec 001-ticket-builder, section 4). Every rule takes
-// the raw value, trims leading and trailing whitespace, and returns the
-// trimmed value or an error wrapping domain.ErrInvalidInput. Lengths are
-// Unicode code points. The errors carry a fixed reason and never the value:
-// ticket fields may hold sensitive data (S-7).
-
-// fieldRule validates one raw field value and returns its stored form.
 type fieldRule func(raw string) (string, error)
 
 const (
@@ -34,15 +27,10 @@ const (
 	fieldCredentials = "credentials in url"
 )
 
-// invalidField is the error of a field rule: only the reason, since the
-// caller wraps it with the name of the field.
 func invalidField(reason string) error {
 	return fmt.Errorf("%s: %w", reason, domain.ErrInvalidInput)
 }
 
-// singleLine accepts text with no control character at all (no line break,
-// tab or NUL) and no Unicode line or paragraph separator, between min and
-// max code points after trimming. min = 0 makes the field optional.
 func singleLine(minLen, maxLen int) fieldRule {
 	return func(raw string) (string, error) {
 		return text(raw, minLen, maxLen, func(r rune) error {
@@ -57,11 +45,7 @@ func singleLine(minLen, maxLen int) fieldRule {
 	}
 }
 
-// multiLine accepts text whose only control characters are line feed,
-// carriage return and tab, between min and max code points after trimming.
-// min = 0 makes the field optional.
-//
-//nolint:unparam // the maximum is part of the rule, as in singleLine; spec section 4 happens to use one value.
+//nolint:unparam // the maximum is part of the rule, as in singleLine
 func multiLine(minLen, maxLen int) fieldRule {
 	return func(raw string) (string, error) {
 		return text(raw, minLen, maxLen, func(r rune) error {
@@ -73,9 +57,6 @@ func multiLine(minLen, maxLen int) fieldRule {
 	}
 }
 
-// httpsURL accepts an absolute https URL with a host and no user name or
-// password, up to max code points, with no whitespace or control character
-// inside. SSH addresses (git@host:repo) and any other scheme are refused.
 func httpsURL(maxLen int) fieldRule {
 	single := singleLine(1, maxLen)
 	return func(raw string) (string, error) {
@@ -97,7 +78,6 @@ func httpsURL(maxLen int) fieldRule {
 	}
 }
 
-// Limits of spec section 4.
 const (
 	ticketShortMin = 2
 	ticketShortMax = 120
@@ -113,9 +93,6 @@ var (
 	repoURL      = httpsURL(ticketURLMax)
 )
 
-// Request shapes of POST /api/tickets (plan section 2): the outer object
-// holds only "tipo" and "dados", and "dados" holds only the keys of that
-// type. Keys are in Portuguese, like CadastroRequest.
 type ticketRequest struct {
 	Tipo  string          `json:"tipo"`
 	Dados json.RawMessage `json:"dados"`
@@ -148,22 +125,8 @@ type otherData struct {
 
 const reasonNoData = "missing dados"
 
-// ticketRequestKeys are the keys of the outer object of a ticket request.
 var ticketRequestKeys = []string{"tipo", "dados"}
 
-// DecodeTicket reads a ticket request in two strict steps: the outer object
-// (after the content type, size limit, trailing data and UTF-8 checks that
-// DecodeJSON also uses), then "dados" against its "tipo". At both levels every key must be one of
-// the documented names, spelled exactly (encoding/json alone would match
-// any case), and no key may repeat, even in another case (plan P-10). A key
-// of another type, or one the server owns (author, status, id, dates), is
-// therefore refused. Every shape error wraps domain.ErrInvalidInput with a
-// fixed reason and never quotes the body. An unknown "tipo" is not a shape
-// error: it decodes with empty fields and ValidateTicket refuses it.
-//
-// A body that is not valid UTF-8 is refused as a whole: encoding/json would
-// silently turn each invalid byte into U+FFFD, so the field rules would
-// never see it (spec section 4: text that is not valid UTF-8 is rejected).
 func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.TicketDraft, error) {
 	raw, err := readJSON(w, r)
 	if err != nil {
@@ -205,8 +168,6 @@ func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.
 		}
 		d.Title, d.Description = v.Titulo, v.Descricao
 	default:
-		// Unknown keys cannot be judged, but "dados" must still be an object
-		// with no duplicate key, so the shape rules hold for every request.
 		if err := checkKeys(req.Dados, nil); err != nil {
 			return domain.TicketDraft{}, err
 		}
@@ -214,11 +175,6 @@ func (s *Security) DecodeTicket(w http.ResponseWriter, r *http.Request) (domain.
 	return d, nil
 }
 
-// decodeObject checks the keys of raw (see checkKeys), then decodes it into
-// dst, refusing unknown keys and wrong JSON types. The raw bytes come from
-// readJSON: size-checked, valid UTF-8, exactly one JSON value. DecodeJSON
-// and DecodeTicket share it, so login, registration and tickets apply the
-// same key rule.
 func decodeObject(raw json.RawMessage, allowed []string, dst any) error {
 	if err := checkKeys(raw, allowed); err != nil {
 		return err
@@ -231,9 +187,6 @@ func decodeObject(raw json.RawMessage, allowed []string, dst any) error {
 	return nil
 }
 
-// checkKeys requires raw to be a JSON object whose keys do not repeat,
-// compared without case, and, when allowed is not nil, are each exactly one
-// of allowed. Values are not inspected.
 func checkKeys(raw json.RawMessage, allowed []string) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
@@ -265,7 +218,6 @@ func checkKeys(raw json.RawMessage, allowed []string) error {
 	return nil
 }
 
-// ticketFields names the draft fields each type has, by their request key.
 var ticketFields = map[domain.TicketType][]string{
 	domain.TicketTypeAccess: {"sistema", "nivel_acesso", "justificativa"},
 	domain.TicketTypeBug:    {"sistema", "descricao", "passos", "severidade"},
@@ -273,9 +225,6 @@ var ticketFields = map[domain.TicketType][]string{
 	domain.TicketTypeOther:  {"titulo", "descricao"},
 }
 
-// TicketDataKeys returns, for each ticket type, the keys that "dados"
-// accepts in POST /api/tickets. The contract test compares them with
-// api/openapi.json, so the decoder and the contract cannot drift apart.
 func TicketDataKeys() map[domain.TicketType][]string {
 	out := make(map[domain.TicketType][]string, len(ticketFields))
 	for typ, keys := range ticketFields {
@@ -284,13 +233,6 @@ func TicketDataKeys() map[domain.TicketType][]string {
 	return out
 }
 
-// ValidateTicket applies the rules of spec section 4 to a decoded request
-// and returns the ticket with trimmed values (BR-4). The type must be known,
-// every field of the type valid, and no field of another type set. Empty
-// optional notes become "". The title is set only for "outro"; the service
-// builds the others (BR-3). Author, status and dates are left for the
-// service and the database. Errors wrap domain.ErrInvalidInput and name the
-// field, never its value.
 func (s *Security) ValidateTicket(d domain.TicketDraft) (domain.Ticket, error) {
 	allowed, ok := ticketFields[d.Type]
 	if !ok {
@@ -331,8 +273,6 @@ func (s *Security) ValidateTicket(d domain.TicketDraft) (domain.Ticket, error) {
 	return t, nil
 }
 
-// draftFieldsSet tells, by request key, which draft fields hold a value.
-// Notes count as set when present, even if empty.
 func draftFieldsSet(d domain.TicketDraft) map[string]bool {
 	return map[string]bool{
 		"titulo":        d.Title != "",
@@ -349,8 +289,6 @@ func draftFieldsSet(d domain.TicketDraft) map[string]bool {
 	}
 }
 
-// ticketValidator keeps the first error, so ValidateTicket reads as a list
-// of fields.
 type ticketValidator struct{ err error }
 
 func (v *ticketValidator) text(name string, rule fieldRule, raw string) string {
@@ -364,8 +302,6 @@ func (v *ticketValidator) text(name string, rule fieldRule, raw string) string {
 	return value
 }
 
-// choice accepts a fixed-choice code exactly as listed: no trimming, no
-// case folding (spec section 4).
 func (v *ticketValidator) choice(name, raw string, valid bool) string {
 	if v.err != nil {
 		return ""
@@ -377,8 +313,6 @@ func (v *ticketValidator) choice(name, raw string, valid bool) string {
 	return raw
 }
 
-// text applies the rules every text field shares: valid UTF-8, trimming,
-// the per-character check, then the length in code points.
 func text(raw string, minLen, maxLen int, check func(rune) error) (string, error) {
 	if !utf8.ValidString(raw) {
 		return "", invalidField(fieldInvalidUTF8)

@@ -17,13 +17,10 @@ import (
 	"backend_si/internal/security"
 )
 
-// memTicketRepo is an in-memory service.TicketRepository that behaves like
-// the tickets table: the id, the status default and the dates are set here,
-// never taken from the ticket given.
 type memTicketRepo struct {
 	mu      sync.Mutex
 	tickets []domain.Ticket
-	err     error // returned by Create when set
+	err     error
 }
 
 func newMemTicketRepo() *memTicketRepo { return &memTicketRepo{} }
@@ -60,8 +57,6 @@ func (m *memTicketRepo) fail(err error) {
 	m.err = err
 }
 
-// ticketBody marshals a ticket request, so values need no JSON escaping by
-// hand.
 func ticketBody(tipo string, dados map[string]any) string {
 	b, err := json.Marshal(map[string]any{"tipo": tipo, "dados": dados})
 	if err != nil {
@@ -102,8 +97,6 @@ func withKey(dados map[string]any, key string, value any) map[string]any {
 	return out
 }
 
-// postTicket sends POST /api/tickets as a signed-in comum user with the
-// current CSRF token, plus headers.
 func (f flowApp) postTicket(t *testing.T, body string, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	cookie, token := f.loginAs(t, comumLogin)
@@ -114,8 +107,6 @@ func (f flowApp) postTicket(t *testing.T, body string, headers map[string]string
 	return f.send(t, http.MethodPost, "/api/tickets", body, cookie, h)
 }
 
-// checkErrorBody requires the generic error body: exactly error, message
-// and request_id, with the given code and message.
 func checkErrorBody(t *testing.T, rr *httptest.ResponseRecorder, wantError, wantMessage string) {
 	t.Helper()
 	var body map[string]any
@@ -133,10 +124,6 @@ func checkErrorBody(t *testing.T, rr *httptest.ResponseRecorder, wantError, want
 	}
 }
 
-// TestCreateTicketPerType covers AC-5.2 (server side), BR-1, BR-2, BR-3 and
-// BR-4: one ticket of each type is created with status aberto, the session
-// user as author, the built title and trimmed values, and the response
-// holds only what the confirmation shows.
 func TestCreateTicketPerType(t *testing.T) {
 	t.Parallel()
 
@@ -239,9 +226,6 @@ func TestCreateTicketPerType(t *testing.T) {
 	}
 }
 
-// TestCreateTicketAuthorFollowsSession covers S-4: the author is the user of
-// the session. User 1 is made comum, so two different comum users create a
-// ticket each.
 func TestCreateTicketAuthorFollowsSession(t *testing.T) {
 	t.Parallel()
 
@@ -262,9 +246,6 @@ func TestCreateTicketAuthorFollowsSession(t *testing.T) {
 	}
 }
 
-// TestCreateTicketRefusals covers S-1, S-4, S-5, AC-6.1 and AC-6.6: every
-// class of invalid request gets the generic 400 or 422 body, never naming a
-// field, and nothing is stored.
 func TestCreateTicketRefusals(t *testing.T) {
 	t.Parallel()
 
@@ -278,7 +259,6 @@ func TestCreateTicketRefusals(t *testing.T) {
 		headers map[string]string
 		status  int
 	}{
-		// 400: the body is not well-formed for the operation.
 		{"wrong content type", ticketBody("outro", validOther()), map[string]string{"Content-Type": "text/plain"}, bad},
 		{"malformed json", `{"tipo":"outro","dados":{`, nil, bad},
 		{"empty body", ``, map[string]string{"Content-Type": "application/json"}, bad},
@@ -299,7 +279,6 @@ func TestCreateTicketRefusals(t *testing.T) {
 		{"duplicate key in another case", `{` + access + `,"SISTEMA":"Outro"}}`, nil, bad},
 		{"body over 64 KiB", ticketBody("outro", withKey(validOther(), "descricao", strings.Repeat("a", security.MaxBodyBytes))), nil, bad},
 
-		// 400: keys the server owns (S-4, S-5), outside and inside dados.
 		{"author outside", `{` + access + `},"author":"maria"}`, nil, bad},
 		{"user_id outside", `{` + access + `},"user_id":1}`, nil, bad},
 		{"author_id inside", `{` + access + `,"author_id":1}}`, nil, bad},
@@ -310,7 +289,6 @@ func TestCreateTicketRefusals(t *testing.T) {
 		{"created_at outside", `{` + access + `},"created_at":"2020-01-01T00:00:00Z"}`, nil, bad},
 		{"updated_at inside", `{` + access + `,"updated_at":"2020-01-01T00:00:00Z"}}`, nil, bad},
 
-		// 422: well-formed, but a value breaks a rule of spec section 4.
 		{"unknown tipo", `{"tipo":"incidente","dados":{"titulo":"Dúvida"}}`, nil, invalid},
 		{"tipo missing", `{"dados":{"titulo":"Dúvida","descricao":"Como peço acesso à VPN?"}}`, nil, invalid},
 		{"required key missing", ticketBody("outro", withKey(validOther(), "descricao", nil)), nil, invalid},
@@ -355,8 +333,6 @@ func TestCreateTicketRefusals(t *testing.T) {
 	}
 }
 
-// TestCreateTicketCSRF covers S-3: no token, a wrong token, a cross-site
-// browser request and no session at all get 403, and nothing is stored.
 func TestCreateTicketCSRF(t *testing.T) {
 	t.Parallel()
 
@@ -401,8 +377,6 @@ func TestCreateTicketCSRF(t *testing.T) {
 	}
 }
 
-// TestCreateTicketServerError covers AC-6.4 on the server: a storage failure
-// is a 500 with the generic body and the request id, and nothing leaks.
 func TestCreateTicketServerError(t *testing.T) {
 	t.Parallel()
 
@@ -423,9 +397,6 @@ func TestCreateTicketServerError(t *testing.T) {
 	}
 }
 
-// TestCreateTicketLogsNoFieldValues covers S-7: the log of a valid, an
-// invalid (422) and a malformed (400) creation holds ids, the type and fixed
-// reasons, never a submitted value.
 func TestCreateTicketLogsNoFieldValues(t *testing.T) {
 	t.Parallel()
 
@@ -474,10 +445,7 @@ func TestCreateTicketLogsNoFieldValues(t *testing.T) {
 	}
 }
 
-// TestCreateTicketLargestValid sends the largest valid ticket: a bug with
-// 120 + 2000 + 2000 characters, each an emoji written as a JSON escape pair
-// (12 bytes, the most a client can spend per character). It fits the 64 KiB
-// limit and is created.
+// 120 + 2000 + 2000 characters at 12 bytes each (JSON escape pair) fit the 64 KiB limit.
 func TestCreateTicketLargestValid(t *testing.T) {
 	t.Parallel()
 

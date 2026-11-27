@@ -5,7 +5,6 @@ export interface Credentials {
   password: string
 }
 
-/** Fills and submits the login form on the current page. */
 export const submitLogin = async (
   page: Page,
   { login, password }: Credentials
@@ -15,7 +14,6 @@ export const submitLogin = async (
   await page.getByRole('button', { name: 'Entrar' }).click()
 }
 
-/** Opens /login (with an optional query) and logs in, waiting for `lands`. */
 export const loginAs = async (
   page: Page,
   credentials: Credentials,
@@ -27,7 +25,6 @@ export const loginAs = async (
   await expect(page).toHaveURL(lands)
 }
 
-/** Method and path of every /api request the page makes. */
 export const recordApiCalls = (page: Page) => {
   const calls: string[] = []
   page.on('request', request => {

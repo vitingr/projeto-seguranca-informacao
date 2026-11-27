@@ -24,11 +24,9 @@ type User struct {
 }
 
 type Session struct {
-	TokenHash []byte
-	UserID    UserID
-	Role      Role
-	// Login and UserCreatedAt are the session user's login and registration
-	// time, read with the role; empty for an anonymous session.
+	TokenHash     []byte
+	UserID        UserID
+	Role          Role
 	Login         string
 	UserCreatedAt time.Time
 	CSRFToken     string

@@ -19,8 +19,6 @@ var allStatuses = []domain.TicketStatus{
 func TestCheckStatusChange(t *testing.T) {
 	t.Parallel()
 
-	// BR-3, written out pair by pair so the test does not share the
-	// implementation's table.
 	allowed := map[[2]domain.TicketStatus]bool{
 		{"aberto", "em_andamento"}:    true,
 		{"aberto", "fechado"}:         true,
@@ -48,14 +46,11 @@ func TestCheckStatusChange(t *testing.T) {
 					return
 				}
 				if from == domain.TicketStatusClosed {
-					// "fechado" is final (BR-5): a conflict with the
-					// ticket's state, 409.
 					if !errors.Is(err, domain.ErrStaleStatus) || !errors.Is(err, domain.ErrConflict) || errors.Is(err, domain.ErrInvalidInput) {
 						t.Errorf("CheckStatusChange = %v, want only ErrStaleStatus (409)", err)
 					}
 					return
 				}
-				// A pair BR-3 never allows is an invalid request, 422.
 				if !errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrConflict) {
 					t.Errorf("CheckStatusChange = %v, want only ErrInvalidInput (422)", err)
 				}
@@ -104,7 +99,6 @@ func TestAllowedNextStatuses(t *testing.T) {
 		if !slices.Equal(got, tt.want) {
 			t.Errorf("AllowedNextStatuses(%q) = %v, want %v", tt.from, got, tt.want)
 		}
-		// The list and the rule agree.
 		for _, to := range got {
 			if err := s.CheckStatusChange(tt.from, to); err != nil {
 				t.Errorf("AllowedNextStatuses(%q) lists %q, but CheckStatusChange = %v", tt.from, to, err)
@@ -112,7 +106,6 @@ func TestAllowedNextStatuses(t *testing.T) {
 		}
 	}
 
-	// A copy: changing it does not change the rule.
 	got := AllowedNextStatuses(domain.TicketStatusOpen)
 	got[0] = domain.TicketStatusResolved
 	if err := s.CheckStatusChange(domain.TicketStatusOpen, domain.TicketStatusResolved); err == nil {
@@ -168,34 +161,29 @@ func TestDecodeStatusChange(t *testing.T) {
 	refused := []struct {
 		name, contentType, body, reason string
 	}{
-		// Missing keys.
 		{"empty object", ct, `{}`, reasonNoFrom},
 		{"no de", ct, `{"para":"fechado"}`, reasonNoFrom},
 		{"no para", ct, `{"de":"aberto"}`, reasonNoTo},
 		{"de null", ct, `{"de":null,"para":"fechado"}`, reasonNoFrom},
 		{"para null", ct, `{"de":"aberto","para":null}`, reasonNoTo},
 
-		// Server-owned and unknown keys (S-8).
 		{"actor", ct, `{"de":"aberto","para":"fechado","actor":1}`, reasonMalformed},
 		{"updated_at", ct, `{"de":"aberto","para":"fechado","updated_at":"2020-01-01T00:00:00Z"}`, reasonMalformed},
 		{"id", ct, `{"de":"aberto","para":"fechado","id":1}`, reasonMalformed},
 		{"status", ct, `{"status":"fechado"}`, reasonMalformed},
 		{"keys in english", ct, `{"from":"aberto","to":"fechado"}`, reasonMalformed},
 
-		// Key spelling.
 		{"De", ct, `{"De":"aberto","para":"fechado"}`, reasonMalformed},
 		{"PARA", ct, `{"de":"aberto","PARA":"fechado"}`, reasonMalformed},
 		{"duplicate de", ct, `{"de":"aberto","de":"resolvido","para":"fechado"}`, reasonDuplicateKey},
 		{"duplicate para in another case", ct, `{"de":"aberto","para":"fechado","Para":"resolvido"}`, reasonDuplicateKey},
 
-		// Wrong JSON types.
 		{"de number", ct, `{"de":1,"para":"fechado"}`, reasonMalformed},
 		{"para bool", ct, `{"de":"aberto","para":true}`, reasonMalformed},
 		{"para array", ct, `{"de":"aberto","para":["fechado"]}`, reasonMalformed},
 		{"body array", ct, `[{"de":"aberto","para":"fechado"}]`, reasonMalformed},
 		{"body null", ct, `null`, reasonMalformed},
 
-		// The envelope rules of DecodeJSON.
 		{"trailing data", ct, `{"de":"aberto","para":"fechado"}{}`, reasonTrailing},
 		{"wrong content type", "text/plain", `{"de":"aberto","para":"fechado"}`, reasonContentType},
 		{"empty body", ct, ``, reasonEmpty},

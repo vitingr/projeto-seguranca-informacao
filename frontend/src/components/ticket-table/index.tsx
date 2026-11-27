@@ -18,10 +18,6 @@ export const TABLE_TEXTS = {
   updatedAt: 'Atualizado em'
 } as const
 
-/**
- * The ticket page of a row, carrying the list address in `?de=` so "Voltar"
- * restores the filters (AC-2.5, AC-5.5); a bare list needs no `de`.
- */
 export const ticketHref = (scope: ListScope, id: number, listHref: string) => {
   const path = `${LIST_PATHS[scope]}/tickets/${id}`
   return listHref.startsWith(`${LIST_PATHS[scope]}?`)
@@ -29,7 +25,6 @@ export const ticketHref = (scope: ListScope, id: number, listHref: string) => {
     : path
 }
 
-/** A date of a row: the pt-BR value, the instant in `dateTime` (AC-1.2). */
 const TicketDate = ({ iso }: TicketDateProps) => {
   const text = formatDateTime(iso) ?? '—'
   return (
@@ -44,12 +39,6 @@ const CELL = 'px-3 py-2.5 align-middle'
 const DATE =
   'text-muted-foreground px-3 py-2.5 text-right text-xs whitespace-nowrap'
 
-/**
- * The tickets of a list (spec 003 AC-1.2, AC-4.2, plan 6.3): a real table
- * from 768 px, with thin row dividers and no stripes, and a list of rows
- * under it with the same information. The title is the link to the ticket.
- * Titles and logins are plain text (S-10).
- */
 export const TicketTable = ({
   caption,
   items,

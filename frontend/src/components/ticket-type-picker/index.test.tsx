@@ -5,9 +5,6 @@ import { TICKET_TYPES } from '@/domain/tickets'
 
 import { TicketTypePicker } from '.'
 
-// Static markup only (Vitest runs in Node, with no DOM). Keyboard use is
-// covered by e2e/tickets.spec.ts.
-
 const render = (props: Partial<Parameters<typeof TicketTypePicker>[0]> = {}) =>
   renderToStaticMarkup(
     <TicketTypePicker
@@ -23,7 +20,7 @@ const count = (html: string, pattern: RegExp) =>
   [...html.matchAll(pattern)].length
 
 describe('TicketTypePicker', () => {
-  it('is one single-choice group with the four types (AC-2.1, AC-2.5)', () => {
+  it('is one single-choice group with the four types', () => {
     const html = render()
     expect(count(html, /role="radiogroup"/g)).toBe(1)
     expect(html).toContain('aria-labelledby="heading"')

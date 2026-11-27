@@ -3,9 +3,6 @@ import { cn } from 'cn'
 import type { AlertPartProps, AlertProps } from './types'
 import { alertVariants } from './variance'
 
-// shadcn alert (base-nova), adapted to the design rules: radius `sm`. The
-// role is a prop, so a polite status can use it too.
-
 function Alert({ className, role = 'alert', variant, ...props }: AlertProps) {
   return (
     <div

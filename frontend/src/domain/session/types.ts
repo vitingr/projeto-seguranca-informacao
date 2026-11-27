@@ -1,9 +1,7 @@
 import type { Role } from '@/domain/roles/types'
 
 export interface CurrentUser {
-  /** When the user was registered (ISO 8601), for "Membro desde" (US-7). */
   createdAt?: string
-  /** The login, for the profile and its avatar (US-7). */
   login?: string
   role: Role
   userId: number

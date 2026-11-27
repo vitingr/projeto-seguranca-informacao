@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-1, AC-3.6: the author replies on their ticket.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
         });

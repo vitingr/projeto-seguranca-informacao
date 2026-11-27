@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-1, AC-2.1: the author reads their ticket, with every
-        // field of the type and no author data (S-13).
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

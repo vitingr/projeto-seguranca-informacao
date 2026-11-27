@@ -26,7 +26,6 @@ test('the browser reaches the API only through the frontend origin', async ({
   expect(csrf.status).toBe(200)
   const anonymousToken = (csrf.body as { csrf_token: string }).csrf_token
 
-  // The cookie keeps the attributes the backend set (spec: HTTPS and cookie).
   const [anonymous] = await context.cookies()
   expect(anonymous).toMatchObject({
     domain: 'localhost',
@@ -38,7 +37,6 @@ test('the browser reaches the API only through the frontend origin', async ({
     secure: true
   })
 
-  // Without the token the backend refuses the POST, through the proxy too.
   const noToken = await page.evaluate(async () => {
     const res = await fetch('/api/login', {
       body: JSON.stringify({ login: 'x', senha: 'y' }),
@@ -49,8 +47,6 @@ test('the browser reaches the API only through the frontend origin', async ({
   })
   expect(noToken).toBe(403)
 
-  // A browser POST passes the Fetch Metadata check (Sec-Fetch-Site:
-  // same-origin) and the token check.
   const admin = seedAdmin()
   const login = await page.evaluate<Answer, [string, string, string]>(
     async ([token, user, password]) => {
@@ -70,7 +66,6 @@ test('the browser reaches the API only through the frontend origin', async ({
   expect(authenticated?.name).toBe('__Host-session')
   expect(authenticated?.value).not.toBe(anonymous?.value)
 
-  // The token changes at login (002 D-4).
   const loggedInToken = await page.evaluate(
     async () => (await (await fetch('/api/csrf')).json()).csrf_token as string
   )

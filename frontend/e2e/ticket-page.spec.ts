@@ -9,9 +9,6 @@ import {
   registerComum
 } from './support/tracking'
 
-// The ticket page of a comum user (spec 003 US-2, task T8.1): header, tabs
-// and "Detalhes", the not-found screen and the way back to the list.
-
 const NOT_FOUND = 'Ticket não encontrado.'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 const PAYLOAD = '<img src=x onerror=alert(1)> <script>alert(1)</script>'
@@ -105,7 +102,7 @@ test.describe('as the author', () => {
   })
 
   for (const [index, { body, rows, title }] of TICKETS.entries()) {
-    test(`a "${body.tipo}" ticket shows its header and every field (AC-2.1, AC-2.2)`, async ({
+    test(`a "${body.tipo}" ticket shows its header and every field`, async ({
       page
     }) => {
       await page.goto(ticketPath(ids[index]))
@@ -129,13 +126,13 @@ test.describe('as the author', () => {
     })
   }
 
-  test('shows an HTML payload as text (S-10)', async ({ page }) => {
+  test('shows an HTML payload as text', async ({ page }) => {
     await page.goto(ticketPath(ids[3]))
     await expect(rowValue(page, 'Descrição')).toHaveText(PAYLOAD)
     await expect(page.locator('main img, main script')).toHaveCount(0)
   })
 
-  test('keeps the tab in the address, through reload and back (AC-2.3)', async ({
+  test('keeps the tab in the address, through reload and back', async ({
     page
   }) => {
     await page.goto(ticketPath(ids[0]))
@@ -147,14 +144,12 @@ test.describe('as the author', () => {
     await page.reload()
     await expect(conversa).toHaveAttribute('aria-selected', 'true')
 
-    // Arrow keys move between the tabs; Enter selects (WAI-ARIA tabs).
     await conversa.focus()
     await page.keyboard.press('ArrowLeft')
     await expect(page.getByRole('tab', { name: 'Detalhes' })).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(ticketPath(ids[0]))
 
-    // Back from the list returns to the tab that was open.
     await conversa.click()
     await expect(page).toHaveURL(`${ticketPath(ids[0])}?aba=conversa`)
     await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()
@@ -164,7 +159,7 @@ test.describe('as the author', () => {
     await expect(conversa).toHaveAttribute('aria-selected', 'true')
   })
 
-  test('"Voltar para meus tickets" keeps the filters of the list (AC-2.5)', async ({
+  test('"Voltar para meus tickets" keeps the filters of the list', async ({
     page
   }) => {
     await page.goto('/usuarios?tipo=bug')
@@ -184,9 +179,7 @@ test.describe('as the author', () => {
     ['a missing number', '/usuarios/tickets/999999999'],
     ['a malformed number', '/usuarios/tickets/abc']
   ]) {
-    test(`${name} shows "Ticket não encontrado." (AC-2.4)`, async ({
-      page
-    }) => {
+    test(`${name} shows "Ticket não encontrado."`, async ({ page }) => {
       await page.goto(path)
       await expect(page.getByTestId('ticket-not-found')).toHaveText(NOT_FOUND)
       await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()
@@ -195,7 +188,7 @@ test.describe('as the author', () => {
   }
 })
 
-test('another user gets the same "Ticket não encontrado." (AC-2.4, S-2)', async ({
+test('another user gets the same "Ticket não encontrado."', async ({
   page
 }) => {
   await loginAs(page, stranger, '/usuarios')
@@ -204,7 +197,7 @@ test('another user gets the same "Ticket não encontrado." (AC-2.4, S-2)', async
   await expect(page.locator('main')).not.toContainText('Grafana')
 })
 
-test('an admin gets the forbidden screen (S-1)', async ({ page }) => {
+test('an admin gets the forbidden screen', async ({ page }) => {
   await loginAs(page, seedAdmin(), '/administradores')
   await page.goto(ticketPath(ids[0]))
   await expect(page.getByTestId('forbidden')).toHaveText(FORBIDDEN)
@@ -212,7 +205,7 @@ test('an admin gets the forbidden screen (S-1)', async ({ page }) => {
   await expect(page.locator('main')).not.toContainText('Grafana')
 })
 
-test('without a session, the login brings the user back to the ticket (S-15)', async ({
+test('without a session, the login brings the user back to the ticket', async ({
   page
 }) => {
   await page.goto(ticketPath(ids[0]))

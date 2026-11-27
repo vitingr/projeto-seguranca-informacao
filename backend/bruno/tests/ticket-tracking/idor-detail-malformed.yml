@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-6: a malformed id is answered like a missing ticket.
         test("same answer as A's ticket", function () {
           const body = Object.assign({}, res.getBody());
           delete body.request_id;

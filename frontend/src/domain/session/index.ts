@@ -4,10 +4,6 @@ import type { ProtectedRoute } from '@/domain/protected-routes/types'
 
 import type { Access, Session } from './types'
 
-/**
- * `path` is the page's real path, sent back as `next` after login; it is
- * the route itself for static routes and the ticket path for dynamic ones.
- */
 export const decideAccess = (
   session: Session,
   route: ProtectedRoute,

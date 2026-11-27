@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // AC-3.7, BR-5: the author cannot reply on a fechado ticket.
         test("status is 409", function () {
           expect(res.getStatus()).to.equal(409);
           expect(res.getBody().message).to.equal("Este ticket foi fechado e não aceita novas mensagens.");

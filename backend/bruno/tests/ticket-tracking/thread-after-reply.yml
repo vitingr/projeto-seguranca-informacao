@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The thread now holds the reply, and only it.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

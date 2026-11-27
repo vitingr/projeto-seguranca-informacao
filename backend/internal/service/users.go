@@ -43,10 +43,6 @@ func (u *Users) CreateFirstAdmin(ctx context.Context, login, password string) (d
 	return user, nil
 }
 
-// create normalizes and validates the login, validates and hashes the
-// password, and stores the user (D-2). Validation errors wrap
-// domain.ErrInvalidInput; a taken login wraps domain.ErrConflict. The
-// returned user has no PasswordHash.
 func (u *Users) create(ctx context.Context, login, password string, role domain.Role) (domain.User, error) {
 	if !role.Valid() {
 		return domain.User{}, fmt.Errorf("invalid role: %w", domain.ErrInvalidInput)

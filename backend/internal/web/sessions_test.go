@@ -8,9 +8,6 @@ import (
 	"backend_si/internal/domain"
 )
 
-// memSessions is an in-memory security.SessionStore for tests that need
-// working sessions. Get fills Role from roles, and the login and the
-// registration time from profiles, like the repository JOIN.
 type memSessions struct {
 	mu       sync.Mutex
 	rows     map[string]domain.Session
@@ -18,7 +15,6 @@ type memSessions struct {
 	profiles map[domain.UserID]memProfile
 }
 
-// memProfile is what the users table holds besides the role.
 type memProfile struct {
 	login     string
 	createdAt time.Time
@@ -79,16 +75,12 @@ func (m *memSessions) count() int {
 	return len(m.rows)
 }
 
-// setRole changes a user's role, like an UPDATE on the users table: the
-// next Get of any of the user's sessions returns the new role.
 func (m *memSessions) setRole(id domain.UserID, role domain.Role) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.roles[id] = role
 }
 
-// setProfile sets a user's login and registration time, as the users
-// table would return them.
 func (m *memSessions) setProfile(id domain.UserID, login string, createdAt time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

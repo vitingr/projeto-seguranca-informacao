@@ -1,17 +1,3 @@
-// Browser client for the state-changing API calls. Every call goes to the
-// frontend origin (/api/*, proxied to the backend), so the browser sends the
-// session cookie and Sec-Fetch-Site: same-origin by itself.
-//
-// Rules (spec D-3, D-7):
-// - every POST and PATCH sends X-CSRF-Token (a GET sends none);
-// - a 403 refreshes the token and retries once (an expired session makes the
-//   backend answer 403 on a POST, because CSRF runs before Authorize; the
-//   retry then gets the 401);
-// - a 401 anywhere but POST /api/login discards the token and goes to the
-//   login page;
-// - any other answer, 429 included, is returned as it is: the client never
-//   retries it by itself (spec 001 AC-6.7).
-
 import { STALE_STATUS, TICKET_CLOSED, networkError } from '@/domain/api-error'
 import { LOGIN_PATH } from '@/domain/login-path'
 import { loginUrl } from '@/domain/navigation'
@@ -28,7 +14,6 @@ import { never } from '@/utils/helpers/never'
 import type { ApiClient, ApiClientDeps, Result, ThreadScope } from './types'
 
 export const createApiClient = (deps: ApiClientDeps): ApiClient => {
-  /** One request; `token` is left out only for a GET. */
   const send = async (
     method: string,
     path: string,
@@ -50,7 +35,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
     }
   }
 
-  /** A 401: the session is gone, so the token goes and the login opens. */
   const toLogin = <T>() => {
     deps.csrf.clear()
     deps.navigation.go(
@@ -59,7 +43,7 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
     return never<T>()
   }
 
-  /** POST or PATCH with the token, the single retry on 403 and the 401 rule. */
+  // An expired session answers 403 on a POST (CSRF runs before auth): refresh the token, retry once.
   const write = async (
     method: 'PATCH' | 'POST',
     path: string,
@@ -74,7 +58,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
     return res
   }
 
-  /** The error of an answer; a 409 gets the code of its call. */
   const failure = async (res: Response, conflictCode?: string) => {
     const error = await readError(res)
     return res.status === 409 && conflictCode
@@ -125,7 +108,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
 
     loadThreadBefore: ({ antes, scope, ticketId }) =>
       run(async () => {
-        // A read: no token (CSRF covers state changes only).
         const res = await send(
           'GET',
           `${threadPath(scope, ticketId)}?antes=${antes}`
@@ -143,7 +125,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
         if (res.status !== 200)
           return { error: await readError(res), ok: false }
         const user = await json<UserResponse>(res)
-        // The session and its token changed (002 D-4).
         await deps.csrf.refresh()
         return { data: user, ok: true }
       }),
@@ -153,7 +134,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
         const res = await write('POST', '/api/logout', undefined, {
           unauthorizedIsAnswer: true
         })
-        // 401: the session had already ended, which is the goal anyway.
         if (res.status !== 204 && res.status !== 401) {
           return { error: await readError(res), ok: false }
         }
@@ -181,7 +161,6 @@ export const createApiClient = (deps: ApiClientDeps): ApiClient => {
   }
 }
 
-/** The browser's client. `window` is read only when a call runs. */
 export const api = createApiClient({
   csrf: csrfStore,
   fetch: (...args) => fetch(...args),

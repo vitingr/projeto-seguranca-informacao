@@ -15,8 +15,6 @@ runtime:
         bru.setVar("csrfToken", res.getBody().csrf_token);
     - type: tests
       code: |-
-        // Spec 003: a new anonymous session for the ticket tracking cells
-        // (100-199); the comum user logged out in 26.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

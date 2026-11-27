@@ -15,8 +15,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The cookie saved at login, sent by hand: logout emptied the cookie
-        // jar, so this manual header is the one sent (D-17).
         test("status is 401", function () {
           expect(res.getStatus()).to.equal(401);
         });

@@ -36,13 +36,6 @@ const value = (row: TicketReviewRow) =>
     <span className={cn(row.risky && 'text-destructive')}>{row.value}</span>
   )
 
-/**
- * The review step (spec US-4), in the grouped rows of
- * `design/references/settings.png`: a "Pedido" group with the type and the
- * title the ticket will get, and a "Detalhes" group with every field. Values
- * are plain text with their line breaks kept; nothing is read as HTML or
- * markdown (AC-4.1, AC-4.3, S-8).
- */
 export const TicketReview = ({
   rows,
   title,

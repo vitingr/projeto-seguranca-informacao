@@ -15,11 +15,6 @@ import type { StepHistory } from './types'
 
 const BUILDER = '/usuarios/tickets/novo'
 
-/**
- * A browser history in memory: entries, the current one, and the
- * `popstate`s that `go` causes, delivered by `flush` like the browser does
- * after the call returns.
- */
 const fakeBrowser = () => {
   const entries: { state: unknown; url: string }[] = [
     { state: null, url: '/usuarios' },
@@ -28,7 +23,6 @@ const fakeBrowser = () => {
   let at = 1
   let pathname = BUILDER
   const pops: number[] = []
-  // Like the browser, a call with no URL keeps the current entry's URL.
   const urlOf = (url?: null | string | URL) =>
     url == null ? entries[at].url : String(url)
   const win = {
@@ -66,7 +60,6 @@ const fakeBrowser = () => {
   let visits = 0
   const history = createStepHistory(win, () => `visit-${++visits}`)
   const shown: (null | string)[] = []
-  /** Moves like the browser buttons and hands the `popstate` to the module. */
   const move = (delta: number, locked = false) => {
     at += delta
     pathname = new URL(entries[at].url, 'https://x').pathname
@@ -115,7 +108,7 @@ describe('step ↔ ?etapa=', () => {
 })
 
 describe('guardActive', () => {
-  it('is on only while something typed was not sent (AC-3.8)', () => {
+  it('is on only while something typed was not sent', () => {
     expect(guardActive({ dirty: true, sent: false })).toBe(true)
     expect(guardActive({ dirty: false, sent: false })).toBe(false)
     expect(guardActive({ dirty: true, sent: true })).toBe(false)
@@ -165,7 +158,7 @@ describe('decidePop', () => {
 })
 
 describe('createStepHistory', () => {
-  it('puts each step reached in the URL, and only the step (S-10)', () => {
+  it('puts each step reached in the URL, and only the step', () => {
     const browser = fakeBrowser()
     browser.history.start()
     expect(browser.url()).toBe(BUILDER)
@@ -184,7 +177,6 @@ describe('createStepHistory', () => {
     expect(browser.shown).toEqual(['detalhes', 'tipo'])
     expect(browser.history.current()).toBe('tipo')
     browser.move(-1)
-    // Another page: the router takes over.
     expect(browser.shown.at(-1)).toBeNull()
   })
 
@@ -211,12 +203,11 @@ describe('createStepHistory', () => {
     expect(browser.shown).toEqual(['tipo', null, null])
     expect(browser.history.current()).toBe('tipo')
     expect(browser.url()).toBe(BUILDER)
-    // Continuing again drops the old later entries.
     browser.history.push('detalhes')
     expect(browser.entries).toHaveLength(3)
   })
 
-  it('nothing moves while sending (AC-5.1)', () => {
+  it('nothing moves while sending', () => {
     const browser = fakeBrowser()
     reachReview(browser.history)
     browser.move(-1, true)
@@ -225,14 +216,13 @@ describe('createStepHistory', () => {
     expect(browser.url()).toBe(`${BUILDER}?etapa=revisao`)
   })
 
-  it('after sending, the first entry is the confirmation and Back leaves (AC-5.3)', () => {
+  it('after sending, the first entry is the confirmation and Back leaves', () => {
     const browser = fakeBrowser()
     reachReview(browser.history)
     browser.history.sent()
     browser.flush()
     expect(browser.url()).toBe(`${BUILDER}?etapa=confirmacao`)
     expect(browser.history.current()).toBe('confirmacao')
-    // The steps of the sent ticket are never shown again.
     browser.move(1)
     browser.move(1)
     expect(browser.shown.filter(Boolean)).toEqual([])
@@ -258,7 +248,6 @@ describe('createStepHistory', () => {
   it('an entry from before a reload keeps the current step', () => {
     const browser = fakeBrowser()
     reachReview(browser.history)
-    // A new page (reload) on the review entry: a new visit starts there.
     const again = createStepHistory(
       {
         history: {
@@ -280,19 +269,12 @@ describe('createStepHistory', () => {
 })
 
 describe('createStepHistory passes the URL only when it changes', () => {
-  /**
-   * A window that behaves like Next.js's patched `history`: a
-   * `pushState`/`replaceState` that carries a URL becomes a router
-   * navigation of its own, which discards a navigation still in flight
-   * (the router's action queue). A call with no URL only writes the state.
-   */
   const nextLikeWindow = (search: string) => {
     const calls: {
       method: 'pushState' | 'replaceState'
       state: unknown
       url: unknown
     }[] = []
-    // A link clicked as the page started: its navigation is in flight.
     const router = { pending: '/usuarios' as null | string }
     const record =
       (method: 'pushState' | 'replaceState') =>
@@ -336,7 +318,7 @@ describe('createStepHistory passes the URL only when it changes', () => {
     })
   })
 
-  it('a reload on a later step still goes back to the bare URL (BR-7)', () => {
+  it('a reload on a later step still goes back to the bare URL', () => {
     const { calls, win } = nextLikeWindow('?etapa=revisao')
     createStepHistory(win, () => 'visit').start()
     expect(calls).toEqual([
@@ -379,7 +361,6 @@ describe('leavesBuilder', () => {
   it('is false for the builder itself and for other sites', () => {
     expect(leavesBuilder(`${BUILDER}?etapa=revisao`, here)).toBe(false)
     expect(leavesBuilder('#topo', here)).toBe(false)
-    // Leaving the site is a page unload, warned by `beforeunload`.
     expect(leavesBuilder('https://example.com/usuarios', here)).toBe(false)
   })
 })

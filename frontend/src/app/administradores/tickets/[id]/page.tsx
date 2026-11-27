@@ -5,8 +5,6 @@ import { TicketPageScreen } from '@/screens/ticket-page'
 
 export const metadata: Metadata = { title: 'Ticket' }
 
-// Admins only (spec 003 US-5). The backend enforces it again on every
-// /api/administradores/tickets route (S-1); this page only picks the screen.
 const Page = async ({
   params,
   searchParams

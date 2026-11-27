@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 S-2: with a cursor too, the ticket check comes first.
         test("same answer as a missing ticket", function () {
           const body = Object.assign({}, res.getBody());
           delete body.request_id;

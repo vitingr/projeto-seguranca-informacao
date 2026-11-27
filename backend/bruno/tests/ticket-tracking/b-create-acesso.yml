@@ -26,7 +26,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // B's own ticket (ticketB1).
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           bru.setVar("ticketB1", res.getBody().id);

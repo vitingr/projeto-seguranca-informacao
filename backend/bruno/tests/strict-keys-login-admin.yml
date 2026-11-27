@@ -22,9 +22,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // After the three refusals, the documented keys still sign in, on the
-        // same anonymous session and token (S-11). The admin session is used
-        // by the registration requests below.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

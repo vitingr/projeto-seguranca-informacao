@@ -49,7 +49,7 @@ const FAILURES: [number, string, string, boolean][] = [
   [404, 'not_found', 'Ticket não encontrado.', true]
 ]
 
-describe('sendReply (spec 003 AC-3.5 to AC-3.7)', () => {
+describe('sendReply', () => {
   it('sends the trimmed text and gives the stored entry id', async () => {
     const send = vi.fn(async () => ({ data: ENTRY, ok: true as const }))
     const outcome = await sendReply({ send }, input('  Oi\n'))

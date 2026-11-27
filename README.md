@@ -122,6 +122,9 @@ users (`e2e.*` logins); the seed administrator is the only one they reuse.
 | `demo` | `infra-up`, `migrate`, then `pnpm demo` (see [Demonstração em aula](#demonstração-em-aula)) |
 | `check` | `check-backend` (`go tool mage ci`) and `check-frontend` (`lint-frontend`, `typecheck-frontend`, `test-frontend`) |
 
+Run `make check` before every commit; `make check-backend` or
+`make check-frontend` is enough when a change touches one side only.
+
 Targets that only exist on one side (`go tool mage contractLint`, `bruno`,
 `brunoRun`, `testIntegration`, `vuln`, `fmt`) are run from `backend/`, as
 described in its README.

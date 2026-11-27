@@ -12,7 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The anonymous session from csrf has no user.
         test("status is 401", function () {
           expect(res.getStatus()).to.equal(401);
         });

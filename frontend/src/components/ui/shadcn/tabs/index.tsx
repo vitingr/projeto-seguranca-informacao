@@ -11,11 +11,6 @@ import type {
   TabsTriggerProps
 } from './types'
 
-// shadcn tabs (base-nova, over Base UI Tabs), adapted to the design rules
-// (spec 003 P-17): radius `sm`, no shadow on the active tab (a white fill
-// on the muted list marks it), a fixed 2 px inset instead of an arbitrary
-// padding, no dark variants and no `line` variant.
-
 function Tabs({ className, orientation = 'horizontal', ...props }: TabsProps) {
   return (
     <TabsPrimitive.Root

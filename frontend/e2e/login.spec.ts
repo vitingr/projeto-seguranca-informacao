@@ -47,7 +47,6 @@ test.describe('login page', () => {
 
     await loginAs(page, admin, '/administradores')
 
-    // GET /api/csrf before the POST and again after it (002 D-4).
     expect(calls.slice(0, 3)).toEqual([
       'GET /api/csrf',
       'POST /api/login',

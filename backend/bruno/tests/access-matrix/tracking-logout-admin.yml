@@ -15,7 +15,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // tests/tickets starts anonymous.
         test("status is 204", function () {
           expect(res.getStatus()).to.equal(204);
         });

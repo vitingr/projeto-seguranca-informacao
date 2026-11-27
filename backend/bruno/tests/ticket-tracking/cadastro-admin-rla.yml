@@ -23,8 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // The admin of the status rate limit (600-690), so the seed admin
-        // keeps its quota. An e2e.* login, removed by the README cleanup.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           expect(res.getBody().role).to.equal("admin");

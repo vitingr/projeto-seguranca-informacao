@@ -74,8 +74,59 @@ Settings (copy `.env.example` to `.env.local` to change them):
 | `pnpm e2e` | Playwright end-to-end tests against the running backend (starts `pnpm dev` if it is not running). |
 | `pnpm build`, `pnpm start` | Production build and server. Production deployment is not set up yet. |
 
-The checks to run before every commit are listed in
-[`CLAUDE.md`](CLAUDE.md).
+Before a commit, run `pnpm lint`, `pnpm exec next typegen`,
+`pnpm exec tsc --noEmit` and `pnpm test` (or `make check-frontend` from the
+repository root). Changes to a user flow (login, session, role guards,
+registration, logout) also run `pnpm e2e` against the backend stack.
+
+## Source layout
+
+```
+src/
+├── app/           Next routes (page.tsx, layout.tsx): thin, they compose the layers below
+├── screens/       page bodies shared by routes
+├── containers/    components wired to data: client state, repository calls
+├── components/    presentational: props in, no fetch, no global state; ui/shadcn = shadcn primitives
+├── services/      server use cases: server-only, cookies(), redirect()
+├── repositories/  backend HTTP calls and the conversion of answers into domain types
+├── lib/           infrastructure: API contract, CSRF store, error reader, server-side fetch
+├── domain/        types, constants and pure rules: no React, no Next, no I/O
+├── config/        env and the backend origin
+├── styles/        global CSS and theme tokens
+├── utils/         generic helpers with no business knowledge
+└── test/          helpers for unit tests only
+```
+
+Imports go one way:
+
+| Layer | May import |
+|---|---|
+| `domain` | `domain` only |
+| `config` | `config` |
+| `utils` | `utils`, `config` |
+| `lib` | `lib`, `domain`, `config` |
+| `repositories` | `lib`, `domain`, `config` |
+| `services` | `repositories`, `lib`, `domain`, `config`, `utils` |
+| `components` | `components`, `domain` (types and pure values), `utils`, `styles` |
+| `containers` | `containers`, `components`, `domain`, `utils`, `repositories` |
+| `screens`, `app` | `services`, `screens`, `containers`, `components`, `domain` |
+
+Code that uses server-only APIs (`server-only`, `next/headers`) lives in
+`services` or `lib`, never in components, containers or screens.
+
+Each module is a folder with `index.ts(x)`, `types.ts` (every type, interface
+and props type of the module, and nothing else) and `index.test.ts` when it
+has tests. Consumers import types straight from `types.ts` with
+`import type`; `index.ts` does not re-export them.
+
+Never put the CSRF token or any credential in `localStorage`,
+`sessionStorage`, IndexedDB, cookies, URLs or logs, and never disable TLS
+verification (`NODE_TLS_REJECT_UNAUTHORIZED`, `rejectUnauthorized: false`).
+
+Layout: spacing between siblings uses `flex` or `grid` with `gap-*`, every
+page section uses `mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8`, classes are
+mobile-first (screens work from 360px wide), and colors and radii come from
+the tokens in `src/styles/globals.css`.
 
 ## How the session works
 

@@ -9,10 +9,6 @@ import {
   registerComum
 } from './support/tracking'
 
-// The queue on /administradores (spec 003 US-4, task T10.1). Two users of
-// this file create tickets; the queue also holds every other ticket of the
-// database, so the checks filter by these users.
-
 const ADMIN_TEXT = 'Página de acesso restrito aos usuários administradores'
 const FORBIDDEN = 'Você não tem permissão para acessar esta página.'
 
@@ -69,7 +65,7 @@ test.describe('as admin', () => {
     await loginAs(page, seedAdmin(), '/administradores')
   })
 
-  test('keeps the exact text and the way to /cadastro, and shows the queue (AC-4.1 to AC-4.3)', async ({
+  test('keeps the exact text and the way to /cadastro, and shows the queue', async ({
     page
   }) => {
     await expect(page.getByText(ADMIN_TEXT, { exact: true })).toBeVisible()
@@ -94,7 +90,6 @@ test.describe('as admin', () => {
       'Criado em',
       'Atualizado em'
     ])
-    // The most recent change of the database is ours: the closed ticket.
     await expect(rows(page).first()).toContainText(ana.login)
     await expect(rows(page).first()).toContainText('Fechado')
     await expect(queue(page).getByTestId('ticket-count')).toHaveText(
@@ -102,7 +97,7 @@ test.describe('as admin', () => {
     )
   })
 
-  test('filters by user, type and status, kept in the address (AC-4.4)', async ({
+  test('filters by user, type and status, kept in the address', async ({
     page
   }) => {
     const options = async () => {
@@ -144,7 +139,7 @@ test.describe('as admin', () => {
     await expect(page).toHaveURL('/administradores')
   })
 
-  test('the summary counts every status and its links filter (AC-4.5)', async ({
+  test('the summary counts every status and its links filter', async ({
     page
   }) => {
     const summary = page.getByRole('navigation', { name: 'Tickets por status' })
@@ -165,7 +160,7 @@ test.describe('as admin', () => {
   })
 })
 
-test('a comum user gets the forbidden screen and a 403 from the API (AC-4.7)', async ({
+test('a comum user gets the forbidden screen and a 403 from the API', async ({
   page
 }) => {
   await loginAs(page, ana, '/usuarios')

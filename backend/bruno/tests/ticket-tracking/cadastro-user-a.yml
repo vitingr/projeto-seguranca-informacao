@@ -23,8 +23,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // User A of the IDOR checks. An e2e.* login, so the README cleanup
-        // removes it with the others.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
           expect(res.getBody().role).to.equal("comum");

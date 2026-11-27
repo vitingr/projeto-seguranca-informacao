@@ -12,8 +12,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 AC-4.4: the comum user of the matrix has a ticket, so
-        // their login is in the list; it is sorted and has no duplicate.
         test("status is 200", function () {
           expect(res.getStatus()).to.equal(200);
         });

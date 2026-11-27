@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Light theme only: no dark variant and no dark token block. */
-
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
@@ -72,12 +70,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /*
-   * No shadows: elevation comes from borders, surfaces and spacing. Every
-   * shadow token is an empty shadow. It is not `none`, because Tailwind
-   * lists the shadow next to the focus ring in one box-shadow value, and
-   * `none` inside a list would drop the ring too.
-   */
+  /* Not `none`: inside Tailwind's shadow list it would drop the focus ring */
   --shadow-2xs: 0 0 transparent;
   --shadow-xs: 0 0 transparent;
   --shadow-sm: 0 0 transparent;
@@ -118,13 +111,8 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  /* The one accent (spec Q-18): only the send progress and the active step.
-     Blue 600: 5.2:1 against white, and white on it, so text passes AA too. */
   --brand: oklch(0.546 0.245 262.881);
   --brand-foreground: oklch(1 0 0);
-  /* Avatar tints (spec AC-7.2, plan 5.6): a quiet tile and its initials in
-     the same hue, far apart in lightness, so every pair passes AA (checked
-     by components/avatar/index.test.tsx). */
   --avatar-1: oklch(0.94 0.035 25);
   --avatar-1-foreground: oklch(0.4 0.09 25);
   --avatar-2: oklch(0.94 0.035 65);
@@ -141,8 +129,6 @@
   --avatar-7-foreground: oklch(0.4 0.09 280);
   --avatar-8: oklch(0.94 0.035 330);
   --avatar-8-foreground: oklch(0.4 0.09 330);
-  /* Ticket status badges (spec 003 AC-1.9): four discreet tints, AA with
-     their text, never the only cue (the label is always shown). */
   --status-aberto: oklch(0.95 0.03 250);
   --status-aberto-foreground: oklch(0.42 0.1 250);
   --status-em-andamento: oklch(0.95 0.04 80);
@@ -180,19 +166,12 @@
   html {
     @apply font-sans;
   }
-  /* Tailwind 4 leaves buttons with the default cursor. Only enabled buttons
-     get the pointer; utilities such as `disabled:cursor-not-allowed` still
-     win, since they live in a later layer. */
   button:not(:disabled):not([aria-disabled='true']),
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
   }
 }
 
-/* Send progress (spec AC-5.5 to AC-5.10, after criacao-tickety.mp4). Used
-   only through `motion-safe:` classes, so reduced motion shows no movement,
-   blur or blinking. No gradient: the video's text shimmer is an opacity
-   pulse here. */
 @theme {
   --animate-enter-blur: enter-blur 250ms ease-out both;
   --animate-blink: blink 1.2s ease-in-out infinite;
@@ -219,7 +198,6 @@
   }
 }
 
-/* The 3 × 3 squares blink in a diagonal wave. */
 @layer components {
   .progress-squares > :nth-child(2),
   .progress-squares > :nth-child(4) {
@@ -239,10 +217,7 @@
   }
 }
 
-/* The scroll region of a ticket thread (spec 003 AC-3.4a, plan 6.5): the
-   page height minus the headers above it and the reply box under it (about
-   24rem together), never under 18rem, so the region and the box fit the
-   screen together, also at 360 px. */
+/* Viewport minus about 24rem of headers and reply box, never under 18rem */
 @utility thread-scroll {
   max-height: max(18rem, calc(100dvh - 24rem));
 

@@ -3,17 +3,11 @@ import { type Page, expect, test } from '@playwright/test'
 import { comumUser, seedAdmin } from './support/env'
 import { loginAs } from './support/login'
 
-// The header fits on one line from 360 px (task T7.4): "Início", "Menu" and
-// "Sair" stay visible, and the role links and the role name move into the
-// menu panel below the `md` breakpoint.
-
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Principal' })
 
 const menuButton = (page: Page) =>
   nav(page).getByRole('button', { name: 'Menu' })
 
-// The role name is both inline (from `md`) and in the menu panel; only the
-// visible one counts.
 const visibleRole = (page: Page, roleName: string) =>
   nav(page).getByText(`Papel: ${roleName}`).filter({ visible: true })
 
@@ -59,8 +53,6 @@ for (const role of ROLES) {
         boxes.push(box!)
       }
 
-      // One row: every control has the same vertical center, and each one
-      // is fully inside the viewport.
       const center = (box: { height: number; y: number }) =>
         box.y + box.height / 2
       for (const box of boxes) {
@@ -69,11 +61,9 @@ for (const role of ROLES) {
         expect(box.x + box.width).toBeLessThanOrEqual(360)
       }
 
-      // "Sair" is a single line of text.
       const sair = boxes[2]
       expect(sair.height).toBeLessThanOrEqual(boxes[1].height)
 
-      // Nothing scrolls sideways.
       const overflow = await page.evaluate(() => {
         const element = document.querySelector('nav[aria-label="Principal"]')!
         return {
@@ -83,7 +73,6 @@ for (const role of ROLES) {
       })
       expect(overflow).toEqual({ nav: 0, page: 0 })
 
-      // The role links and the role name are only in the closed menu.
       await expect(nav(page).getByRole('link')).toHaveText(['Início'])
       await expect(visibleRole(page, role.roleName)).toHaveCount(0)
     })

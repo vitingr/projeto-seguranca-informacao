@@ -13,8 +13,6 @@ type Auth struct {
 	users     UserRepository
 	passwords PasswordHasher
 	validator InputValidator
-	// dummyHash is verified when the login does not exist, so an unknown
-	// user costs the same Argon2id work as a wrong password (D-13).
 	dummyHash string
 }
 

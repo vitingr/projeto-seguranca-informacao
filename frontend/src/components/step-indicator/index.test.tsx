@@ -74,7 +74,7 @@ describe('StepIndicator', () => {
     expect(buttons.some(button => button.includes('Revisão'))).toBe(false)
   })
 
-  it('marks every step done and none revisitable when locked (AC-5.3)', () => {
+  it('marks every step done and none revisitable when locked', () => {
     const html = renderToStaticMarkup(
       <StepIndicator current={3} onSelect={() => {}} steps={STEPS} locked />
     )

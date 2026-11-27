@@ -5,16 +5,8 @@ import { Textarea } from '@/components/ui/shadcn/textarea'
 
 import type { TextAreaFieldProps } from './types'
 
-/** Said once to screen readers; the visible counter is not announced. */
 export const limitText = (max: number) => `Até ${max} caracteres.`
 
-/**
- * A long field in the composer box of `design/references/input-texto.mp4`
- * (plan 5.4): the text on top, growing with the content; a quiet row inside
- * the box with the "0 / 2000" counter on the right (spec AC-3.1); and the
- * hint in a light gray strip attached under it. Focus and errors mark the
- * whole box.
- */
 export const TextAreaField = ({
   'aria-describedby': describedBy,
   className,

@@ -12,7 +12,6 @@ import type { ProfileCardProps, UserProfileProps } from './types'
 
 export const PROFILE_TEXTS = {
   actions: 'Ações',
-  /** Exactly the text of the assignment (spec AC-0.1, AC-7.1). */
   description: 'Página de acesso restrito aos usuários comuns',
   limits: [
     'A sessão termina depois de um período sem atividade; aí é só entrar de novo.',
@@ -30,11 +29,6 @@ export const PROFILE_TEXTS = {
   title: 'Minha conta'
 } as const
 
-/**
- * A bordered card of the side column, like the builder's, with no toggle.
- * The page has one profile, so the ids are fixed (this renders on the
- * server, with no client state).
- */
 const ProfileCard = ({ children, icon: Icon, id, title }: ProfileCardProps) => (
   <section
     aria-labelledby={id}
@@ -48,13 +42,6 @@ const ProfileCard = ({ children, icon: Icon, id, title }: ProfileCardProps) => (
   </section>
 )
 
-/**
- * The body of `/usuarios` (spec US-7, plan 5.6): the exact text of the
- * assignment and the area line, then the profile in the layout of the
- * builder (a main card next to a side column). Everything comes from the
- * backend for the session user; the user id is never shown (AC-7.3). The
- * avatar is decorative and the login is the text next to it (AC-7.2).
- */
 export const UserProfile = ({
   area,
   children,

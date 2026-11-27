@@ -16,8 +16,6 @@ runtime:
         bru.setVar("matrixTicketId", items.length > 0 ? items[0].id : 0);
     - type: tests
       code: |-
-        // Not a cell: keeps the ticket the comum user created in 25 as
-        // matrixTicketId, the ticket of every {id} cell after this one.
         test("the comum user has the ticket of request 25", function () {
           expect(res.getStatus()).to.equal(200);
           expect(res.getBody().items.length).to.equal(1);

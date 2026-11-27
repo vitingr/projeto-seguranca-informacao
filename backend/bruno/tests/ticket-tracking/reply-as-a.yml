@@ -21,7 +21,6 @@ runtime:
   scripts:
     - type: tests
       code: |-
-        // Spec 003 AC-3.6, BR-6: stored trimmed, as plain text.
         test("status is 201", function () {
           expect(res.getStatus()).to.equal(201);
         });

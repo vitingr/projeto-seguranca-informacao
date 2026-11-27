@@ -162,23 +162,10 @@ export const createStepHistory = (
   }
 }
 
-/** A click that follows the link in this tab (no modifier, main button). */
-export const isPlainClick = (event: {
-  altKey: boolean
-  button: number
-  ctrlKey: boolean
-  metaKey: boolean
-  shiftKey: boolean
-}): boolean =>
-  event.button === 0 &&
-  !event.altKey &&
-  !event.ctrlKey &&
-  !event.metaKey &&
-  !event.shiftKey
-
-/** Whether a link leads out of the builder within this site. */
-export const leavesBuilder = (href: string, current: string): boolean => {
-  const here = new URL(current)
-  const target = new URL(href, here)
-  return target.origin === here.origin && target.pathname !== here.pathname
-}
+// The click and link rules of the leave guard now live in
+// utils/navigation-guard (shared with the reply box, plan P-12); the
+// builder names stay, so history.test.ts keeps testing them.
+export {
+  isPlainClick,
+  leavesPage as leavesBuilder
+} from '@/utils/navigation-guard'

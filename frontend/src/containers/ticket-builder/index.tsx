@@ -13,7 +13,6 @@ import {
   XIcon
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form'
 
@@ -30,7 +29,7 @@ import { TicketPreview } from '@/components/ticket-preview'
 import { TicketReview } from '@/components/ticket-review'
 import { TicketTypePicker } from '@/components/ticket-type-picker'
 import { Button, buttonVariants } from '@/components/ui/shadcn/button'
-import { LOGOUT_SELECTOR } from '@/containers/logout-button'
+import { LeaveGuardBar, useLeaveGuard } from '@/containers/leave-guard'
 import {
   FIELD_LIMITS,
   TICKET_TYPES,
@@ -58,19 +57,13 @@ import {
   progressChips,
   reviewRows
 } from './form-helpers'
-import {
-  createStepHistory,
-  guardActive,
-  isPlainClick,
-  leavesBuilder
-} from './history'
+import { createStepHistory, guardActive } from './history'
 import { builderReducer, initialState } from './reducer'
 import { emptyValues, parseTicket, ticketSchemas } from './schemas'
 import { clock, sendTicket } from './send'
 import type {
   BuilderState,
   FieldSlot,
-  LeaveRequest,
   SendTiming,
   Step,
   StepHistory,
@@ -210,7 +203,6 @@ export const TicketBuilder = () => {
 
   // The steps in the browser history (history.ts): Back moves one step and
   // never sends (spec section 7, AC-5.3); the URL holds only `?etapa=`.
-  const router = useRouter()
   const stepHistory = useRef<null | StepHistory>(null)
   const historyStep = useRef(state.step)
   const locked = state.sending || done
@@ -265,84 +257,10 @@ export const TicketBuilder = () => {
   // AC-3.8: with typed data not sent, leaving warns first. Closing or
   // reloading the tab gets the browser's own prompt; a link out of the
   // builder and the header's "Sair" get the inline "Sair sem enviar?" bar
-  // instead.
-  const [leaving, setLeaving] = useState<LeaveRequest | null>(null)
-  const stayRef = useRef<HTMLButtonElement>(null)
-  // The one click on "Sair" that the guard lets through, after "Sair sem
-  // enviar".
-  const logoutAllowed = useRef(false)
-  const guardOn = guardActive({ dirty: hasData(values), sent: done })
-
-  useEffect(() => {
-    if (!guardOn) return
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      // A logout the user confirmed is running (the button stays disabled
-      // until the login page loads): its redirect is not warned again. If
-      // the logout fails, the button is enabled and the warning is back.
-      if (document.querySelector(`${LOGOUT_SELECTOR}:disabled`)) return
-      event.preventDefault()
-    }
-    // Capture phase on `window`: runs before the router's link handler and
-    // before the button's own click handler.
-    const onClick = (event: MouseEvent) => {
-      if (!(event.target instanceof Element)) return
-      const logout = event.target.closest(LOGOUT_SELECTOR)
-      if (logout instanceof HTMLButtonElement) {
-        if (logoutAllowed.current) {
-          logoutAllowed.current = false
-          return
-        }
-        // Any click on "Sair" logs out, with or without a modifier.
-        event.preventDefault()
-        event.stopPropagation()
-        setLeaving({ from: logout, kind: 'logout' })
-        return
-      }
-      if (!isPlainClick(event)) return
-      const link = event.target.closest('a[href]')
-      if (
-        !(link instanceof HTMLAnchorElement) ||
-        (link.target !== '' && link.target !== '_self') ||
-        link.hasAttribute('download') ||
-        !leavesBuilder(link.href, window.location.href)
-      ) {
-        return
-      }
-      event.preventDefault()
-      event.stopPropagation()
-      setLeaving({ from: link, href: link.href, kind: 'link' })
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    window.addEventListener('click', onClick, true)
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-      window.removeEventListener('click', onClick, true)
-    }
-  }, [guardOn])
-
-  useEffect(() => {
-    if (leaving) stayRef.current?.focus()
-  }, [leaving])
-
-  const stay = () => {
-    leaving?.from.focus()
-    setLeaving(null)
-  }
-
-  const leave = () => {
-    if (!leaving) return
-    setLeaving(null)
-    if (leaving.kind === 'logout') {
-      // The button logs out as it always does (POST /api/logout, then the
-      // login page), showing its own error if that fails.
-      logoutAllowed.current = true
-      leaving.from.click()
-      logoutAllowed.current = false
-      return
-    }
-    const url = new URL(leaving.href)
-    router.push(`${url.pathname}${url.search}${url.hash}`)
-  }
+  // instead (containers/leave-guard, shared with the reply box).
+  const { leave, leaving, stay, stayRef } = useLeaveGuard(
+    guardActive({ dirty: hasData(values), sent: done })
+  )
 
   const selectType = (ticketType: TicketType) => {
     const data = hasData(form.getValues())
@@ -469,38 +387,16 @@ export const TicketBuilder = () => {
         )}
       </div>
 
-      {leaving ? (
-        <div
-          className="border-border bg-muted flex flex-col gap-3 rounded-sm border p-4 sm:flex-row sm:items-center sm:justify-between"
-          data-testid="leave-guard"
-          role="alert"
-        >
-          <p className="text-sm">
-            <span className="font-medium">{BUILDER_TEXTS.leaveTitle}</span>{' '}
-            {BUILDER_TEXTS.leaveBody}
-          </p>
-          <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              className="w-full sm:w-auto"
-              onClick={stay}
-              ref={stayRef}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {BUILDER_TEXTS.stay}
-            </Button>
-            <Button
-              className="w-full sm:w-auto"
-              onClick={leave}
-              size="sm"
-              type="button"
-            >
-              {BUILDER_TEXTS.leave}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <LeaveGuardBar
+        body={BUILDER_TEXTS.leaveBody}
+        leaveLabel={BUILDER_TEXTS.leave}
+        onLeave={leave}
+        onStay={stay}
+        open={leaving !== null}
+        stayLabel={BUILDER_TEXTS.stay}
+        stayRef={stayRef}
+        title={BUILDER_TEXTS.leaveTitle}
+      />
 
       <StepIndicator
         current={stepIndex}

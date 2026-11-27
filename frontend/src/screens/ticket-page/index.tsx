@@ -12,17 +12,27 @@ import { buttonVariants } from '@/components/ui/shadcn/button'
 import { AppHeader } from '@/containers/app-header'
 import { LoadError } from '@/containers/load-error'
 import { TicketConversation } from '@/containers/ticket-conversation'
+import type { ReplySettings } from '@/containers/ticket-conversation/types'
 import { TicketTabs } from '@/containers/ticket-tabs'
 import { formatDateTime } from '@/domain/date-time'
 import { MESSAGES } from '@/domain/messages'
-import { backToListHref, readTicketTab } from '@/domain/ticket-query'
+import {
+  LIST_PATHS,
+  backToListHref,
+  readTicketTab
+} from '@/domain/ticket-query'
 import {
   NOT_INFORMED,
   ticketDetailRows,
   ticketTypeLabel
 } from '@/domain/tickets'
 import { requireRole } from '@/services/session'
-import { loadOwnThread, loadOwnTicket } from '@/services/tickets'
+import {
+  loadAdminThread,
+  loadAdminTicket,
+  loadOwnThread,
+  loadOwnTicket
+} from '@/services/tickets'
 
 import type {
   ConversationProps,
@@ -34,6 +44,7 @@ import type {
 
 export const TICKET_PAGE_TEXTS = {
   backToMine: 'Voltar para meus tickets',
+  backToQueue: 'Voltar para a fila',
   createdAt: 'Criado em',
   details: 'Detalhes',
   detailsHint: 'Os campos exatamente como foram enviados.',
@@ -118,32 +129,46 @@ const TicketDetails = ({ ticket }: TicketDetailsProps) => (
  * The "Conversa" panel (spec 003 US-3): the thread as the server had it at
  * `now`, in the bounded panel with "Atualizado às · Atualizar".
  */
-const Conversation = ({ now, thread, ticket }: ConversationProps) => (
-  <TicketConversation
-    messageCount={
-      thread.entries.filter(entry => entry.kind === 'message').length
-    }
-    reply={{
-      closed: ticket.status === 'fechado',
-      closedAction: {
-        href: '/usuarios/tickets/novo',
-        label: TICKET_PAGE_TEXTS.newTicket
-      },
-      placeholder: TICKET_PAGE_TEXTS.replyPlaceholder,
-      scope: 'own',
-      ticketId: ticket.id,
-      trayText: TICKET_PAGE_TEXTS.replyTray
-    }}
-    renderedAt={now}
-  >
-    <Thread
-      entries={thread.entries}
-      now={now}
-      openedAt={ticket.createdAt}
-      view="own"
-    />
-  </TicketConversation>
-)
+const Conversation = ({ now, scope, thread, ticket }: ConversationProps) => {
+  const author = ticket.authorLogin ?? ''
+  const reply: ReplySettings =
+    scope === 'own'
+      ? {
+          closed: ticket.status === 'fechado',
+          closedAction: {
+            href: '/usuarios/tickets/novo',
+            label: TICKET_PAGE_TEXTS.newTicket
+          },
+          placeholder: TICKET_PAGE_TEXTS.replyPlaceholder,
+          scope,
+          ticketId: ticket.id,
+          trayText: TICKET_PAGE_TEXTS.replyTray
+        }
+      : {
+          closed: ticket.status === 'fechado',
+          placeholder: `Responder a ${author}…`,
+          scope,
+          ticketId: ticket.id,
+          trayText: `Visível para ${author}`
+        }
+  return (
+    <TicketConversation
+      messageCount={
+        thread.entries.filter(entry => entry.kind === 'message').length
+      }
+      renderedAt={now}
+      reply={reply}
+    >
+      <Thread
+        authorLogin={ticket.authorLogin}
+        entries={thread.entries}
+        now={now}
+        openedAt={ticket.createdAt}
+        view={scope === 'own' ? 'own' : 'admin'}
+      />
+    </TicketConversation>
+  )
+}
 
 /** The link back to the list, with the filters the user had (AC-2.5). */
 const BackLink = ({ backHref, backLabel }: TicketNotFoundProps) => (
@@ -184,20 +209,41 @@ export const TicketNotFound = ({
   </main>
 )
 
+/** What differs between the author's page and the admin's (plan 6.4). */
+const SCOPES = {
+  own: {
+    backLabel: TICKET_PAGE_TEXTS.backToMine,
+    loadThread: loadOwnThread,
+    loadTicket: loadOwnTicket,
+    route: '/usuarios/tickets/[id]'
+  },
+  queue: {
+    backLabel: TICKET_PAGE_TEXTS.backToQueue,
+    loadThread: loadAdminThread,
+    loadTicket: loadAdminTicket,
+    route: '/administradores/tickets/[id]'
+  }
+} as const
+
 /**
- * `/usuarios/tickets/<id>` (spec 003 US-2, plan 6.4): the comum guard, then
- * the ticket and its thread loaded in parallel on the server. A ticket that
- * is not the user's, a missing one or a malformed id renders the segment's
- * not-found screen (S-2); a failed load, the inline error. The tab and the
- * way back come from the address, checked (`?aba=`, `?de=`).
+ * `/usuarios/tickets/<id>` (spec 003 US-2) and `/administradores/tickets/<id>`
+ * (US-5), plan 6.4: the role guard, then the ticket and its thread loaded in
+ * parallel on the server. A ticket that is not the comum user's, a missing
+ * one or a malformed id renders the segment's not-found screen (S-2); a
+ * failed load, the inline error. The tab and the way back come from the
+ * address, checked (`?aba=`, `?de=`). The admin page adds "Usuário:
+ * <login>" to the header, the support view of the thread and `actions`.
  */
 export const TicketPageScreen = async ({
+  actions,
   id,
+  scope = 'own',
   searchParams
 }: TicketPageScreenProps) => {
+  const settings = SCOPES[scope]
   const { allowed, user } = await requireRole(
-    '/usuarios/tickets/[id]',
-    `/usuarios/tickets/${id}`
+    settings.route,
+    `${LIST_PATHS[scope]}/tickets/${id}`
   )
   if (!allowed) {
     return (
@@ -209,10 +255,10 @@ export const TicketPageScreen = async ({
   }
 
   const [ticket, thread] = await Promise.all([
-    loadOwnTicket(id),
-    loadOwnThread(id)
+    settings.loadTicket(id),
+    settings.loadThread(id)
   ])
-  const backHref = backToListHref(searchParams.de, 'own')
+  const backHref = backToListHref(searchParams.de, scope)
   const titleId = 'ticket-title'
 
   const body = (() => {
@@ -225,25 +271,24 @@ export const TicketPageScreen = async ({
         (thread.kind === 'error' ? thread.requestId : undefined)
       return (
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-10 sm:px-6 lg:px-8">
-          <BackLink
-            backHref={backHref}
-            backLabel={TICKET_PAGE_TEXTS.backToMine}
-          />
+          <BackLink backHref={backHref} backLabel={settings.backLabel} />
           <LoadError message={loadErrorMessage(requestId)} />
         </main>
       )
     }
     return (
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-        <BackLink
-          backHref={backHref}
-          backLabel={TICKET_PAGE_TEXTS.backToMine}
+        <BackLink backHref={backHref} backLabel={settings.backLabel} />
+        <TicketHeader
+          actions={actions?.(ticket.data)}
+          ticket={ticket.data}
+          titleId={titleId}
         />
-        <TicketHeader ticket={ticket.data} titleId={titleId} />
         <TicketTabs
           conversation={
             <Conversation
               now={new Date().toISOString()}
+              scope={scope}
               thread={thread.data}
               ticket={ticket.data}
             />

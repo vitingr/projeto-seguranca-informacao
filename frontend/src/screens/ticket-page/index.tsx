@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { DetailList, DetailRow } from '@/components/detail-list'
 import { Forbidden } from '@/components/forbidden'
 import { StatusBadge } from '@/components/status-badge'
+import { Thread } from '@/components/thread'
 import { TicketHeader } from '@/components/ticket-header'
 import { TicketTypeIcon } from '@/components/ticket-type-icon'
 import { buttonVariants } from '@/components/ui/shadcn/button'
 import { AppHeader } from '@/containers/app-header'
 import { LoadError } from '@/containers/load-error'
+import { TicketConversation } from '@/containers/ticket-conversation'
 import { TicketTabs } from '@/containers/ticket-tabs'
 import { formatDateTime } from '@/domain/date-time'
 import { MESSAGES } from '@/domain/messages'
@@ -109,11 +111,24 @@ const TicketDetails = ({ ticket }: TicketDetailsProps) => (
   </div>
 )
 
-/** The "Conversa" panel until the thread of T8.2/T8.3 is in place. */
-const Conversation = ({ thread }: ConversationProps) => (
-  <p className="text-muted-foreground text-sm">
-    {`${thread.entries.filter(entry => entry.kind === 'message').length} mensagens`}
-  </p>
+/**
+ * The "Conversa" panel (spec 003 US-3): the thread as the server had it at
+ * `now`, in the bounded panel with "Atualizado às · Atualizar".
+ */
+const Conversation = ({ now, thread, ticket }: ConversationProps) => (
+  <TicketConversation
+    messageCount={
+      thread.entries.filter(entry => entry.kind === 'message').length
+    }
+    renderedAt={now}
+  >
+    <Thread
+      entries={thread.entries}
+      now={now}
+      openedAt={ticket.createdAt}
+      view="own"
+    />
+  </TicketConversation>
 )
 
 /** The link back to the list, with the filters the user had (AC-2.5). */
@@ -212,7 +227,13 @@ export const TicketPageScreen = async ({
         />
         <TicketHeader ticket={ticket.data} titleId={titleId} />
         <TicketTabs
-          conversation={<Conversation thread={thread.data} />}
+          conversation={
+            <Conversation
+              now={new Date().toISOString()}
+              thread={thread.data}
+              ticket={ticket.data}
+            />
+          }
           details={<TicketDetails ticket={ticket.data} />}
           initialTab={readTicketTab(searchParams.aba)}
           titleId={titleId}

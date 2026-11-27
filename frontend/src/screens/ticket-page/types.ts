@@ -21,7 +21,10 @@ export interface DetailsGroupProps {
 }
 
 export interface ConversationProps {
+  /** When the server rendered the page (ISO 8601). */
+  now: string
   thread: ThreadPage
+  ticket: TicketDetail
 }
 
 export interface TicketNotFoundProps {

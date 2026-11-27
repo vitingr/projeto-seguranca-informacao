@@ -239,6 +239,19 @@
   }
 }
 
+/* The scroll region of a ticket thread (spec 003 AC-3.4a, plan 6.5): the
+   page height minus the headers above it and the reply box under it (about
+   24rem together), never under 18rem, so the region and the box fit the
+   screen together, also at 360 px. */
+@utility thread-scroll {
+  max-height: max(18rem, calc(100dvh - 24rem));
+
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 

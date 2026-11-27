@@ -54,4 +54,10 @@ describe('TicketConfirmation', () => {
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
     expect(html).not.toContain('<img')
   })
+
+  it('links "Ver ticket" to the new ticket page (spec 003 AC-1.11)', () => {
+    expect(render()).toMatch(
+      /<a[^>]*href="\/usuarios\/tickets\/42"[^>]*>Ver ticket<svg/
+    )
+  })
 })

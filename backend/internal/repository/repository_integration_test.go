@@ -1336,6 +1336,14 @@ func TestTicketListsIntegration(t *testing.T) {
 func TestTicketListPlansIntegration(t *testing.T) {
 	db := openTestDB(t)
 	ctx := t.Context()
+	// Run after all fixture cleanup, so later plan tests see current counts.
+	t.Cleanup(func() {
+		for _, query := range []string{`ANALYZE tickets`, `ANALYZE users`} {
+			if _, err := db.ExecContext(context.WithoutCancel(ctx), query); err != nil {
+				t.Errorf("analyze after plan cleanup: %v", err)
+			}
+		}
+	})
 	// 2 000 tickets of one bulk author, and 30 of the author whose plans are
 	// read, like a user among many.
 	bulk, _ := newTrackingUser(t, db, domain.RoleComum)
@@ -1352,8 +1360,48 @@ func TestTicketListPlansIntegration(t *testing.T) {
 			t.Fatalf("insert %d tickets: %v", fill.n, err)
 		}
 	}
+	// Give the planner many low-volume authors even on a clean database.
+	// The prefix is unique to this run; cleanup is registered before inserting.
+	prefix := "it_plan_" + strings.ToLower(rand.Text()[:12]) + "_"
+	t.Cleanup(func() {
+		bg := context.WithoutCancel(ctx)
+		for _, query := range []string{
+			`DELETE FROM ticket_entries WHERE actor_id IN (SELECT id FROM users WHERE starts_with(login, $1))
+			 OR ticket_id IN (SELECT t.id FROM tickets t JOIN users u ON u.id = t.author_id WHERE starts_with(u.login, $1))`,
+			`DELETE FROM tickets WHERE author_id IN (SELECT id FROM users WHERE starts_with(login, $1))`,
+			`DELETE FROM users WHERE starts_with(login, $1)`,
+		} {
+			if _, err := db.ExecContext(bg, query, prefix); err != nil {
+				t.Errorf("cleanup plan authors: %v", err)
+			}
+		}
+	})
+	if _, err := db.ExecContext(ctx, `
+		WITH authors AS (
+			INSERT INTO users (login, password_hash, role)
+			SELECT $1 || g::text, '$argon2id$fake', 'comum'
+			FROM generate_series(1, 200) AS g
+			RETURNING id
+		)
+		INSERT INTO tickets (author_id, type, status, title, description)
+		SELECT a.id, 'outro', (ARRAY['aberto', 'em_andamento', 'resolvido', 'fechado'])[1 + g % 4],
+		       'Dúvida ' || g, 'Como peço uma VPN?'
+		FROM authors a CROSS JOIN generate_series(1, 10) AS g`, prefix); err != nil {
+		t.Fatalf("insert plan authors and tickets: %v", err)
+	}
+	// Keep indexed existence probes cheaper than reading the whole table.
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO tickets (author_id, type, status, title, description)
+		SELECT $1, 'outro', (ARRAY['aberto', 'em_andamento', 'resolvido', 'fechado'])[1 + g % 4],
+		       'Dúvida ' || g, 'Como peço uma VPN?'
+		FROM generate_series(1, 8000) AS g`, bulk); err != nil {
+		t.Fatalf("insert extra bulk tickets: %v", err)
+	}
 	if _, err := db.ExecContext(ctx, `ANALYZE tickets`); err != nil {
 		t.Fatalf("analyze: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `ANALYZE users`); err != nil {
+		t.Fatalf("analyze users: %v", err)
 	}
 
 	// explain returns the plan of query; noSeqScan makes it the plan with
@@ -1581,6 +1629,9 @@ func TestThreadIntegration(t *testing.T) {
 	t.Run("plan uses the thread index", func(t *testing.T) {
 		if _, err := db.ExecContext(ctx, `ANALYZE ticket_entries`); err != nil {
 			t.Fatalf("analyze: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `ANALYZE users`); err != nil {
+			t.Fatalf("analyze thread actors: %v", err)
 		}
 		explain := func(before domain.TicketEntryID) string {
 			rows, err := db.QueryContext(ctx, "EXPLAIN "+threadQuery, int64(long), int64(before), ThreadPageSize+1)

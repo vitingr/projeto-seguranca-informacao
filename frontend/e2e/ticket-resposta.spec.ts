@@ -193,6 +193,85 @@ test('a ticket closed meanwhile refuses the reply and shows the closed line (AC-
   ).toHaveAttribute('href', '/usuarios/tickets/novo')
 })
 
+test('a "Fechado" ticket shows the closed line and "Novo ticket", no box (AC-3.8)', async ({
+  browser,
+  page
+}) => {
+  let closed = 0
+  await asUser(browser, author, '/usuarios', async other => {
+    closed = await createTicket(other, OTHER('Pedido já fechado'))
+  })
+  await asUser(browser, seedAdmin(), '/administradores', async admin => {
+    await changeStatus(admin, closed, 'aberto', 'fechado')
+  })
+  await page.goto(`/usuarios/tickets/${closed}?aba=conversa`)
+  await expect(page.getByTestId('reply-closed')).toContainText(
+    'Este ticket foi fechado. Abra um novo ticket se precisar de mais ajuda.'
+  )
+  await expect(box(page)).toHaveCount(0)
+  await expect(sendButton(page)).toHaveCount(0)
+})
+
+test.describe('unsent text (AC-3.9)', () => {
+  /** Every browser dialog, dismissed so nothing hangs. */
+  const dialogs = (page: Page) => {
+    const seen: string[] = []
+    page.on('dialog', async dialog => {
+      seen.push(dialog.type())
+      await dialog.dismiss()
+    })
+    return seen
+  }
+
+  test('a link out of the page and "Sair" show the inline bar, never a dialog', async ({
+    page
+  }) => {
+    const seen = dialogs(page)
+    await openConversa(page, second)
+    await box(page).fill('Texto ainda não enviado.')
+    await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()
+    const bar = page.getByTestId('leave-guard')
+    await expect(bar).toContainText(
+      'Sair sem enviar? A mensagem que você escreveu será perdida.'
+    )
+    await expect(
+      page.getByRole('button', { name: 'Continuar no ticket' })
+    ).toBeFocused()
+    await expect(page).toHaveURL(`/usuarios/tickets/${second}?aba=conversa`)
+    await page.getByRole('button', { name: 'Continuar no ticket' }).click()
+    await expect(bar).toHaveCount(0)
+    await expect(box(page)).toHaveValue('Texto ainda não enviado.')
+
+    await page.getByRole('button', { name: 'Sair' }).click()
+    await expect(bar).toBeVisible()
+    await page.getByRole('button', { name: 'Continuar no ticket' }).click()
+
+    await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()
+    await page.getByRole('button', { name: 'Sair sem enviar' }).click()
+    await expect(page).toHaveURL('/usuarios')
+    expect(seen).toEqual([])
+    await expectNothingInBrowserStorage(page)
+  })
+
+  test('closing the page with typed text asks the browser first', async ({
+    page
+  }) => {
+    const seen = dialogs(page)
+    await openConversa(page, second)
+    await box(page).fill('Texto ainda não enviado.')
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => seen).toEqual(['beforeunload'])
+  })
+
+  test('with an empty box nothing warns', async ({ page }) => {
+    const seen = dialogs(page)
+    await openConversa(page, second)
+    await page.getByRole('link', { name: 'Voltar para meus tickets' }).click()
+    await expect(page).toHaveURL('/usuarios')
+    expect(seen).toEqual([])
+  })
+})
+
 test('an HTML payload is sent and shown as text (S-10)', async ({ page }) => {
   const payload = '<img src=x onerror=alert(1)> <b>negrito</b>'
   await openConversa(page, second)

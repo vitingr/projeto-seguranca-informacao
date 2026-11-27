@@ -13,8 +13,9 @@ import {
 } from 'react'
 
 import { InlineAlert } from '@/components/inline-alert'
-import { ReplyBox } from '@/components/reply-box'
+import { ReplyBox, hasText } from '@/components/reply-box'
 import { Separator } from '@/components/ui/shadcn/separator'
+import { LeaveGuardBar, useLeaveGuard } from '@/containers/leave-guard'
 import { formatClock } from '@/domain/date-time'
 import { api } from '@/repositories/api'
 import { singleFlight } from '@/utils/single-flight'
@@ -23,10 +24,14 @@ import { sendReply } from './reply'
 import type { TicketConversationProps } from './types'
 
 export const CONVERSATION_TEXTS = {
+  leave: 'Sair sem enviar',
+  leaveBody: 'A mensagem que você escreveu será perdida.',
+  leaveTitle: 'Sair sem enviar?',
   refresh: 'Atualizar',
   refreshing: 'Atualizando…',
   region: 'Mensagens do ticket',
-  sent: 'Mensagem enviada.'
+  sent: 'Mensagem enviada.',
+  stay: 'Continuar no ticket'
 } as const
 
 /** The fade-in of a new own message, only when motion is allowed. */
@@ -80,6 +85,11 @@ export const TicketConversation = ({
   const [sending, setSending] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const mac = useSyncExternalStore(noSubscription, readMac, () => false)
+  // AC-3.9: a typed reply not sent warns before the page is left (the text
+  // lives only in this page, never in storage or the address, S-11).
+  const { leave, leaving, stay, stayRef } = useLeaveGuard(
+    reply !== undefined && !reply.closed && hasText(text)
+  )
 
   // The panel may start hidden (the "Detalhes" tab keeps it mounted), so the
   // jump to the end runs whenever the region or its content changes size:
@@ -187,6 +197,18 @@ export const TicketConversation = ({
       {reply ? (
         <>
           <Separator />
+          <div className="px-3 pt-3 empty:hidden">
+            <LeaveGuardBar
+              body={CONVERSATION_TEXTS.leaveBody}
+              leaveLabel={CONVERSATION_TEXTS.leave}
+              onLeave={leave}
+              onStay={stay}
+              open={leaving !== null}
+              stayLabel={CONVERSATION_TEXTS.stay}
+              stayRef={stayRef}
+              title={CONVERSATION_TEXTS.leaveTitle}
+            />
+          </div>
           {sendError ? (
             <div className="px-3 pt-3">
               <InlineAlert>{sendError}</InlineAlert>

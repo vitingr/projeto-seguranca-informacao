@@ -37,7 +37,7 @@ E2E_API_BASE_URL := https://localhost
 	lint lint-frontend lint-backend typecheck-frontend \
 	test test-frontend test-backend \
 	build build-frontend build-backend \
-	e2e check check-frontend check-backend check-frontend-env
+	e2e demo check check-frontend check-backend check-frontend-env
 
 ##@ General
 
@@ -144,6 +144,9 @@ build-backend: ## go tool mage build (bin/backend_si)
 
 e2e: infra-up migrate ## Start the stack, migrate and run pnpm e2e (run make seed once before)
 	API_BASE_URL=$(E2E_API_BASE_URL) API_URL=$(E2E_API_BASE_URL) $(PNPM) e2e
+
+demo: infra-up migrate ## Class demo: e2e/enunciado.spec.ts headed and slowed down, then the HTML report
+	API_BASE_URL=$(E2E_API_BASE_URL) API_URL=$(E2E_API_BASE_URL) $(PNPM) demo
 
 check: check-backend check-frontend ## Every check required before a commit
 

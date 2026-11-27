@@ -5,16 +5,33 @@ import { ROLES } from '@/domain/roles'
 
 import {
   ACCESS_LEVELS,
+  ADMIN_THREAD_ENTRY_FIELDS,
+  ADMIN_TICKET_DETAIL_FIELDS,
+  ADMIN_TICKET_SUMMARY_FIELDS,
+  AUTHOR_LIST_FIELDS,
   CADASTRO_REQUEST_FIELDS,
+  CHANGE_STATUS_REQUEST_FIELDS,
+  CREATE_MESSAGE_REQUEST_FIELDS,
   CREATE_TICKET_REQUEST_FIELDS,
   CSRF_HEADER,
+  ENTRY_KINDS,
+  ENTRY_SIDES,
   ENVIRONMENTS,
   ERROR_CODES,
   LOGIN_REQUEST_FIELDS,
+  QUEUE_PAGE_FIELDS,
   SEVERITIES,
+  STATUS_CHANGE_RESPONSE_FIELDS,
+  THREAD_ENTRY_FIELDS,
+  THREAD_PAGE_FIELDS,
+  THREAD_PAGE_SIZE,
   TICKET_DATA_FIELDS,
+  TICKET_DETAIL_FIELDS,
+  TICKET_PAGE_FIELDS,
+  TICKET_PAGE_SIZE,
   TICKET_RESPONSE_FIELDS,
   TICKET_STATUSES,
+  TICKET_SUMMARY_FIELDS,
   TICKET_TYPES,
   USER_RESPONSE_FIELDS
 } from '.'
@@ -26,6 +43,7 @@ interface Schema {
   description?: string
   discriminator?: { mapping: Record<string, string>; propertyName: string }
   enum?: string[]
+  maxItems?: number
   properties?: Record<string, Schema>
   required?: string[]
 }
@@ -178,5 +196,65 @@ describe('ticket types match backend/api/openapi.json', () => {
       message:
         'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
     })
+  })
+})
+
+describe('ticket tracking types match backend/api/openapi.json', () => {
+  it.each([
+    ['TicketSummary', TICKET_SUMMARY_FIELDS],
+    ['AdminTicketSummary', ADMIN_TICKET_SUMMARY_FIELDS],
+    ['TicketPage', TICKET_PAGE_FIELDS],
+    ['QueuePage', QUEUE_PAGE_FIELDS],
+    ['AuthorList', AUTHOR_LIST_FIELDS],
+    ['TicketDetail', TICKET_DETAIL_FIELDS],
+    ['AdminTicketDetail', ADMIN_TICKET_DETAIL_FIELDS],
+    ['ThreadEntry', THREAD_ENTRY_FIELDS],
+    ['AdminThreadEntry', ADMIN_THREAD_ENTRY_FIELDS],
+    ['ThreadPage', THREAD_PAGE_FIELDS],
+    ['AdminThreadPage', THREAD_PAGE_FIELDS],
+    ['CreateMessageRequest', CREATE_MESSAGE_REQUEST_FIELDS],
+    ['ChangeStatusRequest', CHANGE_STATUS_REQUEST_FIELDS],
+    ['StatusChangeResponse', STATUS_CHANGE_RESPONSE_FIELDS]
+  ] as const)('%s fields, no other key', (name, expected) => {
+    expect(fields(name)).toEqual([...expected])
+    expect(schema(name).additionalProperties).toBe(false)
+  })
+
+  it('StatusCounts has one key per status', () => {
+    expect(fields('StatusCounts')).toEqual([...TICKET_STATUSES])
+  })
+
+  it.each([
+    ['EntryKind', ENTRY_KINDS],
+    ['EntrySide', ENTRY_SIDES]
+  ] as const)('%s enum', (name, expected) => {
+    expect(schema(name).enum).toEqual([...expected])
+  })
+
+  it('page sizes', () => {
+    const page = schema('TicketPage').properties ?? {}
+    expect(page.page_size?.const).toBe(TICKET_PAGE_SIZE)
+    expect(page.items?.maxItems).toBe(TICKET_PAGE_SIZE)
+    const thread = schema('ThreadPage').properties ?? {}
+    expect(thread.entries?.maxItems).toBe(THREAD_PAGE_SIZE)
+  })
+
+  it('the stored deploy data always has the notes, maybe null', () => {
+    const deploy = schema('DeployTicketDetailData')
+    expect(Object.keys(deploy.properties ?? {})).toEqual([
+      ...TICKET_DATA_FIELDS.deploy
+    ])
+    expect(deploy.required).toEqual([...TICKET_DATA_FIELDS.deploy])
+  })
+
+  it.each([
+    ['TicketClosed', 'Este ticket foi fechado e não aceita novas mensagens.'],
+    ['StaleStatus', 'O status deste ticket foi alterado por outra pessoa.']
+  ])('409 %s is a conflict', (name, message) => {
+    const example =
+      contract.components.responses[name]?.content?.['application/json']
+        ?.example
+    expect(example).toMatchObject({ error: 'conflict', message })
+    expect(ERROR_CODES).toContain('conflict')
   })
 })

@@ -55,7 +55,12 @@ const ProfileCard = ({ children, icon: Icon, id, title }: ProfileCardProps) => (
  * backend for the session user; the user id is never shown (AC-7.3). The
  * avatar is decorative and the login is the text next to it (AC-7.2).
  */
-export const UserProfile = ({ area, createdAt, login }: UserProfileProps) => {
+export const UserProfile = ({
+  area,
+  children,
+  createdAt,
+  login
+}: UserProfileProps) => {
   const profileId = 'profile-title'
   const since = createdAt ? formatDate(createdAt) : null
   return (
@@ -140,6 +145,7 @@ export const UserProfile = ({ area, createdAt, login }: UserProfileProps) => {
           </ProfileCard>
         </aside>
       </div>
+      {children}
     </main>
   )
 }

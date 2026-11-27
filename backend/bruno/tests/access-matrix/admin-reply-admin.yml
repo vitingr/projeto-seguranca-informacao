@@ -1,0 +1,33 @@
+info:
+  name: admin-reply-admin
+  type: http
+  seq: 319
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Estamos vendo."
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-5.4: the admin replies on any ticket.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the admin entry", function () {
+          const body = res.getBody();
+          expect(body.side).to.equal("support");
+          expect(body.mine).to.equal(true);
+          expect(body.actor_login).to.equal(bru.interpolate("{{process.env.SEED_ADMIN_LOGIN}}").toLowerCase());
+        });

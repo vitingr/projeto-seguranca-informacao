@@ -1,0 +1,405 @@
+info:
+  name: List my tickets
+  type: http
+  seq: 2
+  tags:
+    - tickets
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets"
+  params:
+    - name: status
+      value: aberto
+      type: query
+      description: "Only tickets in this status. Absent: every status."
+      disabled: true
+    - name: status
+      value: em_andamento
+      type: query
+      description: "Only tickets in this status. Absent: every status."
+      disabled: true
+    - name: status
+      value: resolvido
+      type: query
+      description: "Only tickets in this status. Absent: every status."
+      disabled: true
+    - name: status
+      value: fechado
+      type: query
+      description: "Only tickets in this status. Absent: every status."
+      disabled: true
+    - name: tipo
+      value: acesso
+      type: query
+      description: "Only tickets of this type. Absent: every type."
+      disabled: true
+    - name: tipo
+      value: bug
+      type: query
+      description: "Only tickets of this type. Absent: every type."
+      disabled: true
+    - name: tipo
+      value: deploy
+      type: query
+      description: "Only tickets of this type. Absent: every type."
+      disabled: true
+    - name: tipo
+      value: outro
+      type: query
+      description: "Only tickets of this type. Absent: every type."
+      disabled: true
+    - name: pagina
+      value: "1"
+      type: query
+      description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: A page of the user's tickets.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: GET
+      params:
+        - name: status
+          value: aberto
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: em_andamento
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: resolvido
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: fechado
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: tipo
+          value: acesso
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: bug
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: deploy
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: outro
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: pagina
+          value: "1"
+          type: query
+          description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "items": [
+              {
+                "id": 42,
+                "type": "bug",
+                "status": "em_andamento",
+                "title": "Bug em Grafana",
+                "created_at": "2026-11-25T14:30:00.123456Z",
+                "updated_at": "2026-11-26T09:12:00.654321Z"
+              }
+            ],
+            "total": 21,
+            "page": 2,
+            "pages": 2,
+            "page_size": 20
+          }
+  - name: 400 Response
+    description: A query parameter that the operation does not read, a parameter given twice, an empty value, a value outside its rule, or a malformed query string.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: GET
+      params:
+        - name: status
+          value: aberto
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: em_andamento
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: resolvido
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: fechado
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: tipo
+          value: acesso
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: bug
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: deploy
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: outro
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: pagina
+          value: "1"
+          type: query
+          description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: GET
+      params:
+        - name: status
+          value: aberto
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: em_andamento
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: resolvido
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: fechado
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: tipo
+          value: acesso
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: bug
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: deploy
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: outro
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: pagina
+          value: "1"
+          type: query
+          description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: GET
+      params:
+        - name: status
+          value: aberto
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: em_andamento
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: resolvido
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: fechado
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: tipo
+          value: acesso
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: bug
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: deploy
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: outro
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: pagina
+          value: "1"
+          type: query
+          description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/tickets"
+      method: GET
+      params:
+        - name: status
+          value: aberto
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: em_andamento
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: resolvido
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: status
+          value: fechado
+          type: query
+          description: "Only tickets in this status. Absent: every status."
+          disabled: true
+        - name: tipo
+          value: acesso
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: bug
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: deploy
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: tipo
+          value: outro
+          type: query
+          description: "Only tickets of this type. Absent: every type."
+          disabled: true
+        - name: pagina
+          value: "1"
+          type: query
+          description: "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1."
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  "Meus tickets": the tickets whose author is the `comum` user of the session, and only those, whatever the query says. Administrators get 403 (they use `GET /api/administradores/tickets`).
+
+  Ordered by `updated_at`, most recent first, ties by `id`, highest first: a ticket with a new message or a new status moves to the top. Pages of 20 (`page_size`, fixed by the server). `total` counts every ticket that matches the filters; a page past the end answers 200 with no items and the real `total` and `pages`. An empty list is page 1 of 1.
+
+  Items never carry the fields of the type nor any author data.
+
+  **400** (`bad_request`): a parameter that is not `status`, `tipo` or `pagina` (`usuario` included: the author is always the session user), a parameter given twice, an empty value, a value outside its rule, or a malformed query string (a bad percent escape, a `;`). Nothing the client sends is silently ignored.

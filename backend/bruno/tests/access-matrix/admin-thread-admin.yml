@@ -1,0 +1,26 @@
+info:
+  name: admin-thread-admin
+  type: http
+  seq: 318
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-5.3: the admin reads the thread with the logins; it
+        // holds the comum user's reply of 214.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("entries carry the actor's login", function () {
+          const entries = res.getBody().entries;
+          expect(entries.length).to.be.at.least(1);
+          expect(entries[0].actor_login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}"));
+          expect(entries[0].side).to.equal("author");
+          expect(entries[0].mine).to.equal(false);
+        });

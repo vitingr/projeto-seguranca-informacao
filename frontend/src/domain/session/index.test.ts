@@ -30,6 +30,26 @@ describe('decideAccess: the page guard matrix', () => {
     )
   })
 
+  it('a ticket page sends its real path as next (spec 003 S-15)', () => {
+    expect(
+      decideAccess(anonymous, '/usuarios/tickets/[id]', '/usuarios/tickets/12')
+    ).toEqual({ kind: 'login', url: '/login?next=%2Fusuarios%2Ftickets%2F12' })
+    expect(
+      decideAccess(
+        as('admin'),
+        '/usuarios/tickets/[id]',
+        '/usuarios/tickets/12'
+      ).kind
+    ).toBe('forbidden')
+    expect(
+      decideAccess(
+        as('admin'),
+        '/administradores/tickets/[id]',
+        '/administradores/tickets/3'
+      ).kind
+    ).toBe('allowed')
+  })
+
   it('an expired session goes to login with the notice', () => {
     expect(decideAccess({ kind: 'expired' }, '/administradores')).toEqual({
       kind: 'login',

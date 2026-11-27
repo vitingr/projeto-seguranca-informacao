@@ -1,0 +1,29 @@
+info:
+  name: reply-invalid-400
+  type: http
+  seq: 63
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "Tentando escolher o autor",
+        "author": 1
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // S-8: a key the server owns is an unknown key.
+        test("status is 400", function () {
+          expect(res.getStatus()).to.equal(400);
+          expect(res.getBody().error).to.equal("bad_request");
+        });

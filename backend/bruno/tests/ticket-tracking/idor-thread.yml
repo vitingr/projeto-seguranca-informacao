@@ -1,0 +1,21 @@
+info:
+  name: idor-thread
+  type: http
+  seq: 123
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-2: B asks for the thread of A's ticket and gets the
+        // same answer as for a ticket that does not exist (120).
+        test("same answer as a missing ticket", function () {
+          const body = Object.assign({}, res.getBody());
+          delete body.request_id;
+          expect(JSON.stringify({ status: res.getStatus(), body: body })).to.equal(bru.getVar("idorAnswer"));
+        });

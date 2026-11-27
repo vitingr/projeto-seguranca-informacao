@@ -58,7 +58,7 @@ Run `go tool mage -l` for the full list.
 | `seed` | Creates the first administrator from `SEED_ADMIN_LOGIN` and `SEED_ADMIN_PASSWORD`. The login is lowercased and must match `^[a-z0-9._-]{3,64}$`; the password must have 15 to 128 characters. A second run fails with a conflict. |
 | `contractLint` | Validates `api/openapi.json` as OpenAPI 3.1 (Redocly CLI). |
 | `bruno` | Regenerates the Bruno request folders from `api/openapi.json`. |
-| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers two `e2e.*` comum users (see [Test users](#test-users-left-by-mage-brunorun)). |
+| `brunoRun` | Runs the requests of `bruno/tests`, then `bruno/tests/access-matrix`, then `bruno/tests/tickets`, then `bruno/tests/ticket-tracking`, against the running API and writes `bruno-report.xml` (JUnit). It logs in as the seed administrator: `SEED_ADMIN_*` from the environment or `.env` reach Bruno as environment variables, so run `seed` first. Each run also registers `e2e.*` test users (see [Test users](#test-users-left-by-mage-brunorun)). |
 
 ## API contract and Bruno collection
 
@@ -74,7 +74,7 @@ The only exception is the 404 catch-all, which stays out of the contract.
   extension: `"public"` or a list of roles. A Go test in `internal/web`
   fails when the contract and the code disagree. It compares routes,
   policies, the CSRF header, error responses and field names.
-- **Generated folders.** `health/`, `auth/`, `users/`, `areas/` and `tickets/` are
+- **Generated folders.** `health/`, `auth/`, `users/`, `areas/`, `tickets/` and `admin-tickets/` are
   created by `mage bruno`, one per contract tag. Never edit them by hand;
   change the contract and run `mage bruno`. CI fails when they are out of
   date.
@@ -84,12 +84,16 @@ The only exception is the 404 catch-all, which stays out of the contract.
   cookie jar: anonymous checks, rejected logins, then login as the seed
   administrator, `/api/me`, logout, and the old cookie getting 401.
   `tests/access-matrix/` runs next (`bru run tests tests/access-matrix
-  tests/tickets`; `-r` would run subfolders first): the 18 cells of the
-  [access matrix](#access-control), anonymous, then as the seed
-  administrator, who registers a comum user, then as that user.
-  `tests/tickets/` runs last, as that comum user: the CSRF refusals, a 400,
+  tests/tickets tests/ticket-tracking`; `-r` would run subfolders first):
+  the cells of the [access matrix](#access-control), anonymous, then as the
+  seed administrator, who registers a comum user, then as that user; the
+  ticket tracking cells follow in the same caller order.
+  `tests/tickets/` runs next, as that comum user: the CSRF refusals, a 400,
   a 422, one ticket of each type, and the rate limit: a second comum user
   sends 10 creations and gets 429 on the 11th.
+  `tests/ticket-tracking/` runs last, with users A and B of its own:
+  "Meus tickets" with its filters and 400 cases, and B never seeing A's
+  tickets.
 - **Other addresses.** `mage brunoRun` targets `https://localhost`, which is
   the stack started by `mage dockerUp`. For `mage run`, set
   `BRUNO_BASE_URL=https://localhost:8443`.
@@ -108,11 +112,28 @@ restricted route get 401, callers with the wrong role get 403.
 | `GET /api/me` | 401 | 200 | 200 |
 | `POST /api/logout` | 401 | 204 | 204 |
 | `POST /api/tickets` | 401 | 201 | 403 |
+| `GET /api/tickets` | 401 | 200 | 403 |
+| `GET /api/tickets/{id}` | 401 | 200 | 403 |
+| `GET /api/tickets/{id}/mensagens` | 401 | 200 | 403 |
+| `POST /api/tickets/{id}/mensagens` | 401 | 201 | 403 |
+| `GET /api/administradores/tickets` | 401 | 403 | 200 |
+| `GET /api/administradores/tickets/autores` | 401 | 403 | 200 |
+| `GET /api/administradores/tickets/{id}` | 401 | 403 | 200 |
+| `GET /api/administradores/tickets/{id}/mensagens` | 401 | 403 | 200 |
+| `POST /api/administradores/tickets/{id}/mensagens` | 401 | 403 | 201 |
+| `PATCH /api/administradores/tickets/{id}/status` | 401 | 403 | 200 |
 
 Administrators do not reach `/api/usuarios`: it is the comum users' area.
-They do not create tickets either. The Go test `TestAccessMatrix`
-(`internal/web`) and the Bruno folder `tests/access-matrix` both cover the
-18 cells.
+They do not create tickets either, nor read "Meus tickets". The Go test
+`TestAccessMatrix` (`internal/web`) and the Bruno folder
+`tests/access-matrix` both cover the 48 cells (the `{id}` cells use a
+ticket of the comum user).
+
+Routes with a ticket id also run `security.TicketAccess`, after the role
+check: a comum user only reaches their own tickets. Someone else's
+ticket, a ticket that does not exist and a malformed id all get the same
+404 (status, headers and body), and the attempt is logged at Warn with the
+user id and the ticket id.
 
 The role is read from the database on every request, with the session. A
 role changed in the `users` table applies to the user's next request, with
@@ -165,6 +186,79 @@ table repeats them as CHECK constraints. Every creation is logged at Info as
 `ticket refused` with `author_id` and a fixed reason. The log never has a
 field value.
 
+**Ticket tracking** (spec 003) lets a comum user follow their tickets:
+- `GET /api/tickets` ("Meus tickets", comum only) answers 200 with a page
+  of the session user's tickets and nobody else's, newest update first, 20
+  per page: `{items, total, page, pages, page_size}`. Items are summaries
+  (`id, type, status, title, created_at, updated_at`): never the fields of
+  the type nor any author data. The filters `status` and `tipo` and the
+  page `pagina` are the only parameters; anything else (`usuario`
+  included), a repeated or empty parameter, or a malformed query is 400. A
+  page past the end is 200 with no items and the real totals.
+- `GET /api/tickets/{id}` (comum only, own tickets) answers 200 with the
+  summary plus `data`: every field of the type under the keys of the
+  creation request, `null` for empty notes. No author data.
+- `GET /api/tickets/{id}/mensagens` (comum only, own tickets) answers 200
+  with the thread, oldest first: messages and status changes, each with
+  its `side` (`author` or `support`) and `mine`, never an administrator's
+  login or id. At most 100 entries per page; `has_more` and
+  `?antes=<entry id>` read the older ones. Any other parameter is 400.
+- `POST /api/tickets/{id}/mensagens` (comum only, own tickets) with
+  `{"texto"}` answers 201 with the stored message. 400 for a body that is
+  not well-formed (any key but `texto`), 422 for a text outside 1 to 2000
+  characters after trimming or with a forbidden control character, 409 on
+  a `fechado` ticket, 429 after 30 replies in 60 seconds. A reply moves
+  `updated_at` and never the status.
+
+Administrators work the tickets on their own routes (comum users get 403):
+- `GET /api/administradores/tickets` (the queue) answers every user's
+  tickets with the rules of "Meus tickets", plus the filter `usuario` (a
+  login), `author_login` on each item and `status_counts` over the whole
+  queue.
+- `GET /api/administradores/tickets/autores` answers `{logins}`: the users
+  with at least one ticket, in byte order, at most 500 (more is a known
+  limitation). It reads no parameter: any is 400.
+- `GET /api/administradores/tickets/{id}` answers any user's ticket like
+  `GET /api/tickets/{id}`, plus `author_login`.
+- `GET /api/administradores/tickets/{id}/mensagens` answers the thread
+  like the comum route, plus `actor_login` on every entry; `mine` marks the
+  calling administrator's own entries.
+- `POST /api/administradores/tickets/{id}/mensagens` adds an
+  administrator's reply with the rules of the comum reply. The author sees
+  it on the `support` side, with no login. Replies of both sides share one
+  limiter, with a quota per user.
+- `PATCH /api/administradores/tickets/{id}/status` with `{"de", "para"}`
+  (`de` is the status the administrator saw) answers 200 with
+  `{id, status, updated_at}` and records the change in the thread. Allowed:
+  `aberto` → `em_andamento` or `fechado`; `em_andamento` → `resolvido` or
+  `fechado`; `resolvido` → `em_andamento` or `fechado`; `fechado` is final.
+  409 when the status is not `de` any more or `de` is `fechado` (nothing
+  changes); 422 for an unknown code or a pair never allowed (also
+  `de` = `para`); 400 for any other key; 429 after 30 requests in 60
+  seconds by the same administrator. The author gets 403.
+
+Messages and status changes are logged at Info (`ticket message created`,
+`ticket status changed` with `from` and `to`) and their refusals with a
+fixed reason (`ticket message refused`, `ticket status refused`), with the
+ticket and actor ids; never a message text or a code the client sent.
+
+Every route with a ticket id runs the central `TicketAccess` check before
+its handler. Another user's ticket, a missing ticket and a malformed id
+share the generic 404; encoded paths such as `%31` are refused too. HTTP
+tests compare the serialized answers byte for byte after normalizing only
+the per-request id. No administrator login or id is included in the
+common user's thread response: administrators are shown as "Suporte".
+
+Each write first locks the ticket row with its conditional `UPDATE`, then
+inserts its history entry in the same transaction. The status condition
+compares `de` with the stored state; a reply checks that it is not closed.
+Both statements commit together or roll back together. The update returns
+`GREATEST(clock_timestamp(), updated_at)`, also used as the entry's time,
+so waiting for another write cannot move the last-update time backwards.
+
+Refused queries are logged at Info as `ticket query refused` with
+`user_id` and a fixed reason, never the query.
+
 ### Test users left by `mage brunoRun`
 
 The access matrix registers a comum user through the seed administrator.
@@ -172,8 +266,11 @@ The access matrix registers a comum user through the seed administrator.
 password with `crypto/rand` for every run and passes them to Bruno as the
 `BRUNO_COMUM_LOGIN` and `BRUNO_COMUM_PASSWORD` environment variables, never
 as arguments. `tests/tickets` registers a second one, the same login plus
-`.rl`, for the rate limit test. So every run leaves two `e2e.*` users in
-the database, with the tickets they created.
+`.rl`, for the rate limit test, and `tests/ticket-tracking` registers users
+A and B, the same login plus `.a` and `.b`, and the reply rate limit user,
+plus `.rlm`, and the administrator of the status rate limit, plus `.rla`.
+So every run leaves six `e2e.*` users in the database, with the tickets,
+messages and status changes they created.
 `mage brunoRun` refuses a `SEED_ADMIN_LOGIN` that starts with `e2e.`, so the
 cleanup below never matches the seed administrator.
 
@@ -182,12 +279,15 @@ To delete them, with the `POSTGRES_USER` and `POSTGRES_DB` values of
 
 ```sh
 docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
+  -c "DELETE FROM ticket_entries WHERE ticket_id IN (SELECT t.id FROM tickets t JOIN users u ON u.id = t.author_id WHERE u.login LIKE 'e2e.%') OR actor_id IN (SELECT id FROM users WHERE login LIKE 'e2e.%');" \
   -c "DELETE FROM tickets WHERE author_id IN (SELECT id FROM users WHERE login LIKE 'e2e.%');" \
   -c "DELETE FROM users WHERE login LIKE 'e2e.%';"
 ```
 
-Their sessions are deleted with them (`ON DELETE CASCADE`). Tickets are
-not (they are history), so they are deleted first.
+Their sessions are deleted with them (`ON DELETE CASCADE`). Tickets and
+ticket entries (messages and status changes) are not (they are history),
+so they are deleted first: the entries of their tickets and the entries
+they wrote, then their tickets, then the users.
 
 ## Sessions and security settings
 
@@ -217,7 +317,21 @@ Fixed in code:
   user could send 10 per instance. The stack runs a single backend
   container, so this is accepted. If the backend ever scales out, the fix is
   a shared store for the counts (PostgreSQL or Redis) behind the same
-  `RateLimiter` API.
+  `RateLimiter` API. The reply limit of spec 003 (`MessageCreateLimit`,
+  30 per user in 60 seconds) and the status change limit
+  (`StatusChangeLimit`, 30 per administrator in 60 seconds) have the same
+  limitation.
+- **Tracking reads have no additional rate limit.** Ticket-id probes are
+  refused and logged by the ownership middleware; they do not reveal
+  another user's ticket contents.
+- **Bounded tracking pages.** Lists have 20 items, thread pages 100 entries
+  and the author filter at most 500 logins. The frontend currently shows
+  only the latest thread page, without an older-entry control. Offset list
+  pages can repeat or miss a row while other writes reorder tickets.
+- **Status compare-and-set uses the status itself.** If it changes and
+  then returns to the value an admin saw (ABA), that admin's next allowed
+  transition can apply. There is no version column or idempotency key;
+  retrying a reply after an uncertain network failure can duplicate it.
 
 ## Go version
 

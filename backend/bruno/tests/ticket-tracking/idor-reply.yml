@@ -1,0 +1,31 @@
+info:
+  name: idor-reply
+  type: http
+  seq: 125
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "B tentando escrever no ticket de A"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-2: B cannot reply on A's ticket; the answer is the one
+        // of a ticket that does not exist (120). The admin checks in the
+        // thread that nothing was stored.
+        test("same answer as a missing ticket", function () {
+          const body = Object.assign({}, res.getBody());
+          delete body.request_id;
+          expect(JSON.stringify({ status: res.getStatus(), body: body })).to.equal(bru.getVar("idorAnswer"));
+        });

@@ -1,0 +1,24 @@
+info:
+  name: admin-detail
+  type: http
+  seq: 220
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-5.1: the admin page of A's ticket names its author.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("has the author's login and the fields", function () {
+          const body = res.getBody();
+          expect(body.author_login).to.equal(bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}.a"));
+          expect(body.data.sistema).to.equal("Portal");
+          expect(body.status).to.equal("aberto");
+        });

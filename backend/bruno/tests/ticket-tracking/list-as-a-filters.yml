@@ -1,0 +1,23 @@
+info:
+  name: list-as-a-filters
+  type: http
+  seq: 31
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets?status=aberto&tipo=bug&pagina=1"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-1.5: the filters combine (status AND type).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("holds only the bug ticket", function () {
+          const body = res.getBody();
+          expect(body.items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA1")]);
+          expect(body.total).to.equal(1);
+        });

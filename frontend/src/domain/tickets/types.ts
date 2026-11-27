@@ -80,6 +80,87 @@ export type TicketInput = {
   [Type in TicketType]: { dados: TicketDataByType[Type]; tipo: Type }
 }[TicketType]
 
+// Ticket tracking (spec 003): what the lists, the ticket page and the thread
+// show, parsed from the backend answers by repositories/tickets.
+
+/** A row of "Meus tickets" or of the queue (`authorLogin`: queue only). */
+export interface TicketSummary {
+  authorLogin?: string
+  createdAt: string
+  id: number
+  status: TicketStatus
+  title: string
+  type: TicketType
+  updatedAt: string
+}
+
+export type StatusCounts = Record<TicketStatus, number>
+
+export interface TicketListPage {
+  items: TicketSummary[]
+  page: number
+  pages: number
+  pageSize: number
+  /** Queue only: tickets in each status over the whole queue (AC-4.5). */
+  statusCounts?: StatusCounts
+  total: number
+}
+
+/** A ticket with every field of its type (`authorLogin`: admin only). */
+export interface TicketDetail {
+  authorLogin?: string
+  createdAt: string
+  /** The field codes of the type; `null` for an empty optional field. */
+  data: Record<string, null | string>
+  id: number
+  status: TicketStatus
+  title: string
+  type: TicketType
+  updatedAt: string
+}
+
+export type EntrySide = 'author' | 'support'
+
+interface ThreadEntryBase {
+  /** Admin views only: who wrote it. */
+  actorLogin?: string
+  createdAt: string
+  id: number
+  /** Written by the viewer. */
+  mine: boolean
+  side: EntrySide
+}
+
+export type ThreadEntry =
+  | (ThreadEntryBase & {
+      from: TicketStatus
+      kind: 'status_change'
+      to: TicketStatus
+    })
+  | (ThreadEntryBase & { kind: 'message'; text: string })
+
+export interface ThreadPage {
+  entries: ThreadEntry[]
+  /** Older entries exist (plan P-4). */
+  hasMore: boolean
+}
+
+export interface StatusChange {
+  id: number
+  status: TicketStatus
+  updatedAt: string
+}
+
+/** A field of a ticket as the review and the ticket page show it. */
+export interface TicketDetailRow {
+  key: string
+  label: string
+  /** A fixed choice shown in discreet red ("Produção", "Crítica"). */
+  risky: boolean
+  /** `null` for an optional field left empty ("Não informado"). */
+  value: null | string
+}
+
 /** A created ticket, as the confirmation shows it. */
 export interface CreatedTicket {
   createdAt: string

@@ -31,6 +31,10 @@
     {
       "name": "tickets",
       "description": "Support tickets."
+    },
+    {
+      "name": "admin-tickets",
+      "description": "The ticket queue and the ticket pages of the administrators."
     }
   ],
   "paths": {
@@ -309,6 +313,384 @@
           "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalError" }
         }
+      },
+      "get": {
+        "operationId": "listOwnTickets",
+        "tags": ["tickets"],
+        "summary": "List my tickets",
+        "description": "\"Meus tickets\": the tickets whose author is the `comum` user of the session, and only those, whatever the query says. Administrators get 403 (they use `GET /api/administradores/tickets`).\n\nOrdered by `updated_at`, most recent first, ties by `id`, highest first: a ticket with a new message or a new status moves to the top. Pages of 20 (`page_size`, fixed by the server). `total` counts every ticket that matches the filters; a page past the end answers 200 with no items and the real `total` and `pages`. An empty list is page 1 of 1.\n\nItems never carry the fields of the type nor any author data.\n\n**400** (`bad_request`): a parameter that is not `status`, `tipo` or `pagina` (`usuario` included: the author is always the session user), a parameter given twice, an empty value, a value outside its rule, or a malformed query string (a bad percent escape, a `;`). Nothing the client sends is silently ignored.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/StatusQuery" },
+          { "$ref": "#/components/parameters/TipoQuery" },
+          { "$ref": "#/components/parameters/PaginaQuery" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the user's tickets.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TicketPage" },
+                "example": {
+                  "items": [
+                    {
+                      "id": 42,
+                      "type": "bug",
+                      "status": "em_andamento",
+                      "title": "Bug em Grafana",
+                      "created_at": "2026-11-25T14:30:00.123456Z",
+                      "updated_at": "2026-11-26T09:12:00.654321Z"
+                    }
+                  ],
+                  "total": 21,
+                  "page": 2,
+                  "pages": 2,
+                  "page_size": 20
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/tickets/{id}": {
+      "get": {
+        "operationId": "getOwnTicket",
+        "tags": ["tickets"],
+        "summary": "Get one of my tickets",
+        "description": "The ticket page of the `comum` user who wrote it: the summary plus every field of its type in `data`, under the same keys as `dados` of the creation request, stored as sent (trimmed). An empty optional field is `null`. The answer carries no author data. Administrators get 403 (they use `GET /api/administradores/tickets/{id}`).\n\n**404** (`not_found`): the ticket does not exist, the id is not a positive integer written with digits only, or the ticket belongs to another user. The three cases get the same answer (status, headers and body); the attempt is logged with the user id and the ticket id.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ticket with every field of its type.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TicketDetail" },
+                "example": {
+                  "id": 42,
+                  "type": "deploy",
+                  "status": "em_andamento",
+                  "title": "Deploy de api em Produção",
+                  "created_at": "2026-11-25T14:30:00.123456Z",
+                  "updated_at": "2026-11-26T09:12:00.654321Z",
+                  "data": {
+                    "projeto": "api",
+                    "repositorio": "https://git.example.com/equipe/api",
+                    "ambiente": "prod",
+                    "observacoes": null
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/tickets/{id}/mensagens": {
+      "get": {
+        "operationId": "getOwnThread",
+        "tags": ["tickets"],
+        "summary": "Read the thread of one of my tickets",
+        "description": "The conversation of a ticket of the `comum` user of the session: its messages and status changes, oldest first. Each entry says its `side` (`author`: the ticket's author; `support`: any administrator) and whether it is the caller's own (`mine`); it never carries an administrator's login or id. The opening of the ticket is not an entry (it is the ticket's `created_at`).\n\nPages of at most 100 entries: without `antes`, the latest ones; `has_more` is true when older entries exist, read with `antes` = the `id` of the first entry already shown.\n\n**400** (`bad_request`): a parameter other than `antes`, `antes` given twice, empty, or not a positive integer, or a malformed query string.\n\n**404** (`not_found`): as in `GET /api/tickets/{id}`, checked before the query.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/AntesQuery" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the thread, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ThreadPage" },
+                "example": {
+                  "entries": [
+                    { "id": 7, "kind": "message", "side": "author", "mine": true, "text": "O erro voltou hoje de manhã.", "created_at": "2026-11-26T09:10:00.123456Z" },
+                    { "id": 9, "kind": "status_change", "side": "support", "mine": false, "from": "aberto", "to": "em_andamento", "created_at": "2026-11-26T09:12:00.654321Z" }
+                  ],
+                  "has_more": false
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "operationId": "replyOwnTicket",
+        "tags": ["tickets"],
+        "summary": "Reply on one of my tickets",
+        "description": "Adds a message of the `comum` user of the session to the thread of their ticket. The text is plain text, stored trimmed; it is never interpreted as HTML or markdown. The author, the ticket and the date are set by the server: the body carries only `texto`. A reply never changes the status, but it moves the ticket's `updated_at` (and so its place in the lists).\n\n**400** (`bad_request`): the body is not well-formed: not JSON, not valid UTF-8, `texto` missing, `null` or not a string, or any other key (`author`, `user_id`, `created_at`, `id`, `ticket_id`, `status`, ...), also a key spelled in another case or given twice.\n\n**404** (`not_found`): as in `GET /api/tickets/{id}`.\n\n**409** (`conflict`): the ticket is `fechado` and accepts no new message.\n\n**422** (`unprocessable_entity`): the text, after trimming, is empty or longer than 2000 characters (Unicode code points), or holds a control character other than line feed, carriage return and tab.\n\n**429** (`too_many_requests`): the user already sent 30 reply requests in the last 60 seconds. Every request that passes the CSRF and the role check counts, also one on someone else's ticket (answered 404); refused CSRF, anonymous and administrator requests do not. `Retry-After` says how many seconds to wait. The counts live in the memory of the backend process and are shared with the administrators' replies of each user.\n\nNothing is stored when the answer is not 201.",
+        "x-policy": ["comum"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateMessageRequest" },
+              "example": { "texto": "O erro voltou hoje de manhã.\nSegue o horário: 09:10." }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored message, as it appears in the thread.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ThreadEntry" },
+                "example": { "id": 10, "kind": "message", "side": "author", "mine": true, "text": "O erro voltou hoje de manhã.\nSegue o horário: 09:10.", "created_at": "2026-11-26T09:20:00.123456Z" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "409": { "$ref": "#/components/responses/TicketClosed" },
+          "422": { "$ref": "#/components/responses/InvalidMessage" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores/tickets": {
+      "get": {
+        "operationId": "listQueue",
+        "tags": ["admin-tickets"],
+        "summary": "List the ticket queue",
+        "description": "Every user's tickets, for administrators; `comum` users get 403 before any ticket is read. Same order, pages and page-past-the-end rule as `GET /api/tickets`. Items add the author's login. `status_counts` counts the tickets in each status over the whole queue, whatever the filters.\n\n**400** (`bad_request`): a parameter that is not `status`, `tipo`, `usuario` or `pagina`, a parameter given twice, an empty value, a value outside its rule (`usuario` must follow the login rule), or a malformed query string.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/StatusQuery" },
+          { "$ref": "#/components/parameters/TipoQuery" },
+          { "$ref": "#/components/parameters/UsuarioQuery" },
+          { "$ref": "#/components/parameters/PaginaQuery" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the queue and the status counts.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuePage" },
+                "example": {
+                  "items": [
+                    {
+                      "id": 42,
+                      "type": "bug",
+                      "status": "aberto",
+                      "title": "Bug em Grafana",
+                      "author_login": "maria.souza",
+                      "created_at": "2026-11-25T14:30:00.123456Z",
+                      "updated_at": "2026-11-26T09:12:00.654321Z"
+                    }
+                  ],
+                  "total": 16,
+                  "page": 1,
+                  "pages": 1,
+                  "page_size": 20,
+                  "status_counts": { "aberto": 4, "em_andamento": 2, "resolvido": 9, "fechado": 1 }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores/tickets/autores": {
+      "get": {
+        "operationId": "listQueueAuthors",
+        "tags": ["admin-tickets"],
+        "summary": "List the authors of the queue",
+        "description": "The logins of the users who have at least one ticket, in byte order, at most 500: the options of the `usuario` filter of the queue. Administrators only.\n\n**400** (`bad_request`): any query parameter (the operation reads none) or a malformed query string.",
+        "x-policy": ["admin"],
+        "responses": {
+          "200": {
+            "description": "The logins.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthorList" },
+                "example": { "logins": ["ana.lima", "maria.souza"] }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores/tickets/{id}": {
+      "get": {
+        "operationId": "getAdminTicket",
+        "tags": ["admin-tickets"],
+        "summary": "Get a ticket of the queue",
+        "description": "Any user's ticket, for administrators: the answer of `GET /api/tickets/{id}` plus the author's login. `comum` users get 403, also for their own tickets, before any ticket is read.\n\n**404** (`not_found`): the ticket does not exist or the id is malformed; both get the same answer.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ticket with every field of its type and its author's login.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminTicketDetail" },
+                "example": {
+                  "id": 42,
+                  "type": "acesso",
+                  "status": "aberto",
+                  "title": "Acesso a Grafana",
+                  "author_login": "maria.souza",
+                  "created_at": "2026-11-25T14:30:00.123456Z",
+                  "updated_at": "2026-11-25T14:30:00.123456Z",
+                  "data": { "sistema": "Grafana", "nivel_acesso": "leitura", "justificativa": "Preciso ver os painéis da equipe." }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores/tickets/{id}/mensagens": {
+      "get": {
+        "operationId": "getAdminThread",
+        "tags": ["admin-tickets"],
+        "summary": "Read the thread of a ticket of the queue",
+        "description": "The thread of any ticket, for administrators: the answer of `GET /api/tickets/{id}/mensagens` where every entry adds `actor_login`, and `mine` is true for the caller's own entries only. Same pages, cursor and 400 rules.\n\n**404** (`not_found`): the ticket does not exist or the id is malformed.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/AntesQuery" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the thread, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminThreadPage" },
+                "example": {
+                  "entries": [
+                    { "id": 7, "kind": "message", "side": "author", "mine": false, "actor_login": "maria.souza", "text": "O erro voltou hoje de manhã.", "created_at": "2026-11-26T09:10:00.123456Z" },
+                    { "id": 9, "kind": "status_change", "side": "support", "mine": true, "actor_login": "ana.lima", "from": "aberto", "to": "em_andamento", "created_at": "2026-11-26T09:12:00.654321Z" }
+                  ],
+                  "has_more": false
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQuery" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "operationId": "replyAdminTicket",
+        "tags": ["admin-tickets"],
+        "summary": "Reply on a ticket of the queue",
+        "description": "Adds a message of the calling administrator to any ticket's thread, with the rules of `POST /api/tickets/{id}/mensagens` (body, 400, 409, 422). Every administrator reply is visible to the author, who sees it on the `support` side with no login. It moves `updated_at` and never the status.\n\n**404** (`not_found`): the ticket does not exist or the id is malformed.\n\n**429** (`too_many_requests`): 30 reply requests in 60 seconds by the same administrator (their own quota, in the same limiter as the comum replies).",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateMessageRequest" },
+              "example": { "texto": "Estamos analisando. Retornamos ainda hoje." }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored message, as it appears in the admin thread.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminThreadEntry" },
+                "example": { "id": 11, "kind": "message", "side": "support", "mine": true, "actor_login": "ana.lima", "text": "Estamos analisando. Retornamos ainda hoje.", "created_at": "2026-11-26T09:30:00.123456Z" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "409": { "$ref": "#/components/responses/TicketClosed" },
+          "422": { "$ref": "#/components/responses/InvalidMessage" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/administradores/tickets/{id}/status": {
+      "patch": {
+        "operationId": "changeTicketStatus",
+        "tags": ["admin-tickets"],
+        "summary": "Change the status of a ticket",
+        "description": "Moves a ticket from `de`, the status the administrator saw, to `para`, along the allowed transitions (`x-allowed-transitions` of `ChangeStatusRequest`): `aberto` → `em_andamento` or `fechado`; `em_andamento` → `resolvido` or `fechado`; `resolvido` → `em_andamento` or `fechado`. `fechado` is final. The change is recorded in the thread (who, when, from, to) and moves `updated_at`. Administrators only: the author gets 403, also on their own ticket.\n\n**400** (`bad_request`): the body is not well-formed: `de` or `para` missing, `null` or not a string, or any other key (`actor`, `updated_at`, `id`, ...).\n\n**409** (`conflict`): the ticket's status is not `de` any more (someone changed it after the page was loaded), or `de` is `fechado`. Nothing changes.\n\n**422** (`unprocessable_entity`): `de` or `para` is not a status code, or the pair is never allowed (also `de` = `para`).\n\n**429** (`too_many_requests`): 30 status requests in 60 seconds by the same administrator, valid or not; replies have a quota of their own.",
+        "x-policy": ["admin"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeStatusRequest" },
+              "example": { "de": "aberto", "para": "em_andamento" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new status and last update.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StatusChangeResponse" },
+                "example": { "id": 42, "status": "em_andamento", "updated_at": "2026-11-26T09:40:00.123456Z" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/TicketNotFound" },
+          "409": { "$ref": "#/components/responses/StaleStatus" },
+          "422": { "$ref": "#/components/responses/InvalidStatusChange" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
       }
     }
   },
@@ -321,9 +703,130 @@
         "description": "CSRF token returned by `GET /api/csrf`.",
         "schema": { "type": "string" },
         "example": "{{csrfToken}}"
+      },
+      "TicketId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404).",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 },
+        "example": 1
+      },
+      "AntesQuery": {
+        "name": "antes",
+        "in": "query",
+        "required": false,
+        "description": "Only entries older than the entry with this id (the first one already shown). Digits only, no sign and no leading zero. Absent: the latest entries.",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+      },
+      "UsuarioQuery": {
+        "name": "usuario",
+        "in": "query",
+        "required": false,
+        "description": "Only tickets of the user with this login (the login rule: `^[a-z0-9._-]{3,64}$`). Absent: every user. Queue only.",
+        "schema": { "type": "string", "pattern": "^[a-z0-9._-]{3,64}$" }
+      },
+      "StatusQuery": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "Only tickets in this status. Absent: every status.",
+        "schema": { "$ref": "#/components/schemas/TicketStatus" }
+      },
+      "TipoQuery": {
+        "name": "tipo",
+        "in": "query",
+        "required": false,
+        "description": "Only tickets of this type. Absent: every type.",
+        "schema": { "$ref": "#/components/schemas/TicketType" }
+      },
+      "PaginaQuery": {
+        "name": "pagina",
+        "in": "query",
+        "required": false,
+        "description": "Page number, from 1. Digits only, no sign and no leading zero. Absent: 1.",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1 }
       }
     },
     "responses": {
+      "StaleStatus": {
+        "description": "The ticket's status is not the one the administrator saw, or it is `fechado`. Nothing changed.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "conflict",
+              "message": "O status deste ticket foi alterado por outra pessoa.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "InvalidStatusChange": {
+        "description": "An unknown status code, or a pair of statuses that is never allowed.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "unprocessable_entity",
+              "message": "Dados inválidos. Revise os campos e tente novamente.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "TicketClosed": {
+        "description": "The ticket is `fechado`: it accepts no new message.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "conflict",
+              "message": "Este ticket foi fechado e não aceita novas mensagens.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "InvalidMessage": {
+        "description": "The text breaks the message rule. The answer never quotes it.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "unprocessable_entity",
+              "message": "Dados inválidos. Revise os campos e tente novamente.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "TicketNotFound": {
+        "description": "The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "not_found",
+              "message": "Recurso não encontrado.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
+      "BadQuery": {
+        "description": "A query parameter that the operation does not read, a parameter given twice, an empty value, a value outside its rule, or a malformed query string.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": "bad_request",
+              "message": "A requisição não pôde ser processada.",
+              "request_id": "0f8e2c4b9a7d4e1f"
+            }
+          }
+        }
+      },
       "BadRequest": {
         "description": "The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).",
         "content": {
@@ -619,13 +1122,247 @@
           "updated_at": { "type": "string", "format": "date-time", "description": "Equal to `created_at` for a new ticket." }
         }
       },
+      "TicketSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A row of \"Meus tickets\". Never the fields of the type nor any author data.",
+        "required": ["id", "type", "status", "title", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1, "description": "Ticket number, shown as `#<id>`." },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time", "description": "The last message or status change; `created_at` when there is none." }
+        }
+      },
+      "TicketPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "page", "pages", "page_size"],
+        "properties": {
+          "items": { "type": "array", "maxItems": 20, "items": { "$ref": "#/components/schemas/TicketSummary" } },
+          "total": { "type": "integer", "minimum": 0, "description": "Tickets that match the filters, on every page." },
+          "page": { "type": "integer", "minimum": 1 },
+          "pages": { "type": "integer", "minimum": 1, "description": "At least 1, also for an empty list." },
+          "page_size": { "type": "integer", "const": 20 }
+        }
+      },
+      "AdminTicketSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A row of the queue: the summary plus the author's login. Never the author's id nor the fields of the type.",
+        "required": ["id", "type", "status", "title", "author_login", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "author_login": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StatusCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tickets in each status over the whole queue.",
+        "required": ["aberto", "em_andamento", "resolvido", "fechado"],
+        "properties": {
+          "aberto": { "type": "integer", "minimum": 0 },
+          "em_andamento": { "type": "integer", "minimum": 0 },
+          "resolvido": { "type": "integer", "minimum": 0 },
+          "fechado": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "QueuePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "page", "pages", "page_size", "status_counts"],
+        "properties": {
+          "items": { "type": "array", "maxItems": 20, "items": { "$ref": "#/components/schemas/AdminTicketSummary" } },
+          "total": { "type": "integer", "minimum": 0 },
+          "page": { "type": "integer", "minimum": 1 },
+          "pages": { "type": "integer", "minimum": 1 },
+          "page_size": { "type": "integer", "const": 20 },
+          "status_counts": { "$ref": "#/components/schemas/StatusCounts" }
+        }
+      },
+      "AuthorList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["logins"],
+        "properties": {
+          "logins": { "type": "array", "maxItems": 500, "uniqueItems": true, "items": { "type": "string" } }
+        }
+      },
+      "TicketDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A ticket with every field of its type. Never any author data.",
+        "required": ["id", "type", "status", "title", "created_at", "updated_at", "data"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "data": {
+            "description": "The fields of `type`, under the keys of `dados` in the creation request; `null` for an empty optional field.",
+            "oneOf": [
+              { "$ref": "#/components/schemas/AccessTicketData" },
+              { "$ref": "#/components/schemas/BugTicketData" },
+              { "$ref": "#/components/schemas/DeployTicketDetailData" },
+              { "$ref": "#/components/schemas/OtherTicketData" }
+            ]
+          }
+        }
+      },
+      "ChangeStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["de", "para"],
+        "properties": {
+          "de": { "$ref": "#/components/schemas/TicketStatus" },
+          "para": { "$ref": "#/components/schemas/TicketStatus" }
+        },
+        "x-allowed-transitions": {
+          "aberto": ["em_andamento", "fechado"],
+          "em_andamento": ["resolvido", "fechado"],
+          "resolvido": ["em_andamento", "fechado"],
+          "fechado": []
+        }
+      },
+      "StatusChangeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "updated_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateMessageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["texto"],
+        "properties": {
+          "texto": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Plain text, multi-line: 1 to 2000 characters after trimming; line feed, carriage return and tab are the only control characters allowed." }
+        }
+      },
+      "ThreadEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "An entry of a ticket's thread as a `comum` user sees it: a message (`text`) or a status change (`from`, `to`). Never an administrator's login or id.",
+        "required": ["id", "kind", "side", "mine", "created_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1, "description": "Entry id, in the order of the thread; the `antes` cursor." },
+          "kind": { "$ref": "#/components/schemas/EntryKind" },
+          "side": { "$ref": "#/components/schemas/EntrySide" },
+          "mine": { "type": "boolean", "description": "The entry was written by the caller." },
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "The message as typed (trimmed). Plain text: never HTML or markdown." },
+          "from": { "$ref": "#/components/schemas/TicketStatus" },
+          "to": { "$ref": "#/components/schemas/TicketStatus" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "oneOf": [
+          { "properties": { "kind": { "const": "message" } }, "required": ["text"] },
+          { "properties": { "kind": { "const": "status_change" } }, "required": ["from", "to"] }
+        ]
+      },
+      "ThreadPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entries", "has_more"],
+        "properties": {
+          "entries": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ThreadEntry" } },
+          "has_more": { "type": "boolean", "description": "Older entries exist: read them with `antes`." }
+        }
+      },
+      "AdminThreadEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`ThreadEntry` plus the login of who wrote it, for administrators.",
+        "required": ["id", "kind", "side", "mine", "actor_login", "created_at"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "kind": { "$ref": "#/components/schemas/EntryKind" },
+          "side": { "$ref": "#/components/schemas/EntrySide" },
+          "mine": { "type": "boolean", "description": "The entry was written by the calling administrator." },
+          "actor_login": { "type": "string" },
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "from": { "$ref": "#/components/schemas/TicketStatus" },
+          "to": { "$ref": "#/components/schemas/TicketStatus" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "oneOf": [
+          { "properties": { "kind": { "const": "message" } }, "required": ["text"] },
+          { "properties": { "kind": { "const": "status_change" } }, "required": ["from", "to"] }
+        ]
+      },
+      "AdminThreadPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entries", "has_more"],
+        "properties": {
+          "entries": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/AdminThreadEntry" } },
+          "has_more": { "type": "boolean" }
+        }
+      },
+      "EntryKind": {
+        "type": "string",
+        "enum": ["message", "status_change"]
+      },
+      "EntrySide": {
+        "type": "string",
+        "description": "`author`: the ticket's author; `support`: an administrator.",
+        "enum": ["author", "support"]
+      },
+      "AdminTicketDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`TicketDetail` plus the author's login. Never the author's id.",
+        "required": ["id", "type", "status", "title", "author_login", "created_at", "updated_at", "data"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "minimum": 1 },
+          "type": { "$ref": "#/components/schemas/TicketType" },
+          "status": { "$ref": "#/components/schemas/TicketStatus" },
+          "title": { "type": "string", "maxLength": 120 },
+          "author_login": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "data": {
+            "description": "As in `TicketDetail`.",
+            "oneOf": [
+              { "$ref": "#/components/schemas/AccessTicketData" },
+              { "$ref": "#/components/schemas/BugTicketData" },
+              { "$ref": "#/components/schemas/DeployTicketDetailData" },
+              { "$ref": "#/components/schemas/OtherTicketData" }
+            ]
+          }
+        }
+      },
+      "DeployTicketDetailData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The fields of a `deploy` ticket as stored: `observacoes` is always present, `null` when it was left empty.",
+        "required": ["projeto", "repositorio", "ambiente", "observacoes"],
+        "properties": {
+          "projeto": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "repositorio": { "type": "string", "format": "uri", "maxLength": 300 },
+          "ambiente": { "$ref": "#/components/schemas/Environment" },
+          "observacoes": { "type": ["string", "null"], "maxLength": 2000 }
+        }
+      },
       "TicketType": {
         "type": "string",
         "enum": ["acesso", "bug", "deploy", "outro"]
       },
       "TicketStatus": {
         "type": "string",
-        "description": "A new ticket is always `aberto`; the other statuses belong to later features.",
+        "description": "A new ticket is always `aberto`; administrators move it along the transitions of `ChangeStatusRequest`. `fechado` is final.",
         "enum": ["aberto", "em_andamento", "resolvido", "fechado"]
       },
       "AccessLevel": {

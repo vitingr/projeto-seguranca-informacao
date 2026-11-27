@@ -25,7 +25,9 @@ func (t TicketType) Valid() bool {
 }
 
 // TicketStatus lists every status the database accepts. A new ticket is
-// always TicketStatusOpen (BR-1); the other statuses belong to later specs.
+// always TicketStatusOpen (spec 001 BR-1); only admins move it to the other
+// statuses, along the transitions of spec 003 BR-3, which the security
+// package and the database enforce. TicketStatusClosed is final.
 type TicketStatus string
 
 const (
@@ -131,4 +133,86 @@ type Ticket struct {
 	Notes         string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+// TicketSummary is a row of "Meus tickets" and of the admin queue (spec 003
+// section 4): never the fields of the type nor the author's id.
+// AuthorLogin is filled for the queue only.
+type TicketSummary struct {
+	ID          TicketID
+	Type        TicketType
+	Status      TicketStatus
+	Title       string
+	AuthorLogin string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// TicketListQuery is a validated list request. An empty Status, Type or
+// AuthorLogin means "all"; AuthorLogin is only set for the queue, never
+// for the own list (S-3). Page starts at 1.
+type TicketListQuery struct {
+	Status      TicketStatus
+	Type        TicketType
+	AuthorLogin string
+	Page        int
+}
+
+// TicketPage is one page of a list, ordered by the last update (BR-8).
+// Total counts every ticket matching the query; a page past the end has
+// no items and keeps the real Total and Pages.
+type TicketPage struct {
+	Items []TicketSummary
+	Total int
+	Page  int
+	Pages int
+}
+
+// StatusCounts is the number of tickets in each status over the whole
+// queue, whatever the filters (AC-4.5).
+type StatusCounts struct {
+	Open       int
+	InProgress int
+	Resolved   int
+	Closed     int
+}
+
+type TicketEntryID int64
+
+// EntryKind tells the two kinds of a ticket's history apart (BR-4): a
+// message, or a status change made by an admin.
+type EntryKind string
+
+const (
+	EntryKindMessage      EntryKind = "message"
+	EntryKindStatusChange EntryKind = "status_change"
+)
+
+func (k EntryKind) Valid() bool {
+	return k == EntryKindMessage || k == EntryKindStatusChange
+}
+
+// TicketEntry is one entry of a ticket's thread, never edited or deleted
+// (BR-4). A message has Body and no statuses; a status change has From and
+// To and no Body. The actor, the ticket and the date are set by the server
+// (S-8). ActorLogin and ActorRole are read with the entry; who may see the
+// login is decided by the web layer (S-13).
+type TicketEntry struct {
+	ID         TicketEntryID
+	TicketID   TicketID
+	ActorID    UserID
+	ActorLogin string
+	ActorRole  Role
+	Kind       EntryKind
+	Body       string
+	From       TicketStatus
+	To         TicketStatus
+	CreatedAt  time.Time
+}
+
+// ThreadPage is a page of a thread, oldest first. HasMore is true when
+// there are entries older than the first one.
+type ThreadPage struct {
+	Entries []TicketEntry
+	HasMore bool
 }

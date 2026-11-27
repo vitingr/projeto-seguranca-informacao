@@ -1,0 +1,31 @@
+info:
+  name: cadastro-admin-rla
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/cadastro"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.BRUNO_COMUM_LOGIN}}.rla",
+        "senha": "{{process.env.BRUNO_COMUM_PASSWORD}}",
+        "papel": "admin"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The admin of the status rate limit (600-690), so the seed admin
+        // keeps its quota. An e2e.* login, removed by the README cleanup.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          expect(res.getBody().role).to.equal("admin");
+        });

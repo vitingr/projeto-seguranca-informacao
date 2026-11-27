@@ -21,6 +21,17 @@ func (rt route) pattern() string {
 	return rt.method + " " + rt.path
 }
 
+// routeQuery lists, by pattern, the query parameters a route reads (spec
+// 003 section 4). A route that is not here reads none. The handlers refuse
+// any other parameter with 400, and the contract test compares this table
+// with the parameters of api/openapi.json.
+var routeQuery = map[string][]string{
+	"GET /api/tickets":                                {"status", "tipo", "pagina"},
+	"GET /api/tickets/{id}/mensagens":                 {"antes"},
+	"GET /api/administradores/tickets":                {"status", "tipo", "usuario", "pagina"},
+	"GET /api/administradores/tickets/{id}/mensagens": {"antes"},
+}
+
 func (h *handlers) routes() []route {
 	admin := security.RequireRole(domain.RoleAdmin)
 	comum := security.RequireRole(domain.RoleComum)
@@ -37,6 +48,16 @@ func (h *handlers) routes() []route {
 		{http.MethodGet, "/api/administradores", http.HandlerFunc(h.administradores), admin},
 		{http.MethodGet, "/api/usuarios", http.HandlerFunc(h.usuarios), comum},
 		{http.MethodPost, "/api/tickets", chain(http.HandlerFunc(h.createTicket), h.sec.RateLimit(h.ticketLimiter)), comum},
+		{http.MethodGet, "/api/tickets", http.HandlerFunc(h.listOwnTickets), comum},
+		{http.MethodGet, "/api/tickets/{id}", chain(http.HandlerFunc(h.getOwnTicket), h.sec.TicketAccess), comum},
+		{http.MethodGet, "/api/tickets/{id}/mensagens", chain(http.HandlerFunc(h.getOwnThread), h.sec.TicketAccess), comum},
+		{http.MethodPost, "/api/tickets/{id}/mensagens", chain(http.HandlerFunc(h.replyOwnTicket), h.sec.RateLimit(h.messageLimiter), h.sec.TicketAccess), comum},
+		{http.MethodGet, "/api/administradores/tickets", http.HandlerFunc(h.listQueue), admin},
+		{http.MethodGet, "/api/administradores/tickets/autores", http.HandlerFunc(h.listQueueAuthors), admin},
+		{http.MethodGet, "/api/administradores/tickets/{id}", chain(http.HandlerFunc(h.getAdminTicket), h.sec.TicketAccess), admin},
+		{http.MethodGet, "/api/administradores/tickets/{id}/mensagens", chain(http.HandlerFunc(h.getAdminThread), h.sec.TicketAccess), admin},
+		{http.MethodPost, "/api/administradores/tickets/{id}/mensagens", chain(http.HandlerFunc(h.replyAdminTicket), h.sec.RateLimit(h.messageLimiter), h.sec.TicketAccess), admin},
+		{http.MethodPatch, "/api/administradores/tickets/{id}/status", chain(http.HandlerFunc(h.changeTicketStatus), h.sec.RateLimit(h.statusLimiter), h.sec.TicketAccess), admin},
 		{"", "/", http.HandlerFunc(h.notFound), public},
 	}
 }

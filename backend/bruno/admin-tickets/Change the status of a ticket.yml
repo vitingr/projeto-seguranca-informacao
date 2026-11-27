@@ -1,0 +1,362 @@
+info:
+  name: Change the status of a ticket
+  type: http
+  seq: 6
+  tags:
+    - admin-tickets
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+      description: CSRF token returned by `GET /api/csrf`.
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "em_andamento"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: The new status and last update.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": 42,
+            "status": "em_andamento",
+            "updated_at": "2026-11-26T09:40:00.123456Z"
+          }
+  - name: 400 Response
+    description: The body is not valid JSON, is empty, has unknown fields or data after the first JSON value, is larger than 64 KiB, or the `Content-Type` is not `application/json` (with no charset or `charset=utf-8`).
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "bad_request",
+            "message": "A requisição não pôde ser processada.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Recurso não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 409 Response
+    description: The ticket's status is not the one the administrator saw, or it is `fechado`. Nothing changed.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "conflict",
+            "message": "O status deste ticket foi alterado por outra pessoa.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 422 Response
+    description: An unknown status code, or a pair of statuses that is never allowed.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unprocessable_entity",
+            "message": "Dados inválidos. Revise os campos e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 429 Response
+    description: Too many requests by this user in a short time. Nothing was done.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "too_many_requests",
+            "message": "Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id/status"
+      method: PATCH
+      headers:
+        - name: X-CSRF-Token
+          value: "{{csrfToken}}"
+          description: CSRF token returned by `GET /api/csrf`.
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+      body:
+        type: json
+        data: |-
+          {
+            "de": "aberto",
+            "para": "em_andamento"
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Moves a ticket from `de`, the status the administrator saw, to `para`, along the allowed transitions (`x-allowed-transitions` of `ChangeStatusRequest`): `aberto` → `em_andamento` or `fechado`; `em_andamento` → `resolvido` or `fechado`; `resolvido` → `em_andamento` or `fechado`. `fechado` is final. The change is recorded in the thread (who, when, from, to) and moves `updated_at`. Administrators only: the author gets 403, also on their own ticket.
+
+  **400** (`bad_request`): the body is not well-formed: `de` or `para` missing, `null` or not a string, or any other key (`actor`, `updated_at`, `id`, ...).
+
+  **409** (`conflict`): the ticket's status is not `de` any more (someone changed it after the page was loaded), or `de` is `fechado`. Nothing changes.
+
+  **422** (`unprocessable_entity`): `de` or `para` is not a status code, or the pair is never allowed (also `de` = `para`).
+
+  **429** (`too_many_requests`): 30 status requests in 60 seconds by the same administrator, valid or not; replies have a quota of their own.

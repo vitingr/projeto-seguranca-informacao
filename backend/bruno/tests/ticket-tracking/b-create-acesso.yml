@@ -1,0 +1,33 @@
+info:
+  name: b-create-acesso
+  type: http
+  seq: 110
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "acesso",
+        "dados": {
+          "sistema": "Grafana",
+          "nivel_acesso": "leitura",
+          "justificativa": "Preciso ver os painéis da equipe."
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // B's own ticket (ticketB1).
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          bru.setVar("ticketB1", res.getBody().id);
+        });

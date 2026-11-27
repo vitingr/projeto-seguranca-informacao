@@ -1,0 +1,26 @@
+info:
+  name: queue-admin
+  type: http
+  seq: 315
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-1, AC-4.3: the admin reads every user's tickets.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("is a queue page", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["items", "page", "page_size", "pages", "status_counts", "total"]);
+          expect(Object.keys(body.status_counts).sort()).to.deep.equal(["aberto", "em_andamento", "fechado", "resolvido"]);
+          for (const item of body.items) {
+            expect(Object.keys(item).sort()).to.deep.equal(["author_login", "created_at", "id", "status", "title", "type", "updated_at"]);
+          }
+        });

@@ -1,0 +1,29 @@
+info:
+  name: status-em-andamento
+  type: http
+  seq: 250
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "em_andamento"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-6.2, BR-3: aberto → em_andamento.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().status).to.equal("em_andamento");
+        });

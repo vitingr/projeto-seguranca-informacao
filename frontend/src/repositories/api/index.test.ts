@@ -376,3 +376,170 @@ describe('createTicket', () => {
     expect(s.sequence()).toEqual([CSRF, TICKETS])
   })
 })
+
+describe('sendMessage (spec 003)', () => {
+  const PAGE = '/usuarios/tickets/12'
+  const OWN = 'POST /api/tickets/12/mensagens'
+  const ADMIN = 'POST /api/administradores/tickets/12/mensagens'
+  const entry = {
+    created_at: '2026-11-26T17:04:00Z',
+    id: 7,
+    kind: 'message',
+    mine: true,
+    side: 'author',
+    text: 'Olá'
+  }
+
+  it('201: posts the text with the token and returns the entry', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [OWN]: [jsonResponse(201, entry)] },
+      PAGE
+    )
+    expect(
+      await s.client.sendMessage({ scope: 'own', texto: 'Olá', ticketId: 12 })
+    ).toEqual({ data: entry, ok: true })
+    expect(s.calls[1]?.body).toEqual({ texto: 'Olá' })
+    expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
+  })
+
+  it('the admin scope posts to the admin route', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [ADMIN]: [jsonResponse(201, entry)] },
+      '/administradores/tickets/12'
+    )
+    const result = await s.client.sendMessage({
+      scope: 'queue',
+      texto: 'Olá',
+      ticketId: 12
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('409: the ticket was closed meanwhile', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [OWN]: [errorResponse(409, 'conflict')] },
+      PAGE
+    )
+    expect(
+      await s.client.sendMessage({ scope: 'own', texto: 'x', ticketId: 12 })
+    ).toMatchObject({
+      error: { code: 'ticket_closed', status: 409 },
+      ok: false
+    })
+  })
+
+  it.each([
+    [422, 'unprocessable_entity'],
+    [429, 'too_many_requests'],
+    [404, 'not_found'],
+    [500, 'internal']
+  ])('%i: returned once, with no retry', async (status, code) => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply()],
+        [OWN]: [errorResponse(status, code, { request_id: 'req-9' })]
+      },
+      PAGE
+    )
+    expect(
+      await s.client.sendMessage({ scope: 'own', texto: 'x', ticketId: 12 })
+    ).toMatchObject({ error: { code, requestId: 'req-9', status }, ok: false })
+    expect(s.sequence()).toEqual([CSRF, OWN])
+  })
+
+  it('403 → one token refresh and one retry; 401 → login', async () => {
+    const s = setup(
+      {
+        [CSRF]: [csrfReply(), csrfReply()],
+        [OWN]: [
+          errorResponse(403, 'forbidden'),
+          errorResponse(401, 'unauthorized')
+        ]
+      },
+      PAGE
+    )
+    expect(
+      await settled(
+        s.client.sendMessage({ scope: 'own', texto: 'x', ticketId: 12 })
+      )
+    ).toBe('pending')
+    expect(s.sequence()).toEqual([CSRF, OWN, CSRF, OWN])
+    expect(s.navigations).toEqual([
+      'go /login?next=%2Fusuarios%2Ftickets%2F12&sessao=expirada'
+    ])
+  })
+
+  it('a failed fetch is a network error', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [OWN]: [new TypeError('fetch failed')] },
+      PAGE
+    )
+    expect(
+      await s.client.sendMessage({ scope: 'own', texto: 'x', ticketId: 12 })
+    ).toMatchObject({ error: { code: 'network' }, ok: false })
+  })
+})
+
+describe('changeStatus (spec 003)', () => {
+  const STATUS = 'PATCH /api/administradores/tickets/12/status'
+  const change = { de: 'aberto', para: 'em_andamento', ticketId: 12 } as const
+
+  it('200: sends a PATCH with the token and the two statuses', async () => {
+    const answer = {
+      id: 12,
+      status: 'em_andamento',
+      updated_at: '2026-11-26T17:04:00Z'
+    }
+    const s = setup(
+      { [CSRF]: [csrfReply()], [STATUS]: [jsonResponse(200, answer)] },
+      '/administradores/tickets/12'
+    )
+    expect(await s.client.changeStatus(change)).toEqual({
+      data: answer,
+      ok: true
+    })
+    expect(s.calls[1]?.body).toEqual({ de: 'aberto', para: 'em_andamento' })
+    expect(s.calls[1]?.headers['x-csrf-token']).toMatch(/^token-/)
+  })
+
+  it('409: the status was changed by someone else', async () => {
+    const s = setup(
+      { [CSRF]: [csrfReply()], [STATUS]: [errorResponse(409, 'conflict')] },
+      '/administradores/tickets/12'
+    )
+    expect(await s.client.changeStatus(change)).toMatchObject({
+      error: { code: 'stale_status', status: 409 },
+      ok: false
+    })
+  })
+})
+
+describe('loadThreadBefore (spec 003 P-4)', () => {
+  const OLDER = 'GET /api/tickets/12/mensagens?antes=40'
+  const page = { entries: [], has_more: false }
+
+  it('a GET with the cursor and no token', async () => {
+    const s = setup(
+      { [OLDER]: [jsonResponse(200, page)] },
+      '/usuarios/tickets/12'
+    )
+    expect(
+      await s.client.loadThreadBefore({ antes: 40, scope: 'own', ticketId: 12 })
+    ).toEqual({ data: page, ok: true })
+    expect(s.sequence()).toEqual([OLDER])
+    expect(s.calls[0]?.headers['x-csrf-token']).toBeUndefined()
+  })
+
+  it('401 → login', async () => {
+    const s = setup(
+      { [OLDER]: [errorResponse(401, 'unauthorized')] },
+      '/usuarios/tickets/12'
+    )
+    expect(
+      await settled(
+        s.client.loadThreadBefore({ antes: 40, scope: 'own', ticketId: 12 })
+      )
+    ).toBe('pending')
+    expect(s.navigations).toHaveLength(1)
+  })
+})

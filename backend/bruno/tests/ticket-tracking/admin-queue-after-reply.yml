@@ -1,0 +1,18 @@
+info:
+  name: admin-queue-after-reply
+  type: http
+  seq: 241
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets?usuario={{process.env.BRUNO_COMUM_LOGIN}}.a"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // BR-8, AC-4.3: the admin reply moved ticketA2 to the top.
+        test("ticketA2 is first", function () {
+          expect(res.getBody().items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA2"), bru.getVar("ticketA1")]);
+        });

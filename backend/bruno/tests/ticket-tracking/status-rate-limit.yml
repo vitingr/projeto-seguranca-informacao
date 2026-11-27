@@ -1,0 +1,66 @@
+info:
+  name: status-rate-limit
+  type: http
+  seq: 603
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketB1}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "em_andamento"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Spends the quota (spec 003 S-9): 30 status requests, each refused
+        // with 409 (a change from fechado), which still count. This valid
+        // request is then the 31st within the minute.
+        const url = bru.interpolate("{{baseUrl}}/api/administradores/tickets/{{ticketB1}}/status");
+        const statuses = [];
+        for (let i = 1; i <= 30; i++) {
+          // bru.sendRequest throws on a status outside 2xx: read it from
+          // the error.
+          try {
+            const r = await bru.sendRequest({
+              method: "PATCH",
+              url: url,
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": bru.getVar("csrfToken"),
+                "Cookie": bru.getVar("rlaCookie"),
+              },
+              data: { de: "fechado", para: "aberto" },
+            });
+            statuses.push(r.status);
+          } catch (err) {
+            // In the CLI sandbox the error has only its message, "Request
+            // failed with status code 409".
+            const status = (err && err.response && err.response.status) || (String(err && err.message).match(/status code (\d{3})/) || [])[1];
+            statuses.push(status ? String(status) : "network");
+          }
+        }
+        bru.setVar("statusRateLimitStatuses", statuses.join(","));
+    - type: tests
+      code: |-
+        test("the first 30 requests counted (409 each)", function () {
+          expect(bru.getVar("statusRateLimitStatuses")).to.equal(Array(30).fill("409").join(","));
+        });
+        test("status is 429", function () {
+          expect(res.getStatus()).to.equal(429);
+          expect(res.getBody().error).to.equal("too_many_requests");
+        });
+        test("Retry-After is in whole seconds, at most a minute", function () {
+          const retry = Number(res.getHeader("retry-after"));
+          expect(Number.isInteger(retry)).to.equal(true);
+          expect(retry).to.be.within(1, 60);
+        });

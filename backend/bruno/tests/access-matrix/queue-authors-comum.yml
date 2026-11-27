@@ -1,0 +1,19 @@
+info:
+  name: queue-authors-comum
+  type: http
+  seq: 216
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/autores"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-4: the logins of other users are admin-only.
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+          expect(res.getBody().error).to.equal("forbidden");
+        });

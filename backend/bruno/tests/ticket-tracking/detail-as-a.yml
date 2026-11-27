@@ -1,0 +1,31 @@
+info:
+  name: detail-as-a
+  type: http
+  seq: 40
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-2.1, AC-2.2: every field of the bug ticket, as sent
+        // (line breaks kept), under the keys of the creation request.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("has the ticket and its fields", function () {
+          const body = res.getBody();
+          expect(Object.keys(body).sort()).to.deep.equal(["created_at", "data", "id", "status", "title", "type", "updated_at"]);
+          expect(body.id).to.equal(bru.getVar("ticketA1"));
+          expect(body.title).to.equal("Bug em Portal");
+          expect(body.data).to.deep.equal({
+            sistema: "Portal",
+            descricao: "A página de relatórios responde com erro 500.",
+            passos: "1. Entrar no portal\n2. Abrir Relatórios",
+            severidade: "alta",
+          });
+        });

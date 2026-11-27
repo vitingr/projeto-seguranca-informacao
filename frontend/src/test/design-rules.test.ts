@@ -113,3 +113,64 @@ describe('source files', () => {
     expect(found).toEqual([])
   })
 })
+
+// The pointer cursor is for enabled buttons only: a disabled button, native
+// or `aria-disabled`, keeps the default cursor (or its own utility class).
+describe('pointer cursor', () => {
+  const css = readFileSync(
+    fileURLToPath(new URL('../styles/globals.css', import.meta.url)),
+    'utf8'
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replaceAll('"', "'")
+
+  /** The bodies of every `@layer <name> { … }` block of the stylesheet. */
+  const layerBodies = (name: string) => {
+    const bodies: string[] = []
+    let start = css.indexOf(`@layer ${name} {`)
+    while (start >= 0) {
+      const open = css.indexOf('{', start)
+      let depth = 0
+      let end = open
+      while (end < css.length) {
+        if (css[end] === '{') depth += 1
+        if (css[end] === '}') depth -= 1
+        if (depth === 0) break
+        end += 1
+      }
+      bodies.push(css.slice(open + 1, end))
+      start = css.indexOf(`@layer ${name} {`, end)
+    }
+    return bodies
+  }
+
+  /** Every selector of the rules in `source` that set `cursor: pointer`. */
+  const pointerSelectors = (source: string) =>
+    [...source.matchAll(/([^{};]+)\{[^{}]*cursor\s*:\s*pointer/g)].flatMap(
+      match => match[1].split(',').map(selector => selector.trim())
+    )
+
+  const base = layerBodies('base').flatMap(pointerSelectors)
+
+  it('is set only in the base layer, without !important', () => {
+    expect(base.length).toBeGreaterThan(0)
+    expect(pointerSelectors(css)).toEqual(base)
+    expect(css).not.toMatch(/cursor\s*:[^;}]*!important/)
+  })
+
+  it('applies to buttons and to role="button"', () => {
+    const starts = (prefix: string) =>
+      base.some(selector => selector.startsWith(prefix))
+    expect(starts('button:')).toBe(true)
+    expect(starts("[role='button']:")).toBe(true)
+  })
+
+  it('leaves out disabled and aria-disabled buttons', () => {
+    for (const selector of base) {
+      expect(selector).toContain(":not([aria-disabled='true'])")
+      if (selector.startsWith('button')) {
+        expect(selector).toContain(':not(:disabled)')
+      }
+    }
+  })
+})

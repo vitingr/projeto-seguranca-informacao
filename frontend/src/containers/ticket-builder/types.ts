@@ -71,15 +71,6 @@ export interface FieldSlot {
   wide: boolean
 }
 
-/**
- * A way out of the builder held by the leave warning (AC-3.8): a link to
- * another page, or the "Sair" button. `from` gets the focus back when the
- * user stays.
- */
-export type LeaveRequest =
-  | { from: HTMLAnchorElement; href: string; kind: 'link' }
-  | { from: HTMLButtonElement; kind: 'logout' }
-
 /** What the builder writes in `history.state` for each of its entries. */
 export interface HistoryEntry {
   /** The entry's position among the entries of this builder visit. */

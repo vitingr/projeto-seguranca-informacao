@@ -1,0 +1,29 @@
+info:
+  name: login-admin-queue
+  type: http
+  seq: 201
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.SEED_ADMIN_LOGIN}}",
+        "senha": "{{process.env.SEED_ADMIN_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The seed admin works A's tickets (200-389).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().role).to.equal("admin");
+        });

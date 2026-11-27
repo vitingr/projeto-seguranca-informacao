@@ -1,0 +1,29 @@
+info:
+  name: status-anonymous
+  type: http
+  seq: 110
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/1/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "fechado"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-1: with a valid CSRF token, the 401 comes from Authorize.
+        test("status is 401", function () {
+          expect(res.getStatus()).to.equal(401);
+          expect(res.getBody().error).to.equal("unauthorized");
+        });

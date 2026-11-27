@@ -1,0 +1,34 @@
+info:
+  name: status-stale-409
+  type: http
+  seq: 252
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/administradores/tickets/{{ticketA1}}/status"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "de": "aberto",
+        "para": "fechado"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-6.3, BR-7: the status the admin saw (aberto) is not the
+        // ticket's any more (resolvido), so nothing changes.
+        test("status is 409", function () {
+          expect(res.getStatus()).to.equal(409);
+        });
+        test("stale status message", function () {
+          const body = res.getBody();
+          expect(body.error).to.equal("conflict");
+          expect(body.message).to.equal("O status deste ticket foi alterado por outra pessoa.");
+        });

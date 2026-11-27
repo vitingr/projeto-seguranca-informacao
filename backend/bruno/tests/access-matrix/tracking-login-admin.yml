@@ -1,0 +1,30 @@
+info:
+  name: tracking-login-admin
+  type: http
+  seq: 301
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/login"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{process.env.SEED_ADMIN_LOGIN}}",
+        "senha": "{{process.env.SEED_ADMIN_PASSWORD}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // The seed admin again, for the cells 300-389, after the comum
+        // user's cells (the admin {id} cells use the comum user's ticket).
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().user_id).to.equal(bru.getVar("adminUserId"));
+        });

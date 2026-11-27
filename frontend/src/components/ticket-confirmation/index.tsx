@@ -1,8 +1,11 @@
-import { CircleCheckIcon } from 'lucide-react'
+import { cn } from 'cn'
+import { ArrowRightIcon, CircleCheckIcon } from 'lucide-react'
+import Link from 'next/link'
 
 import { DetailList, DetailRow } from '@/components/detail-list'
 import { TicketTypeIcon } from '@/components/ticket-type-icon'
 import { Badge } from '@/components/ui/shadcn/badge'
+import { buttonVariants } from '@/components/ui/shadcn/button'
 import { formatDateTime } from '@/domain/date-time'
 import { TICKET_STATUS_LABELS, ticketTypeLabel } from '@/domain/tickets'
 
@@ -15,7 +18,8 @@ export const CONFIRMATION_TEXTS = {
   number: 'Número',
   status: 'Status',
   title: 'Título',
-  type: 'Tipo'
+  type: 'Tipo',
+  viewTicket: 'Ver ticket'
 } as const
 
 /**
@@ -64,5 +68,13 @@ export const TicketConfirmation = ({
         {formatDateTime(ticket.createdAt) ?? '—'}
       </DetailRow>
     </DetailList>
+    {/* Spec 003 AC-1.11: the new ticket's page, with its conversation. */}
+    <Link
+      className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-fit')}
+      href={`/usuarios/tickets/${ticket.id}`}
+    >
+      {CONFIRMATION_TEXTS.viewTicket}
+      <ArrowRightIcon data-icon="inline-end" aria-hidden />
+    </Link>
   </div>
 )

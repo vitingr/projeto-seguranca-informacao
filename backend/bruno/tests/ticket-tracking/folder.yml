@@ -1,0 +1,28 @@
+# Hand-written. Run by "mage brunoRun" last, after tests/tickets
+# (bru run tests tests/access-matrix tests/tickets tests/ticket-tracking).
+#
+# Spec 003 end to end, with users of its own: the seed admin registers user
+# A (BRUNO_COMUM_LOGIN + ".a") and user B (+ ".b") (1-9). A logs in
+# (10-12), creates two tickets (20-21) and reads "Meus tickets" with
+# filters and the 400 cases (30-39). B logs in (100-102), creates a ticket
+# and reads a list that holds none of A's (110-111), then tries A's ticket
+# (IDOR, 120-129). The reply rate limit runs with a user of its own,
+# BRUNO_COMUM_LOGIN + ".rlm" (registered in 6, 400-490): 30 replies with
+# bru.sendRequest, then the 31st gets 429.
+#
+# The seed admin works A's tickets at 200-390: the queue with filters, the
+# admin page and thread, a reply, the status path aberto -> em_andamento ->
+# resolvido -> fechado with the 409, 422 and 403 refusals. A comes back at
+# 500-590 (the support reply as "support", status 403, reply on fechado
+# 409). The status rate limit runs with an admin of its own,
+# BRUNO_COMUM_LOGIN + ".rla" (registered in 7, 600-690).
+#
+# The gaps in seq leave room for the later requests of the stack. The Go
+# tests in internal/web cover every refusal class and check that nothing is
+# stored; these requests check the running stack.
+info:
+  name: ticket-tracking
+  type: folder
+
+request:
+  auth: inherit

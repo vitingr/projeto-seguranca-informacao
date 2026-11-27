@@ -95,6 +95,8 @@ func newFlowAppWith(t *testing.T, cfg flowConfig) flowApp {
 	app, err := NewHandler(Deps{
 		Logger: logger, Security: sec, Auth: credAuth{}, Users: users,
 		Tickets: service.NewTickets(tickets, sec), TicketLimiter: newTicketLimiter(t, sec),
+		MessageLimiter: newMessageLimiter(t, sec),
+		StatusLimiter:  newStatusLimiter(t, sec),
 	})
 	if err != nil {
 		t.Fatal(err)

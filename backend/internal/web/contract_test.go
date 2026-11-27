@@ -292,6 +292,75 @@ func checkErrorResponses(doc *openAPI, pattern string, op operation, p security.
 	return problems
 }
 
+// sharedPathParameters are the path wildcards that every operation must
+// declare through the same component, so one definition holds the rule.
+var sharedPathParameters = map[string]string{
+	"id": "#/components/parameters/TicketId",
+}
+
+// pathWildcards returns the names of the {name} segments of a route path.
+func pathWildcards(path string) []string {
+	var names []string
+	for segment := range strings.SplitSeq(path, "/") {
+		if name, ok := strings.CutPrefix(segment, "{"); ok {
+			name = strings.TrimSuffix(strings.TrimSuffix(name, "}"), "...")
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// diffParameters compares the path and query parameters of an operation
+// with the route: every wildcard of the path is a required path parameter
+// (through its shared component, if it has one), and the query parameters
+// are exactly the names the routes table declares. Header parameters are
+// checked by checkStateChanging.
+func diffParameters(doc *openAPI, pattern string, op operation, query []string) []string {
+	_, path, _ := strings.Cut(pattern, " ")
+	wildcards := pathWildcards(path)
+
+	var problems []string
+	declaredPath, declaredQuery := map[string]bool{}, map[string]bool{}
+	for _, raw := range op.Parameters {
+		p := doc.parameter(raw)
+		if raw.Ref != "" && p.Name == "" {
+			problems = append(problems, fmt.Sprintf("parameter $ref %q does not resolve", raw.Ref))
+			continue
+		}
+		switch p.In {
+		case "path":
+			declaredPath[p.Name] = true
+			if !slices.Contains(wildcards, p.Name) {
+				problems = append(problems, fmt.Sprintf("path parameter %q is not in the path", p.Name))
+				continue
+			}
+			if !p.Required {
+				problems = append(problems, fmt.Sprintf("path parameter %q must be required", p.Name))
+			}
+			if ref, ok := sharedPathParameters[p.Name]; ok && raw.Ref != ref {
+				problems = append(problems, fmt.Sprintf("path parameter %q must be $ref %q", p.Name, ref))
+			}
+		case "query":
+			declaredQuery[p.Name] = true
+			if !slices.Contains(query, p.Name) {
+				problems = append(problems, fmt.Sprintf("query parameter %q is not read by the route", p.Name))
+			}
+		}
+	}
+	for _, name := range wildcards {
+		if !declaredPath[name] {
+			problems = append(problems, fmt.Sprintf("path parameter %q is not declared", name))
+		}
+	}
+	for _, name := range query {
+		if !declaredQuery[name] {
+			problems = append(problems, fmt.Sprintf("query parameter %q is not declared", name))
+		}
+	}
+	sort.Strings(problems)
+	return problems
+}
+
 // diffSchema compares a schema with the JSON tags of a struct: property
 // names must match, and required properties are the fields without
 // omitempty.
@@ -357,7 +426,15 @@ func TestContractMatchesRoutes(t *testing.T) {
 			for _, problem := range checkErrorResponses(doc, pattern, op, policy) {
 				t.Error(problem)
 			}
+			for _, problem := range diffParameters(doc, pattern, op, routeQuery[pattern]) {
+				t.Error(problem)
+			}
 		})
+	}
+	for pattern := range routeQuery {
+		if _, ok := table[pattern]; !ok {
+			t.Errorf("routeQuery has %s, which is not a route", pattern)
+		}
 	}
 }
 

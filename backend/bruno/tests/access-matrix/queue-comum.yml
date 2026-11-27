@@ -1,0 +1,19 @@
+info:
+  name: queue-comum
+  type: http
+  seq: 215
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-4, AC-4.7: comum users never see the queue.
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+          expect(res.getBody().error).to.equal("forbidden");
+        });

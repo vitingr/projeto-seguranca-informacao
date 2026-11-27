@@ -4,7 +4,10 @@
 // backend/api/openapi.json in index.test.ts, since `domain` cannot import
 // the API contract in `lib`.
 
+import { z } from 'zod'
+
 import type {
+  TicketDetailRow,
   TicketField,
   TicketFieldKey,
   TicketInput,
@@ -100,6 +103,28 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   fechado: 'Fechado',
   resolvido: 'Resolvido'
 }
+
+/**
+ * The status changes an admin may choose from each status (spec 003 BR-3),
+ * the same table as the backend's `AllowedNextStatuses`. "Fechado" is final.
+ */
+export const ALLOWED_NEXT_STATUSES = {
+  aberto: ['em_andamento', 'fechado'],
+  em_andamento: ['resolvido', 'fechado'],
+  fechado: [],
+  resolvido: ['em_andamento', 'fechado']
+} as const satisfies Record<TicketStatus, readonly TicketStatus[]>
+
+/** The longest message of a thread, in code points (spec 003 BR-6). */
+export const MESSAGE_MAX = 2000
+
+/** The field messages of a thread reply (spec 003 AC-3.5, 001 section 4). */
+export const MESSAGE_PROBLEMS = {
+  control: 'Remova os caracteres de controle do texto.',
+  empty: 'Preencha este campo.',
+  invalidText: 'O texto tem caracteres inválidos. Digite-o novamente.',
+  tooLong: `Use no máximo ${MESSAGE_MAX} caracteres.`
+} as const
 
 /** Limits of spec section 4, in Unicode code points. */
 export const FIELD_LIMITS = {
@@ -271,6 +296,88 @@ export const trimField = (value: string): string =>
 
 /** Length in Unicode code points, as the backend counts it. */
 export const codePoints = (value: string): number => [...value].length
+
+/** What an optional field left empty shows (spec 001 AC-4.1, 003 AC-2.2). */
+export const NOT_INFORMED = 'Não informado'
+
+/** Kinds shown first, side by side, on the builder and in the details. */
+const COMPACT_KINDS: readonly string[] = ['choice', 'short', 'url']
+
+/** The field whose value is the ticket title itself ("Outro", BR-3). */
+const TITLE_FIELDS: Partial<Record<TicketType, string>> = { outro: 'titulo' }
+
+/**
+ * Every field of a type in screen order (short fields, URLs and choices
+ * first, then the long ones), with its label, the label of a fixed choice,
+ * and `null` for an optional field left empty (`""`, `null` or absent).
+ */
+export const ticketFieldRows = (
+  type: TicketType,
+  data: Readonly<Record<string, null | string | undefined>>
+): TicketDetailRow[] => {
+  const fields = fieldsOf(type)
+  const ordered = [
+    ...fields.filter(field => COMPACT_KINDS.includes(field.kind)),
+    ...fields.filter(field => !COMPACT_KINDS.includes(field.kind))
+  ]
+  return ordered.map(field => {
+    const raw = data[field.key]
+    const option = field.options?.find(item => item.code === raw)
+    return {
+      key: field.key,
+      label: field.label,
+      risky: option?.risky ?? false,
+      value:
+        raw === undefined || raw === null || raw === ''
+          ? null
+          : (option?.label ?? raw)
+    }
+  })
+}
+
+/**
+ * The rows of the "Detalhes" group of a ticket (the builder review, 001
+ * AC-4.1, and the ticket page, 003 AC-2.2): the field that is the ticket
+ * title ("Título" of "Outro") is left out, since the "Pedido" group already
+ * shows it as the title.
+ */
+export const ticketDetailRows = (
+  type: TicketType,
+  data: Readonly<Record<string, null | string | undefined>>
+): TicketDetailRow[] =>
+  ticketFieldRows(type, data).filter(row => row.key !== TITLE_FIELDS[type])
+
+/** A lone surrogate: the JavaScript form of text that is not valid UTF-8. */
+const LONE_SURROGATE = /\p{Surrogate}/u
+
+/** Go's unicode.IsControl except line feed, carriage return and tab. */
+const FORBIDDEN_CONTROL = new RegExp(
+  '[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]'
+)
+
+/**
+ * The message rule of the backend's `ValidateMessage` (spec 003 BR-6, the
+ * multi-line rule of 001): valid text, trimmed, 1 to 2000 code points, and
+ * no control character but line feed, carriage return and tab. `null` when
+ * the text is valid, otherwise the message to show under the field.
+ */
+export const checkMessage = (raw: string): null | string => {
+  if (LONE_SURROGATE.test(raw)) return MESSAGE_PROBLEMS.invalidText
+  const value = trimField(raw)
+  if (value === '') return MESSAGE_PROBLEMS.empty
+  if (FORBIDDEN_CONTROL.test(value)) return MESSAGE_PROBLEMS.control
+  if (codePoints(value) > MESSAGE_MAX) return MESSAGE_PROBLEMS.tooLong
+  return null
+}
+
+/** The reply text as zod checks it before sending; the result is trimmed. */
+export const messageSchema = z
+  .string()
+  .superRefine((raw, ctx) => {
+    const problem = checkMessage(raw)
+    if (problem) ctx.addIssue({ code: 'custom', message: problem })
+  })
+  .transform(trimField)
 
 /** The first `max` code points of `value`, never splitting a character. */
 const cutCodePoints = (value: string, max: number): string =>

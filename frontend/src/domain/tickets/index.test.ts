@@ -3,16 +3,22 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ACCESS_LEVELS,
+  ALLOWED_NEXT_STATUSES,
   ENVIRONMENTS,
   SEVERITIES,
   TICKET_FIELDS,
   TICKET_STATUS_LABELS,
   TICKET_TYPES,
+  checkMessage,
   codePoints,
+  messageSchema,
+  ticketDetailRows,
+  ticketFieldRows,
   ticketTitle,
   trimField
 } from '.'
 import type { TicketInput } from './types'
+import type { TicketStatus } from './types'
 
 // Invisible characters are built from their code points, so the source
 // shows which one each test uses.
@@ -243,5 +249,149 @@ describe('ticketTitle (BR-3)', () => {
     expect(title).toBe(want)
     expect(codePoints(title)).toBeLessThanOrEqual(120)
     expect(title.isWellFormed()).toBe(true)
+  })
+})
+
+// Copied from the Go table of backend/internal/security/ticket_status_test.go
+// (spec 003 BR-3): every from × to pair and whether it is allowed.
+const transitionVectors: [TicketStatus, TicketStatus, boolean][] = [
+  ['aberto', 'aberto', false],
+  ['aberto', 'em_andamento', true],
+  ['aberto', 'resolvido', false],
+  ['aberto', 'fechado', true],
+  ['em_andamento', 'aberto', false],
+  ['em_andamento', 'em_andamento', false],
+  ['em_andamento', 'resolvido', true],
+  ['em_andamento', 'fechado', true],
+  ['resolvido', 'aberto', false],
+  ['resolvido', 'em_andamento', true],
+  ['resolvido', 'resolvido', false],
+  ['resolvido', 'fechado', true],
+  ['fechado', 'aberto', false],
+  ['fechado', 'em_andamento', false],
+  ['fechado', 'resolvido', false],
+  ['fechado', 'fechado', false]
+]
+
+describe('ALLOWED_NEXT_STATUSES (BR-3)', () => {
+  it.each(transitionVectors)('%s → %s: %s', (from, to, allowed) => {
+    const next: readonly TicketStatus[] = ALLOWED_NEXT_STATUSES[from]
+    expect(next.includes(to)).toBe(allowed)
+  })
+
+  it('is the table of the contract', () => {
+    const request = contract.components.schemas.ChangeStatusRequest as {
+      'x-allowed-transitions'?: Record<string, string[]>
+    }
+    const documented = request['x-allowed-transitions'] ?? {}
+    for (const [from, next] of Object.entries(ALLOWED_NEXT_STATUSES)) {
+      expect([...next].sort()).toEqual([...(documented[from] ?? [])].sort())
+    }
+  })
+})
+
+describe('checkMessage and messageSchema (spec 003 BR-6)', () => {
+  it.each([
+    ['one character', 'a'],
+    ['2000 characters', 'a'.repeat(2000)],
+    ['2000 multi-byte characters', '😀'.repeat(2000)],
+    ['line breaks and tabs', 'linha 1\n\tlinha 2\r\n'],
+    ['a line separator inside', `a${LINE_SEPARATOR}b`]
+  ])('accepts %s', (_name, text) => {
+    expect(checkMessage(text)).toBeNull()
+  })
+
+  it.each([
+    ['empty', '', 'Preencha este campo.'],
+    ['spaces only', ` \n\t${NBSP}`, 'Preencha este campo.'],
+    ['2001 characters', 'a'.repeat(2001), 'Use no máximo 2000 caracteres.'],
+    ['a NUL', 'a\u0000b', 'Remova os caracteres de controle do texto.']
+  ])('refuses %s', (_name, text, message) => {
+    expect(checkMessage(text)).toBe(message)
+    const result = messageSchema.safeParse(text)
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toBe(message)
+  })
+
+  it('a control character other than \\n, \\r and \\t is refused', () => {
+    expect(checkMessage('a\u0007b')).toBe(
+      'Remova os caracteres de controle do texto.'
+    )
+  })
+
+  it('trims what it accepts, as the backend stores it', () => {
+    expect(messageSchema.parse('  olá\n')).toBe('olá')
+    expect(codePoints(`  ${'a'.repeat(2000)}  `)).toBe(2004)
+    expect(checkMessage(`  ${'a'.repeat(2000)}  `)).toBeNull()
+  })
+})
+
+describe('ticketDetailRows (spec 003 AC-2.2)', () => {
+  const show = (rows: ReturnType<typeof ticketDetailRows>) =>
+    rows.map(
+      row => `${row.label}: ${row.value ?? 'null'}${row.risky ? '!' : ''}`
+    )
+
+  it('acesso: labels and the choice label', () => {
+    expect(
+      show(
+        ticketDetailRows('acesso', {
+          justificativa: 'Painéis\nde uso',
+          nivel_acesso: 'leitura',
+          sistema: 'Grafana'
+        })
+      )
+    ).toEqual([
+      'Sistema ou recurso: Grafana',
+      'Nível de acesso: Leitura',
+      'Justificativa: Painéis\nde uso'
+    ])
+  })
+
+  it('bug: "Crítica" is risky, short fields first', () => {
+    expect(
+      show(
+        ticketDetailRows('bug', {
+          descricao: 'Erro 500',
+          passos: '1. Abra',
+          severidade: 'critica',
+          sistema: 'Portal'
+        })
+      )
+    ).toEqual([
+      'Sistema afetado: Portal',
+      'Severidade: Crítica!',
+      'Descrição: Erro 500',
+      'Passos para reproduzir: 1. Abra'
+    ])
+  })
+
+  it('deploy: "Produção" is risky and null notes are not informed', () => {
+    expect(
+      show(
+        ticketDetailRows('deploy', {
+          ambiente: 'prod',
+          observacoes: null,
+          projeto: 'api',
+          repositorio: 'https://github.com/org/api'
+        })
+      )
+    ).toEqual([
+      'Nome do projeto: api',
+      'Repositório: https://github.com/org/api',
+      'Ambiente: Produção!',
+      'Observações: null'
+    ])
+  })
+
+  it('outro: the title field is left out, the full list keeps it', () => {
+    const data = { descricao: 'Abrir a porta', titulo: 'Liberar porta' }
+    expect(show(ticketDetailRows('outro', data))).toEqual([
+      'Descrição: Abrir a porta'
+    ])
+    expect(ticketFieldRows('outro', data).map(row => row.key)).toEqual([
+      'titulo',
+      'descricao'
+    ])
   })
 })

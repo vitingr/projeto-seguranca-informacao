@@ -2,6 +2,8 @@ import type { TicketReviewRow } from '@/components/ticket-review/types'
 import {
   choiceLabel,
   fieldsOf,
+  ticketDetailRows,
+  ticketFieldRows,
   ticketTitle,
   ticketTypeLabel,
   trimField
@@ -57,34 +59,20 @@ export const previewTitle = (
 }
 
 /**
- * Every field of the type in screen order, with the value that will be sent
- * (trimmed by the schema), the label of a fixed choice, and `null` for an
- * optional field left empty.
+ * Every field of the type in screen order (the same order as
+ * `fieldLayout`), with the value that will be sent (trimmed by the schema),
+ * the label of a fixed choice, and `null` for an optional field left empty.
  */
-const fieldRows = (input: TicketInput): TicketReviewRow[] => {
-  const dados: Partial<Record<string, string>> = { ...input.dados }
-  return fieldLayout(input.tipo).map(({ field }) => {
-    const raw = dados[field.key]
-    const option = field.options?.find(item => item.code === raw)
-    return {
-      key: field.key,
-      label: field.label,
-      risky: option?.risky ?? false,
-      value: raw === undefined || raw === '' ? null : (option?.label ?? raw)
-    }
-  })
-}
-
-/** The field whose value is the ticket title itself ("Outro", BR-3). */
-const TITLE_FIELDS: Partial<Record<TicketType, string>> = { outro: 'titulo' }
+const fieldRows = (input: TicketInput): TicketReviewRow[] =>
+  ticketFieldRows(input.tipo, { ...input.dados })
 
 /**
- * The rows of the "Detalhes" group of the review (AC-4.1). The field that is
- * the ticket title ("Título" of "Outro") is left out: the "Pedido" group
- * already shows it as the title, so it is shown once.
+ * The rows of the "Detalhes" group of the review (AC-4.1), shared with the
+ * ticket page (spec 003 AC-2.2): the "Título" of "Outro" is left out, since
+ * the "Pedido" group already shows it as the title.
  */
 export const reviewRows = (input: TicketInput): TicketReviewRow[] =>
-  fieldRows(input).filter(row => row.key !== TITLE_FIELDS[input.tipo])
+  ticketDetailRows(input.tipo, { ...input.dados })
 
 /**
  * The chips of the send progress: the type, then the labels of every field

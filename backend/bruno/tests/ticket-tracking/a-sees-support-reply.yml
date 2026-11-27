@@ -1,0 +1,27 @@
+info:
+  name: a-sees-support-reply
+  type: http
+  seq: 510
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/{{ticketA2}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 Q-6, S-13: A sees the admin reply of 240 as "support",
+        // with no login or id of the admin.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("the reply is on the support side, with no admin data", function () {
+          const entries = res.getBody().entries;
+          expect(entries.map((e) => e.id)).to.deep.equal([bru.getVar("adminReplyA2")]);
+          expect(Object.keys(entries[0]).sort()).to.deep.equal(["created_at", "id", "kind", "mine", "side", "text"]);
+          expect(entries[0].side).to.equal("support");
+          expect(entries[0].mine).to.equal(false);
+          expect(JSON.stringify(res.getBody())).to.not.include(bru.interpolate("{{process.env.SEED_ADMIN_LOGIN}}").toLowerCase());
+        });

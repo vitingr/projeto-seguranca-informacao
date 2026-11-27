@@ -1,0 +1,35 @@
+info:
+  name: reply-as-a
+  type: http
+  seq: 60
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets/{{ticketA1}}/mensagens"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "texto": "  O erro voltou hoje.\nSegue o horário: 09:10. <b>urgente</b>  "
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 AC-3.6, BR-6: stored trimmed, as plain text.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+        test("returns the stored message", function () {
+          const body = res.getBody();
+          expect(body.kind).to.equal("message");
+          expect(body.side).to.equal("author");
+          expect(body.mine).to.equal(true);
+          expect(body.text).to.equal("O erro voltou hoje.\nSegue o horário: 09:10. <b>urgente</b>");
+          bru.setVar("messageA1", body.id);
+        });

@@ -1,0 +1,32 @@
+info:
+  name: a-create-outro
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/tickets"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "outro",
+        "dados": {
+          "titulo": "Dúvida sobre a VPN",
+          "descricao": "Como peço acesso à VPN da equipe?"
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // A's second ticket (ticketA2), newer than ticketA1.
+        test("status is 201", function () {
+          expect(res.getStatus()).to.equal(201);
+          bru.setVar("ticketA2", res.getBody().id);
+        });

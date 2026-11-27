@@ -6,12 +6,23 @@ import (
 	"strings"
 	"testing"
 
+	"backend_si/internal/domain"
 	"backend_si/internal/security"
 )
 
 // matrixCadastroBody is a well-formed registration body, so a status other
 // than 201 comes from the middleware chain, not from validation.
 const matrixCadastroBody = `{"login":"novo.usuario","senha":"a long enough password","papel":"comum"}`
+
+// matrixTicket is the path of the ticket of comumLogin that the matrix app
+// seeds (id 1), for the cells of the {id} routes.
+const matrixTicket = "/api/tickets/1"
+
+// matrixAdminTicket is the same ticket on the admin routes.
+const matrixAdminTicket = "/api/administradores/tickets/1"
+
+// matrixReplyBody is a valid reply, for the same reason.
+const matrixReplyBody = `{"texto":"Alguma novidade?"}`
 
 // matrixTicketBody is a valid ticket request, for the same reason.
 const matrixTicketBody = `{"tipo":"outro","dados":{"titulo":"Dúvida","descricao":"Como peço acesso à VPN?"}}`
@@ -51,16 +62,51 @@ func TestAccessMatrix(t *testing.T) {
 		{flowLogin, http.MethodGet, "/api/me", http.StatusOK},
 		{flowLogin, http.MethodPost, "/api/logout", http.StatusNoContent},
 		{flowLogin, http.MethodPost, "/api/tickets", http.StatusForbidden}, // admins do not create tickets
+
+		// Spec 003 (plan section 7): each ticket tracking route x the three
+		// callers. The {id} routes use matrixTicket, a ticket of comumLogin.
+		{anonymous, http.MethodGet, "/api/tickets", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, "/api/tickets", http.StatusOK},
+		{flowLogin, http.MethodGet, "/api/tickets", http.StatusForbidden},
+		{anonymous, http.MethodGet, matrixTicket, http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixTicket, http.StatusOK},
+		{flowLogin, http.MethodGet, matrixTicket, http.StatusForbidden},
+		{anonymous, http.MethodGet, matrixTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusOK},
+		{flowLogin, http.MethodGet, matrixTicket + "/mensagens", http.StatusForbidden},
+		{anonymous, http.MethodPost, matrixTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodPost, matrixTicket + "/mensagens", http.StatusCreated},
+		{flowLogin, http.MethodPost, matrixTicket + "/mensagens", http.StatusForbidden},
+		{anonymous, http.MethodGet, "/api/administradores/tickets", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, "/api/administradores/tickets", http.StatusForbidden},
+		{flowLogin, http.MethodGet, "/api/administradores/tickets", http.StatusOK},
+		{anonymous, http.MethodGet, "/api/administradores/tickets/autores", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, "/api/administradores/tickets/autores", http.StatusForbidden},
+		{flowLogin, http.MethodGet, "/api/administradores/tickets/autores", http.StatusOK},
+		{anonymous, http.MethodGet, matrixAdminTicket, http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixAdminTicket, http.StatusForbidden}, // the author, on the admin route
+		{flowLogin, http.MethodGet, matrixAdminTicket, http.StatusOK},
+		{anonymous, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusForbidden},
+		{flowLogin, http.MethodGet, matrixAdminTicket + "/mensagens", http.StatusOK},
+		{anonymous, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusUnauthorized},
+		{comumLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusForbidden},
+		{flowLogin, http.MethodPost, matrixAdminTicket + "/mensagens", http.StatusCreated},
+		{anonymous, http.MethodPatch, matrixAdminTicket + "/status", http.StatusUnauthorized},
+		{comumLogin, http.MethodPatch, matrixAdminTicket + "/status", http.StatusForbidden}, // the author
+		{flowLogin, http.MethodPatch, matrixAdminTicket + "/status", http.StatusOK},
 	}
-	if len(tests) != 18 {
-		t.Fatalf("matrix has %d cells, want 18 (D-2 plus the 3 ticket cells)", len(tests))
+	if len(tests) != 48 {
+		t.Fatalf("matrix has %d cells, want 48 (18 of spec 001, 3 per spec 003 route)", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {
 			t.Parallel()
 
 			var logBuf bytes.Buffer
-			f := newFlowAppWithLog(t, &logBuf)
+			tracking := newTrackingApp(t, &logBuf)
+			tracking.store.seed(trackMariaID, domain.TicketTypeOther, "Dúvida sobre a VPN") // matrixTicket
+			f := tracking.flowApp
 			var (
 				cookie *http.Cookie
 				token  string
@@ -73,13 +119,17 @@ func TestAccessMatrix(t *testing.T) {
 
 			body := ""
 			headers := map[string]string{}
-			if tt.method == http.MethodPost {
+			if tt.method != http.MethodGet {
 				headers[security.CSRFHeaderName] = token
 				switch tt.path {
 				case "/api/cadastro":
 					body = matrixCadastroBody
 				case "/api/tickets":
 					body = matrixTicketBody
+				case matrixTicket + "/mensagens", matrixAdminTicket + "/mensagens":
+					body = matrixReplyBody
+				case matrixAdminTicket + "/status":
+					body = `{"de":"aberto","para":"em_andamento"}`
 				}
 			}
 

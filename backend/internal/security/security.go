@@ -1,12 +1,15 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime"
 	"time"
+
+	"backend_si/internal/domain"
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -27,12 +30,22 @@ type Options struct {
 	// must be below the http.Server WriteTimeout so the error response is
 	// written before the connection is cut. Required (> 0).
 	RequestTimeout time.Duration
-	Now            func() time.Time
+	// Tickets tells the author of a ticket to TicketAccess (spec 003 S-2).
+	// Optional for New; without it TicketAccess answers 500 (fail closed).
+	Tickets TicketOwnerStore
+	Now     func() time.Time
+}
+
+// TicketOwnerStore reads who wrote a ticket. TicketAuthor returns an error
+// wrapping domain.ErrNotFound when the ticket does not exist.
+type TicketOwnerStore interface {
+	TicketAuthor(ctx context.Context, id domain.TicketID) (domain.UserID, error)
 }
 
 type Security struct {
 	logger      *slog.Logger
 	sessions    SessionStore
+	tickets     TicketOwnerStore
 	renderError ErrorRenderer
 	idleTimeout time.Duration
 	absTimeout  time.Duration
@@ -93,6 +106,7 @@ func New(opts Options) (*Security, error) {
 	return &Security{
 		logger:      opts.Logger,
 		sessions:    opts.Sessions,
+		tickets:     opts.Tickets,
 		renderError: opts.RenderError,
 		idleTimeout: opts.SessionIdleTimeout,
 		absTimeout:  opts.SessionAbsoluteTimeout,

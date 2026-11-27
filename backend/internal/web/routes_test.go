@@ -82,6 +82,8 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	deps := Deps{
 		Logger: logger, Security: sec, Auth: fakeAuth{}, Users: fakeUsers{},
 		Tickets: service.NewTickets(newMemTicketRepo(), sec), TicketLimiter: newTicketLimiter(t, sec),
+		MessageLimiter: newMessageLimiter(t, sec),
+		StatusLimiter:  newStatusLimiter(t, sec),
 	}
 	h, err := NewHandler(deps)
 	if err != nil {
@@ -90,6 +92,8 @@ func newTestAppWith(t *testing.T, logOut io.Writer, store security.SessionStore)
 	return &handlers{
 		logger: logger, sec: sec, auth: deps.Auth, users: deps.Users,
 		tickets: deps.Tickets, ticketLimiter: deps.TicketLimiter,
+		messageLimiter: deps.MessageLimiter,
+		statusLimiter:  deps.StatusLimiter,
 	}, h
 }
 
@@ -144,6 +148,16 @@ func TestRoutePolicies(t *testing.T) {
 		{"GET /api/administradores", false, admin},
 		{"GET /api/usuarios", false, comum},
 		{"POST /api/tickets", false, comum},
+		{"GET /api/tickets", false, comum},
+		{"GET /api/tickets/{id}", false, comum},
+		{"GET /api/tickets/{id}/mensagens", false, comum},
+		{"POST /api/tickets/{id}/mensagens", false, comum},
+		{"GET /api/administradores/tickets", false, admin},
+		{"GET /api/administradores/tickets/autores", false, admin},
+		{"GET /api/administradores/tickets/{id}", false, admin},
+		{"GET /api/administradores/tickets/{id}/mensagens", false, admin},
+		{"POST /api/administradores/tickets/{id}/mensagens", false, admin},
+		{"PATCH /api/administradores/tickets/{id}/status", false, admin},
 	}
 	if len(tests) != len(byPattern) {
 		t.Errorf("tabela de rotas tem %d entradas, o teste cobre %d: atualize o teste", len(byPattern), len(tests))
@@ -186,6 +200,16 @@ func TestHandlerDeniesByDefault(t *testing.T) {
 		{"cadastro barrado", http.MethodPost, "/api/cadastro", `{"login":"a","senha":"b","papel":"admin"}`, http.StatusForbidden, "forbidden"},
 		{"logout barrado", http.MethodPost, "/api/logout", "", http.StatusForbidden, "forbidden"},
 		{"tickets blocked by CSRF", http.MethodPost, "/api/tickets", `{"tipo":"outro","dados":{}}`, http.StatusForbidden, "forbidden"},
+		{"anonymous ticket list gets 401", http.MethodGet, "/api/tickets", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous ticket detail gets 401", http.MethodGet, "/api/tickets/1", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous thread gets 401", http.MethodGet, "/api/tickets/1/mensagens", "", http.StatusUnauthorized, "unauthorized"},
+		{"reply blocked by CSRF", http.MethodPost, "/api/tickets/1/mensagens", `{"texto":"oi"}`, http.StatusForbidden, "forbidden"},
+		{"anonymous queue gets 401", http.MethodGet, "/api/administradores/tickets", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous queue authors get 401", http.MethodGet, "/api/administradores/tickets/autores", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous admin ticket gets 401", http.MethodGet, "/api/administradores/tickets/1", "", http.StatusUnauthorized, "unauthorized"},
+		{"anonymous admin thread gets 401", http.MethodGet, "/api/administradores/tickets/1/mensagens", "", http.StatusUnauthorized, "unauthorized"},
+		{"admin reply blocked by CSRF", http.MethodPost, "/api/administradores/tickets/1/mensagens", `{"texto":"oi"}`, http.StatusForbidden, "forbidden"},
+		{"status change blocked by CSRF", http.MethodPatch, "/api/administradores/tickets/1/status", `{"de":"aberto","para":"fechado"}`, http.StatusForbidden, "forbidden"},
 		{"método não previsto", http.MethodDelete, "/api/usuarios", "", http.StatusForbidden, "forbidden"},
 		{"rota inexistente", http.MethodGet, "/api/nao-existe", "", http.StatusNotFound, "not_found"},
 		{"páginas antigas não existem mais", http.MethodGet, "/login", "", http.StatusNotFound, "not_found"},

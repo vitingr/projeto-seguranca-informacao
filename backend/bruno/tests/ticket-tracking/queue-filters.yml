@@ -1,0 +1,30 @@
+info:
+  name: queue-filters
+  type: http
+  seq: 210
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets?usuario={{process.env.BRUNO_COMUM_LOGIN}}.a&status=aberto"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-4.3, AC-4.4: the author filter combined with the status; A's
+        // reply (60) put ticketA1 first.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+        test("holds A's two tickets, with A's login", function () {
+          const body = res.getBody();
+          expect(body.items.map((t) => t.id)).to.deep.equal([bru.getVar("ticketA1"), bru.getVar("ticketA2")]);
+          const login = bru.interpolate("{{process.env.BRUNO_COMUM_LOGIN}}.a");
+          expect(body.items.every((t) => t.author_login === login)).to.equal(true);
+          expect(body.total).to.equal(2);
+        });
+        test("status_counts cover the whole queue", function () {
+          const c = res.getBody().status_counts;
+          expect(c.aberto + c.em_andamento + c.resolvido + c.fechado).to.be.at.least(4);
+        });

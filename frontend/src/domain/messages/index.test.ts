@@ -79,3 +79,33 @@ describe('messageFor', () => {
     )
   })
 })
+
+describe('messageFor on a ticket page (spec 003)', () => {
+  it.each<[string, MessageContext, string]>([
+    [
+      'unprocessable_entity',
+      'reply',
+      'Dados inválidos. Revise a mensagem e tente novamente.'
+    ],
+    [
+      'ticket_closed',
+      'reply',
+      'Este ticket foi fechado e não aceita novas mensagens.'
+    ],
+    [
+      'stale_status',
+      'status',
+      'O status deste ticket foi alterado por outra pessoa. A página foi atualizada; confira antes de tentar de novo.'
+    ],
+    ['not_found', 'reply', 'Ticket não encontrado.'],
+    ['not_found', 'status', 'Ticket não encontrado.'],
+    [
+      'too_many_requests',
+      'reply',
+      'Muitas solicitações em pouco tempo. Aguarde um minuto e tente novamente.'
+    ],
+    ['unauthorized', 'status', 'Sua sessão expirou. Entre novamente.']
+  ])('%s (%s)', (code, context, want) => {
+    expect(messageFor(error(code), context)).toBe(want)
+  })
+})

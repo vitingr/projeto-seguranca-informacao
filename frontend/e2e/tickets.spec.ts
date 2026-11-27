@@ -627,6 +627,44 @@ test.describe('sending a ticket', () => {
     await page.getByRole('link', { name: 'Voltar para usuários' }).click()
     await expect(page).toHaveURL('/usuarios')
   })
+
+  // Spec 003 AC-1.11: the confirmation opens the new ticket, and the list
+  // holds it at the top.
+  test('"Ver ticket" opens the new ticket; the list shows it first', async ({
+    page
+  }) => {
+    const createdNumber = async () => {
+      const number = page
+        .getByRole('region', { name: 'Ticket criado' })
+        .locator('dt', { hasText: /^Número$/ })
+        .locator('xpath=following-sibling::dd[1]')
+      await expect(number).toHaveText(/^#\d+$/)
+      return ((await number.textContent()) ?? '').replace('#', '')
+    }
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    const id = await createdNumber()
+    await page.getByRole('link', { name: 'Ver ticket' }).click()
+    await expect(page).toHaveURL(`/usuarios/tickets/${id}`)
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Liberar porta no firewall' })
+    ).toBeVisible()
+    await expect(
+      page
+        .getByRole('tabpanel', { name: 'Detalhes' })
+        .locator('dt', { hasText: /^Descrição$/ })
+        .locator('xpath=following-sibling::dd[1]')
+    ).toHaveText('Preciso da porta 8443 aberta no servidor de testes.')
+
+    await toReview(page, 'Outro')
+    await page.getByRole('button', { name: 'Enviar ticket' }).click()
+    const second = await createdNumber()
+    await page.getByRole('link', { name: 'Voltar para usuários' }).click()
+    await expect(page).toHaveURL('/usuarios')
+    await expect(
+      page.getByTestId('my-tickets').locator('tbody tr').first()
+    ).toHaveAttribute('data-ticket-id', second)
+  })
 })
 
 test.describe('errors when sending (US-6)', () => {

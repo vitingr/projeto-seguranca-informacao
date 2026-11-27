@@ -1,0 +1,19 @@
+info:
+  name: admin-thread-comum
+  type: http
+  seq: 218
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/{{matrixTicketId}}/mensagens"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-4, S-13: the admin view (with logins) is admin-only.
+        test("status is 403", function () {
+          expect(res.getStatus()).to.equal(403);
+          expect(res.getBody().error).to.equal("forbidden");
+        });

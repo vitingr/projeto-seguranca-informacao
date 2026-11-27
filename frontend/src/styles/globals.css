@@ -44,6 +44,14 @@
   --color-avatar-7-foreground: var(--avatar-7-foreground);
   --color-avatar-8: var(--avatar-8);
   --color-avatar-8-foreground: var(--avatar-8-foreground);
+  --color-status-aberto: var(--status-aberto);
+  --color-status-aberto-foreground: var(--status-aberto-foreground);
+  --color-status-em-andamento: var(--status-em-andamento);
+  --color-status-em-andamento-foreground: var(--status-em-andamento-foreground);
+  --color-status-resolvido: var(--status-resolvido);
+  --color-status-resolvido-foreground: var(--status-resolvido-foreground);
+  --color-status-fechado: var(--status-fechado);
+  --color-status-fechado-foreground: var(--status-fechado-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -106,7 +114,7 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.54 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -133,6 +141,16 @@
   --avatar-7-foreground: oklch(0.4 0.09 280);
   --avatar-8: oklch(0.94 0.035 330);
   --avatar-8-foreground: oklch(0.4 0.09 330);
+  /* Ticket status badges (spec 003 AC-1.9): four discreet tints, AA with
+     their text, never the only cue (the label is always shown). */
+  --status-aberto: oklch(0.95 0.03 250);
+  --status-aberto-foreground: oklch(0.42 0.1 250);
+  --status-em-andamento: oklch(0.95 0.04 80);
+  --status-em-andamento-foreground: oklch(0.42 0.08 65);
+  --status-resolvido: oklch(0.95 0.03 150);
+  --status-resolvido-foreground: oklch(0.4 0.08 150);
+  --status-fechado: oklch(0.95 0 0);
+  --status-fechado-foreground: oklch(0.42 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -161,6 +179,13 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Tailwind 4 leaves buttons with the default cursor. Only enabled buttons
+     get the pointer; utilities such as `disabled:cursor-not-allowed` still
+     win, since they live in a later layer. */
+  button:not(:disabled):not([aria-disabled='true']),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
   }
 }
 
@@ -211,6 +236,19 @@
   }
   .progress-squares > :nth-child(9) {
     animation-delay: 400ms;
+  }
+}
+
+/* The scroll region of a ticket thread (spec 003 AC-3.4a, plan 6.5): the
+   page height minus the headers above it and the reply box under it (about
+   24rem together), never under 18rem, so the region and the box fit the
+   screen together, also at 360 px. */
+@utility thread-scroll {
+  max-height: max(18rem, calc(100dvh - 24rem));
+
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
   }
 }
 

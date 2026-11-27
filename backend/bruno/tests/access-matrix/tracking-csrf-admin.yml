@@ -1,0 +1,21 @@
+info:
+  name: tracking-csrf-admin
+  type: http
+  seq: 302
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/csrf"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar("csrfToken", res.getBody().csrf_token);
+    - type: tests
+      code: |-
+        // Login rotates the CSRF token: fetch it again.
+        test("status is 200", function () {
+          expect(res.getStatus()).to.equal(200);
+        });

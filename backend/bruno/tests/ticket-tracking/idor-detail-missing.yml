@@ -1,0 +1,21 @@
+info:
+  name: idor-detail-missing
+  type: http
+  seq: 121
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/tickets/9223372036854775807"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Spec 003 S-2: a ticket that does not exist gets exactly the answer
+        // of A's ticket in 120, so B cannot tell them apart.
+        test("same answer as A's ticket", function () {
+          const body = Object.assign({}, res.getBody());
+          delete body.request_id;
+          expect(JSON.stringify({ status: res.getStatus(), body: body })).to.equal(bru.getVar("idorAnswer"));
+        });

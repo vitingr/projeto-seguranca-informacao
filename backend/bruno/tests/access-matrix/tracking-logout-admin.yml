@@ -1,0 +1,21 @@
+info:
+  name: tracking-logout-admin
+  type: http
+  seq: 390
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/logout"
+  headers:
+    - name: X-CSRF-Token
+      value: "{{csrfToken}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // tests/tickets starts anonymous.
+        test("status is 204", function () {
+          expect(res.getStatus()).to.equal(204);
+        });

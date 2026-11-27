@@ -1,0 +1,159 @@
+info:
+  name: Get a ticket of the queue
+  type: http
+  seq: 3
+  tags:
+    - admin-tickets
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/:id"
+  params:
+    - name: id
+      value: "1"
+      type: path
+      description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: The ticket with every field of its type and its author's login.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": 42,
+            "type": "acesso",
+            "status": "aberto",
+            "title": "Acesso a Grafana",
+            "author_login": "maria.souza",
+            "created_at": "2026-11-25T14:30:00.123456Z",
+            "updated_at": "2026-11-25T14:30:00.123456Z",
+            "data": {
+              "sistema": "Grafana",
+              "nivel_acesso": "leitura",
+              "justificativa": "Preciso ver os painéis da equipe."
+            }
+          }
+  - name: 401 Response
+    description: Not authenticated (no session, or the session expired), or invalid credentials on login.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Autenticação necessária.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 403 Response
+    description: Missing or invalid CSRF token, a cross-origin browser request (Fetch Metadata), or a role that the operation does not allow.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "forbidden",
+            "message": "Você não tem permissão para acessar este recurso.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 404 Response
+    description: The ticket does not exist, the id is malformed, or (for a `comum` user) the ticket is someone else's. Every case gets the same answer.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "not_found",
+            "message": "Recurso não encontrado.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+  - name: 500 Response
+    description: Unexpected error. Details go to the log, never to the client.
+    request:
+      url: "{{baseUrl}}/api/administradores/tickets/:id"
+      method: GET
+      params:
+        - name: id
+          value: "1"
+          type: path
+          description: "Ticket number: digits only, no sign and no leading zero, from 1 to 9223372036854775807. Any other value is answered like a ticket that does not exist (404)."
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "internal",
+            "message": "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+            "request_id": "0f8e2c4b9a7d4e1f"
+          }
+
+docs: |-
+  Any user's ticket, for administrators: the answer of `GET /api/tickets/{id}` plus the author's login. `comum` users get 403, also for their own tickets, before any ticket is read.
+
+  **404** (`not_found`): the ticket does not exist or the id is malformed; both get the same answer.

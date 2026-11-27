@@ -1,0 +1,21 @@
+info:
+  name: admin-detail-missing
+  type: http
+  seq: 221
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/administradores/tickets/9223372036854775807"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // AC-5.2: a ticket that does not exist is the generic 404, the same
+        // body as on the comum routes.
+        test("same answer as on the comum routes", function () {
+          const body = Object.assign({}, res.getBody());
+          delete body.request_id;
+          expect(JSON.stringify({ status: res.getStatus(), body: body })).to.equal(bru.getVar("idorAnswer"));
+        });

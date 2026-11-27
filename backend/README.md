@@ -333,6 +333,48 @@ Fixed in code:
   transition can apply. There is no version column or idempotency key;
   retrying a reply after an uncertain network failure can duplicate it.
 
+## Deploy on Render
+
+Render terminates HTTPS and forwards plain HTTP to the service, so the
+server runs there with `APP_TLS_MODE=proxy`: it serves HTTP on `APP_ADDR`
+without loading certificates and logs a warning at startup. Cookies stay
+`Secure` and `__Host-`, and the security headers (HSTS included) and the
+CSRF check do not change. Without `APP_TLS_MODE` (or with any other value)
+the server requires the certificate files. Never use `proxy` where the port
+is reachable without a TLS terminating proxy in front of it.
+
+Web Service settings (Go runtime):
+
+| Setting | Value |
+|---|---|
+| Root Directory | `backend` |
+| Build Command | `go build -trimpath -o bin/backend_si ./cmd/server` |
+| Start Command | `./bin/backend_si serve` |
+| Health Check Path | `/healthz` (public, answers 200) |
+
+Environment variables:
+
+| Variable | Value |
+|---|---|
+| `APP_TLS_MODE` | `proxy` |
+| `APP_ADDR` | `0.0.0.0:10000` (the port must match Render's `PORT`, 10000 by default) |
+| `DATABASE_URL` | the Neon connection string, with `sslmode=require` |
+| `SESSION_IDLE_TIMEOUT` | `15m` |
+| `SESSION_ABSOLUTE_TIMEOUT` | `8h` |
+| `LOG_LEVEL` | `info` |
+
+Migrations and the first administrator run from your machine against the
+Neon database, inside `backend/` (Git Bash on Windows). `DATABASE_URL` from
+the environment overrides `.env`; use the direct Neon host (not the
+`-pooler` one) for the migrations:
+
+```sh
+export DATABASE_URL='postgresql://USER:PASSWORD@HOST/DB?sslmode=require'
+go tool mage migrateUp
+SEED_ADMIN_LOGIN=admin SEED_ADMIN_PASSWORD='15-to-128-chars' go tool mage seed   # once
+unset DATABASE_URL
+```
+
 ## Go version
 
 The module requires Go 1.27: `go 1.27.0` with `toolchain go1.27.4` in

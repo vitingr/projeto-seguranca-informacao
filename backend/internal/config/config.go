@@ -11,9 +11,13 @@ import (
 )
 
 const (
-	EnvAddr               = "APP_ADDR"
-	EnvTLSCertFile        = "APP_TLS_CERT_FILE"
-	EnvTLSKeyFile         = "APP_TLS_KEY_FILE"
+	EnvAddr        = "APP_ADDR"
+	EnvTLSCertFile = "APP_TLS_CERT_FILE"
+	EnvTLSKeyFile  = "APP_TLS_KEY_FILE"
+	// EnvTLSMode set to TLSModeProxy makes the server speak plain HTTP,
+	// for a proxy in front of it that terminates TLS (Render). Any other
+	// value keeps HTTPS with the certificate files.
+	EnvTLSMode            = "APP_TLS_MODE"
 	EnvDatabaseURL        = "DATABASE_URL"
 	EnvDBMaxOpenConns     = "DB_MAX_OPEN_CONNS"
 	EnvDBMaxIdleConns     = "DB_MAX_IDLE_CONNS"
@@ -35,12 +39,16 @@ const (
 	maxDBConns            = 1000
 )
 
+// TLSModeProxy is the EnvTLSMode value for a TLS terminating proxy.
+const TLSModeProxy = "proxy"
+
 var ErrInvalid = errors.New("invalid configuration")
 
 type Config struct {
 	Addr               string
 	TLSCertFile        string
 	TLSKeyFile         string
+	TLSMode            string
 	DatabaseURL        string
 	DBMaxOpenConns     int
 	DBMaxIdleConns     int
@@ -58,6 +66,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("addr", c.Addr),
 		slog.String("tls_cert_file", c.TLSCertFile),
 		slog.String("tls_key_file", c.TLSKeyFile),
+		slog.String("tls_mode", c.TLSMode),
 		slog.String("database_url", "[REDACTED]"),
 		slog.Int("db_max_open_conns", c.DBMaxOpenConns),
 		slog.Int("db_max_idle_conns", c.DBMaxIdleConns),
@@ -75,6 +84,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Addr:               p.str(EnvAddr, ":8443"),
 		TLSCertFile:        p.str(EnvTLSCertFile, "certs/server.crt"),
 		TLSKeyFile:         p.str(EnvTLSKeyFile, "certs/server.key"),
+		TLSMode:            p.getenv(EnvTLSMode),
 		DatabaseURL:        p.required(EnvDatabaseURL),
 		DBMaxOpenConns:     p.intInRange(EnvDBMaxOpenConns, 10, 1, maxDBConns),
 		DBMaxIdleConns:     p.intInRange(EnvDBMaxIdleConns, 5, 0, maxDBConns),

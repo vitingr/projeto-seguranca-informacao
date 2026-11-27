@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -103,7 +104,7 @@ func serveSecurityOptions(cfg config.Config, logger *slog.Logger, sessions secur
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	logger.Info("iniciando", slog.Any("config", cfg))
 
-	tlsConfig, err := security.NewTLSConfig(cfg.TLSCertFile, cfg.TLSKeyFile)
+	tlsConfig, err := serverTLSConfig(cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -186,10 +187,14 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
 
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", cfg.Addr)
+	if err != nil {
+		return fmt.Errorf("listen: %w", err)
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("servidor HTTPS escutando", slog.String("addr", cfg.Addr))
-		errCh <- srv.ListenAndServeTLS("", "")
+		errCh <- serveOn(srv, ln, logger)
 	}()
 
 	select {
@@ -211,30 +216,53 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	return nil
 }
 
+// serverTLSConfig loads the server certificate. With APP_TLS_MODE=proxy it
+// loads nothing and returns nil: a proxy in front of the server terminates
+// TLS, and the server speaks plain HTTP to it.
+func serverTLSConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
+	if cfg.TLSMode == config.TLSModeProxy {
+		logger.Warn("APP_TLS_MODE=proxy: serving plain HTTP, TLS must be terminated by a proxy in front of the server")
+		return nil, nil
+	}
+	return security.NewTLSConfig(cfg.TLSCertFile, cfg.TLSKeyFile)
+}
+
+// serveOn serves srv on ln over HTTPS, or over plain HTTP when srv has no
+// TLS config (APP_TLS_MODE=proxy).
+func serveOn(srv *http.Server, ln net.Listener, logger *slog.Logger) error {
+	if srv.TLSConfig == nil {
+		logger.Info("plain HTTP server listening behind a TLS terminating proxy", slog.String("addr", srv.Addr))
+		return srv.Serve(ln)
+	}
+	logger.Info("servidor HTTPS escutando", slog.String("addr", srv.Addr))
+	return srv.ServeTLS(ln, "", "")
+}
+
 func healthcheck(ctx context.Context, cfg config.Config) error {
 	_, port, err := net.SplitHostPort(cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("healthcheck: endereço inválido: %w", err)
 	}
-	pem, err := os.ReadFile(cfg.TLSCertFile)
-	if err != nil {
-		return fmt.Errorf("healthcheck: ler certificado: %w", err)
-	}
-	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM(pem) {
-		return errors.New("healthcheck: certificado PEM inválido")
-	}
 
-	tlsConfig, err := security.NewClientTLSConfig(roots)
-	if err != nil {
-		return err
+	scheme, transport := "http", &http.Transport{}
+	if cfg.TLSMode != config.TLSModeProxy {
+		pem, rerr := os.ReadFile(cfg.TLSCertFile)
+		if rerr != nil {
+			return fmt.Errorf("healthcheck: ler certificado: %w", rerr)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(pem) {
+			return errors.New("healthcheck: certificado PEM inválido")
+		}
+		tlsConfig, terr := security.NewClientTLSConfig(roots)
+		if terr != nil {
+			return terr
+		}
+		scheme, transport.TLSClientConfig = "https", tlsConfig
 	}
-	client := &http.Client{
-		Timeout:   healthcheckTimeout,
-		Transport: &http.Transport{TLSClientConfig: tlsConfig},
-	}
+	client := &http.Client{Timeout: healthcheckTimeout, Transport: transport}
 
-	url := "https://" + net.JoinHostPort("127.0.0.1", port) + "/healthz"
+	url := scheme + "://" + net.JoinHostPort("127.0.0.1", port) + "/healthz"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("healthcheck: %w", err)

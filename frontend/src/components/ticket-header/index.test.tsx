@@ -25,7 +25,7 @@ const render = (ticket: TicketDetail = TICKET, actions?: string) =>
     <TicketHeader actions={actions} ticket={ticket} titleId="ticket-title" />
   )
 
-describe('TicketHeader (spec 003 AC-2.1, AC-5.1)', () => {
+describe('TicketHeader', () => {
   it('shows the number, the title as h1, the badge, the type and the dates', () => {
     const html = render()
     expect(html).toContain('>#42</p>')
@@ -53,7 +53,7 @@ describe('TicketHeader (spec 003 AC-2.1, AC-5.1)', () => {
     expect(html).toContain('ação')
   })
 
-  it('shows a title with markup as text (S-10)', () => {
+  it('shows a title with markup as text', () => {
     const html = render({ ...TICKET, title: '<img src=x onerror=alert(1)>' })
     expect(html).not.toContain('<img')
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')

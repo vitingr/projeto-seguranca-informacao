@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {} })
 }))
 
-describe('TicketConversation (spec 003 AC-3.10, D-4)', () => {
+describe('TicketConversation', () => {
   const html = renderToStaticMarkup(
     <TicketConversation messageCount={5} renderedAt="2026-11-26T17:12:00Z">
       <ol />
@@ -32,7 +32,7 @@ describe('TicketConversation (spec 003 AC-3.10, D-4)', () => {
   })
 })
 
-describe('TicketConversation with the reply box (spec 003 AC-3.4, AC-3.8)', () => {
+describe('TicketConversation with the reply box', () => {
   const REPLY = {
     closed: false,
     closedAction: { href: '/usuarios/tickets/novo', label: 'Novo ticket' },

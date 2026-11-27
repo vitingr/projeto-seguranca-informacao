@@ -11,7 +11,7 @@ const render = (props: Partial<Parameters<typeof FormField>[0]> = {}) =>
   )
 
 describe('FormField', () => {
-  it('marks a required field with a red asterisk read as "obrigatório" (AC-3.1)', () => {
+  it('marks a required field with a red asterisk read as "obrigatório"', () => {
     const html = render()
     expect(html).toMatch(
       /<label[^>]*for="f"[^>]*>Sistema afetado<span class="text-destructive" aria-hidden="true">\*<\/span><span class="sr-only">\(obrigatório\)<\/span><\/label>/

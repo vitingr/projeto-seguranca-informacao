@@ -24,7 +24,7 @@ describe('Avatar', () => {
     expect(squares).toHaveLength(cells.filter(Boolean).length)
   })
 
-  it('is decorative and loads nothing: no img, link, src or url() (AC-7.2)', () => {
+  it('is decorative and loads nothing: no img, link, src or url()', () => {
     for (const login of ['maria.silva', 'joao', 'x', '<img src=x>']) {
       const html = render(login)
       expect(html).toMatch(/^<span[^>]*aria-hidden="true"/)

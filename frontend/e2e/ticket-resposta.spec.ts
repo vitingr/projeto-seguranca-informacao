@@ -55,7 +55,7 @@ test.beforeEach(async ({ page }) => {
   await loginAs(page, author, '/usuarios')
 })
 
-test('the author replies; the reply shows on the right and the ticket goes to the top (AC-3.6, BR-8)', async ({
+test('the author replies; the reply shows on the right and the ticket goes to the top', async ({
   browser,
   page
 }) => {
@@ -91,7 +91,7 @@ test('the author replies; the reply shows on the right and the ticket goes to th
   ).toContainText('Aberto')
 })
 
-test('Enter adds a line and Ctrl+Enter sends (AC-3.4)', async ({ page }) => {
+test('Enter adds a line and Ctrl+Enter sends', async ({ page }) => {
   await openConversa(page, second)
   await box(page).fill('Linha um')
   await box(page).press('Enter')
@@ -104,9 +104,7 @@ test('Enter adds a line and Ctrl+Enter sends (AC-3.4)', async ({ page }) => {
   await expect(box(page)).toHaveValue('')
 })
 
-test('whitespace only and 2001 characters send nothing (AC-3.5)', async ({
-  page
-}) => {
+test('whitespace only and 2001 characters send nothing', async ({ page }) => {
   const calls = recordApiCalls(page)
   await openConversa(page, second)
   await box(page).fill('   \n  ')
@@ -144,9 +142,7 @@ for (const [name, route, message] of [
     'Não foi possível conectar ao servidor. Tente novamente.'
   ]
 ] as const) {
-  test(`${name} keeps the text and shows its message (AC-3.7)`, async ({
-    page
-  }) => {
+  test(`${name} keeps the text and shows its message`, async ({ page }) => {
     await openConversa(page, second)
     await page.route('**/api/tickets/*/mensagens', async request => {
       if (request.request().method() !== 'POST') return request.continue()
@@ -160,7 +156,7 @@ for (const [name, route, message] of [
   })
 }
 
-test('a ticket closed meanwhile refuses the reply and shows the closed line (AC-3.7, AC-3.8)', async ({
+test('a ticket closed meanwhile refuses the reply and shows the closed line', async ({
   browser,
   page
 }) => {
@@ -186,7 +182,7 @@ test('a ticket closed meanwhile refuses the reply and shows the closed line (AC-
   ).toHaveAttribute('href', '/usuarios/tickets/novo')
 })
 
-test('a "Fechado" ticket shows the closed line and "Novo ticket", no box (AC-3.8)', async ({
+test('a "Fechado" ticket shows the closed line and "Novo ticket", no box', async ({
   browser,
   page
 }) => {
@@ -205,7 +201,7 @@ test('a "Fechado" ticket shows the closed line and "Novo ticket", no box (AC-3.8
   await expect(sendButton(page)).toHaveCount(0)
 })
 
-test.describe('unsent text (AC-3.9)', () => {
+test.describe('unsent text', () => {
   const dialogs = (page: Page) => {
     const seen: string[] = []
     page.on('dialog', async dialog => {
@@ -264,7 +260,7 @@ test.describe('unsent text (AC-3.9)', () => {
   })
 })
 
-test('an HTML payload is sent and shown as text (S-10)', async ({ page }) => {
+test('an HTML payload is sent and shown as text', async ({ page }) => {
   const payload = '<img src=x onerror=alert(1)> <b>negrito</b>'
   await openConversa(page, second)
   await box(page).fill(payload)

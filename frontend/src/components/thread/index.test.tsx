@@ -54,7 +54,7 @@ const items = (html: string) =>
     )
   ].map(([, , kind, body]) => [kind, body] as const)
 
-describe('Thread (spec 003 AC-3.1 to AC-3.3)', () => {
+describe('Thread', () => {
   it('is an ol labelled "Conversa do ticket", oldest first, opened by "Você"', () => {
     const html = render()
     expect(html).toMatch(/^<ol aria-label="Conversa do ticket"/)
@@ -118,7 +118,7 @@ describe('Thread (spec 003 AC-3.1 to AC-3.3)', () => {
     expect(found[3][1]).toContain('data-support-mark')
   })
 
-  it('never names an admin to the comum author (S-13)', () => {
+  it('never names an admin to the comum author', () => {
     const html = render({
       entries: [{ ...OWN[2], actorLogin: 'joao.admin' } as ThreadEntry]
     })
@@ -136,7 +136,7 @@ describe('Thread (spec 003 AC-3.1 to AC-3.3)', () => {
     '<script>alert(1)</script>',
     '<img src=x onerror=alert(1)>',
     'javascript:alert(1) https://exemplo.com'
-  ])('shows %s as literal text, with no element (S-10)', payload => {
+  ])('shows %s as literal text, with no element', payload => {
     const html = render({
       entries: [{ ...OWN[2], text: payload } as ThreadEntry]
     })

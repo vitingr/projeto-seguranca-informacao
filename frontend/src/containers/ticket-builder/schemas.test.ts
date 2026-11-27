@@ -176,7 +176,7 @@ const valid = {
   outro: { descricao: 'Como peço uma VPN?', titulo: '  Dúvida ' }
 } satisfies Record<keyof typeof ticketSchemas, TicketFormValues>
 
-describe('ticket schemas accept (T3.2)', () => {
+describe('ticket schemas accept', () => {
   it.each([
     [
       'acesso',
@@ -254,7 +254,7 @@ describe('ticket schemas accept (T3.2)', () => {
   })
 })
 
-describe('ticket schemas refuse (T3.2)', () => {
+describe('ticket schemas refuse', () => {
   const empty = FIELD_MESSAGES.empty
   it.each<
     [keyof typeof ticketSchemas, TicketFormValues, Record<string, string>]

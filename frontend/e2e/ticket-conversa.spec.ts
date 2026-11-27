@@ -73,7 +73,7 @@ test.beforeEach(async ({ page }) => {
   await loginAs(page, author, '/usuarios')
 })
 
-test('shows both sides and the status lines in date order (AC-3.1, AC-3.2)', async ({
+test('shows both sides and the status lines in date order', async ({
   page
 }) => {
   await openConversa(page, talked)
@@ -97,7 +97,7 @@ test('shows both sides and the status lines in date order (AC-3.1, AC-3.2)', asy
   await expect(thread(page)).not.toContainText(seedAdmin().login)
 })
 
-test('opens on the latest entry, inside a bounded scroll region (AC-3.4a)', async ({
+test('opens on the latest entry, inside a bounded scroll region', async ({
   page
 }) => {
   await openConversa(page, long)
@@ -107,7 +107,7 @@ test('opens on the latest entry, inside a bounded scroll region (AC-3.4a)', asyn
   await expect(items.first()).not.toBeInViewport()
 })
 
-test('opening "Conversa" from "Detalhes" also shows the latest entry (AC-3.4a)', async ({
+test('opening "Conversa" from "Detalhes" also shows the latest entry', async ({
   page
 }) => {
   await page.goto(`/usuarios/tickets/${long}`)
@@ -115,7 +115,7 @@ test('opening "Conversa" from "Detalhes" also shows the latest entry (AC-3.4a)',
   await expectLatestInView(page)
 })
 
-test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself (AC-3.10, BR-9)', async ({
+test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself', async ({
   browser,
   page
 }) => {
@@ -133,7 +133,7 @@ test('"Atualizar" brings what arrived meanwhile; nothing refreshes by itself (AC
   )
 })
 
-test('an empty thread shows the opening line and the invitation (AC-3.3)', async ({
+test('an empty thread shows the opening line and the invitation', async ({
   page
 }) => {
   await openConversa(page, empty)

@@ -31,7 +31,7 @@ describe('TicketPreview', () => {
     )
   })
 
-  it('renders the title as text, never as markup (S-8)', () => {
+  it('renders the title as text, never as markup', () => {
     const html = renderToStaticMarkup(
       <TicketPreview
         title={'<img src=x onerror=alert(1)>'}

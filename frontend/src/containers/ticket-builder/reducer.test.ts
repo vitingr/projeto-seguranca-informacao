@@ -7,7 +7,7 @@ const run = (actions: BuilderAction[], from: BuilderState = initialState) =>
   actions.reduce(builderReducer, from)
 
 describe('type step', () => {
-  it('starts on "tipo" with no type selected (AC-2.1)', () => {
+  it('starts on "tipo" with no type selected', () => {
     expect(initialState).toEqual({
       pendingType: null,
       sendError: null,
@@ -19,7 +19,7 @@ describe('type step', () => {
     })
   })
 
-  it('stays on the step and shows the message with no type (AC-2.2)', () => {
+  it('stays on the step and shows the message with no type', () => {
     const state = run([{ type: 'continueFromType' }])
     expect(state.step).toBe('tipo')
     expect(state.typeError).toBe(true)
@@ -36,7 +36,7 @@ describe('type step', () => {
     })
   })
 
-  it('continues to "detalhes" with a type (AC-2.3)', () => {
+  it('continues to "detalhes" with a type', () => {
     const state = run([
       { ticketType: 'deploy', type: 'selectType' },
       { type: 'continueFromType' }
@@ -46,7 +46,7 @@ describe('type step', () => {
   })
 })
 
-describe('changing the type (AC-2.4)', () => {
+describe('changing the type', () => {
   const backWithData = run([
     { ticketType: 'bug', type: 'selectType' },
     { type: 'continueFromType' },
@@ -130,7 +130,7 @@ describe('changing the type (AC-2.4)', () => {
 })
 
 describe('details step', () => {
-  it('continues to "revisao" from "detalhes" (AC-3.6)', () => {
+  it('continues to "revisao" from "detalhes"', () => {
     const state = run([
       { ticketType: 'acesso', type: 'selectType' },
       { type: 'continueFromType' },
@@ -143,7 +143,7 @@ describe('details step', () => {
     expect(run([{ type: 'continueFromDetails' }])).toBe(initialState)
   })
 
-  it('goes back from "revisao" to "detalhes" (AC-4.2)', () => {
+  it('goes back from "revisao" to "detalhes"', () => {
     const state = run([
       { ticketType: 'acesso', type: 'selectType' },
       { type: 'continueFromType' },
@@ -168,14 +168,14 @@ describe('sending (US-5, US-6)', () => {
     type: 'outro' as const
   }
 
-  it('starts only once, from the review (AC-5.1)', () => {
+  it('starts only once, from the review', () => {
     const sending = run([{ type: 'sendStarted' }], onReview)
     expect(sending.sending).toBe(true)
     expect(run([{ type: 'sendStarted' }], sending)).toBe(sending)
     expect(run([{ type: 'sendStarted' }])).toBe(initialState)
   })
 
-  it('shows the confirmation only for a created ticket (AC-5.2)', () => {
+  it('shows the confirmation only for a created ticket', () => {
     const state = run(
       [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
       onReview
@@ -211,7 +211,7 @@ describe('sending (US-5, US-6)', () => {
     expect(run([{ step: 'detalhes', type: 'goToStep' }], sending)).toBe(sending)
   })
 
-  it('cannot go back from the confirmation (AC-5.3)', () => {
+  it('cannot go back from the confirmation', () => {
     const done = run(
       [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
       onReview
@@ -219,7 +219,7 @@ describe('sending (US-5, US-6)', () => {
     expect(run([{ step: 'revisao', type: 'goToStep' }], done)).toBe(done)
   })
 
-  it('"Criar outro ticket" starts over with nothing (AC-5.4)', () => {
+  it('"Criar outro ticket" starts over with nothing', () => {
     const done = run(
       [{ type: 'sendStarted' }, { ticket, type: 'sendSucceeded' }],
       onReview

@@ -15,7 +15,7 @@ const markup = () =>
     </Tabs>
   )
 
-describe('Tabs (WAI-ARIA tabs, spec 003 AC-2.3)', () => {
+describe('Tabs (WAI-ARIA tabs)', () => {
   it('renders a tablist, its tabs and the selected panel', () => {
     const html = markup()
     expect(html).toContain('role="tablist"')

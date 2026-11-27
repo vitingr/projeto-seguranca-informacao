@@ -658,7 +658,7 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			}
 		}
 		if got := len(cases) - 4; got != 6 {
-			t.Fatalf("%d BR-3 transitions in the table, want 6", got)
+			t.Fatalf("%d allowed transitions in the table, want 6", got)
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -722,7 +722,7 @@ func TestTicketEntriesTableIntegration(t *testing.T) {
 			}
 		}
 		if outside != 10 {
-			t.Fatalf("%d pairs outside BR-3, want 10", outside)
+			t.Fatalf("%d pairs outside the allowed transitions, want 10", outside)
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -1703,7 +1703,7 @@ func TestTicketWritesIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("status changes along BR-3", func(t *testing.T) {
+	t.Run("status changes along the allowed transitions", func(t *testing.T) {
 		ticket := newTicket(domain.TicketStatusOpen)
 		path := []domain.TicketStatus{domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusInProgress, domain.TicketStatusResolved, domain.TicketStatusClosed}
 		from := domain.TicketStatusOpen
@@ -1768,7 +1768,7 @@ func TestTicketWritesIntegration(t *testing.T) {
 				_, err := entries.AddMessage(ctx, ticket, author, chars(2001))
 				return err
 			}},
-			{"change BR-3 forbids, past the service", func(ticket domain.TicketID) error {
+			{"change the transition table forbids, past the service", func(ticket domain.TicketID) error {
 				_, err := entries.ChangeStatus(ctx, ticket, admin, domain.TicketStatusOpen, domain.TicketStatusResolved)
 				return err
 			}},
@@ -1940,7 +1940,7 @@ func TestTicketWritesConcurrencyIntegration(t *testing.T) {
 			release()
 			rr, cr := <-r, <-c
 			if rr.err != nil || cr.err != nil {
-				t.Fatalf("reply = %v, change = %v; want both stored (a reply never makes a change fail, P-6)", rr.err, cr.err)
+				t.Fatalf("reply = %v, change = %v; want both stored (a reply never makes a change fail)", rr.err, cr.err)
 			}
 			last := cr.entry
 			if replyFirst != (rr.entry.ID < cr.entry.ID) {

@@ -13,7 +13,7 @@ const STATUSES: [TicketStatus, string, string][] = [
   ['fechado', 'Fechado', 'fechado']
 ]
 
-describe('StatusBadge (spec 003 AC-1.9)', () => {
+describe('StatusBadge', () => {
   it.each(STATUSES)('%s shows its label on its tint', (status, label) => {
     const html = renderToStaticMarkup(<StatusBadge status={status} />)
     expect(html).toContain(`>${label}</span>`)

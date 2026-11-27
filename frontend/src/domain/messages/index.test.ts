@@ -38,7 +38,7 @@ describe('messageFor', () => {
   })
 
   it.each<MessageContext>(['action', 'cadastro', 'login'])(
-    'too_many_requests in %s (spec 001 AC-6.7)',
+    'too_many_requests in %s',
     context => {
       const tooMany = error('too_many_requests', {
         message: 'texto do backend',
@@ -80,7 +80,7 @@ describe('messageFor', () => {
   })
 })
 
-describe('messageFor on a ticket page (spec 003)', () => {
+describe('messageFor on a ticket page', () => {
   it.each<[string, MessageContext, string]>([
     [
       'unprocessable_entity',

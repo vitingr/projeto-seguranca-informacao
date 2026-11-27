@@ -31,7 +31,7 @@ describe('formatDate', () => {
   })
 })
 
-describe('formatThreadTime (spec 003 section 7)', () => {
+describe('formatThreadTime', () => {
   const now = '2026-11-26T18:00:00Z'
   it.each([
     ['the same day: time only', '2026-11-26T17:04:00Z', '14:04'],

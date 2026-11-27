@@ -21,7 +21,7 @@ const pair = (label: string, value: string) =>
   new RegExp(`<dt[^>]*>${label}</dt><dd[^>]*>${value}</dd>`)
 
 describe('TicketConfirmation', () => {
-  it('says the ticket was created, with a focusable heading (AC-5.2)', () => {
+  it('says the ticket was created, with a focusable heading', () => {
     expect(render()).toMatch(
       new RegExp(
         `<h2[^>]*id="h"[^>]*tabindex="-1"[^>]*>${CONFIRMATION_TEXTS.heading}</h2>`,
@@ -30,7 +30,7 @@ describe('TicketConfirmation', () => {
     )
   })
 
-  it('shows the number, type, title, status badge and date (AC-5.2)', () => {
+  it('shows the number, type, title, status badge and date', () => {
     const html = render()
     expect(html).toMatch(pair('Número', '#42'))
     expect(html).toMatch(
@@ -49,13 +49,13 @@ describe('TicketConfirmation', () => {
     expect(html.match(/<dt[^>]*>Título<\/dt>/g)).toHaveLength(1)
   })
 
-  it('shows an HTML title as text (S-8)', () => {
+  it('shows an HTML title as text', () => {
     const html = render('<img src=x onerror=alert(1)>')
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
     expect(html).not.toContain('<img')
   })
 
-  it('links "Ver ticket" to the new ticket page (spec 003 AC-1.11)', () => {
+  it('links "Ver ticket" to the new ticket page', () => {
     expect(render()).toMatch(
       /<a[^>]*href="\/usuarios\/tickets\/42"[^>]*>Ver ticket<svg/
     )

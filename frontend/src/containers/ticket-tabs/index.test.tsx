@@ -5,7 +5,7 @@ import { readTicketTab } from '@/domain/ticket-query'
 
 import { TicketTabs, tabHref } from '.'
 
-describe('readTicketTab and tabHref (spec 003 AC-2.3)', () => {
+describe('readTicketTab and tabHref', () => {
   it('reads only "conversa"; anything else is "detalhes"', () => {
     expect(readTicketTab('conversa')).toBe('conversa')
     for (const value of ['detalhes', 'x', '', undefined, ['conversa']]) {
@@ -25,7 +25,7 @@ describe('readTicketTab and tabHref (spec 003 AC-2.3)', () => {
   })
 })
 
-describe('TicketTabs (spec 003 AC-2.1)', () => {
+describe('TicketTabs', () => {
   const render = (initialTab: 'conversa' | 'detalhes') =>
     renderToStaticMarkup(
       <TicketTabs

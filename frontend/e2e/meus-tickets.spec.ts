@@ -52,7 +52,7 @@ const DEPLOY = {
 } as const
 
 test.describe('a user with no ticket', () => {
-  test('keeps the exact text and the profile, and sees the empty list (AC-1.1, AC-1.8)', async ({
+  test('keeps the exact text and the profile, and sees the empty list', async ({
     browser,
     page
   }) => {
@@ -109,7 +109,7 @@ test.describe('a user with tickets', () => {
     await loginAs(page, author, '/usuarios')
   })
 
-  test('lists only their own tickets, most recently updated first (AC-1.2 to AC-1.4)', async ({
+  test('lists only their own tickets, most recently updated first', async ({
     page
   }) => {
     await expect(page.getByTestId('ticket-count')).toHaveText('3 tickets')
@@ -131,7 +131,7 @@ test.describe('a user with tickets', () => {
     )
   })
 
-  test('filters by status and type in the address, kept on reload and back (AC-1.5, AC-1.6)', async ({
+  test('filters by status and type in the address, kept on reload and back', async ({
     page
   }) => {
     await statusLink(page, 'Aberto').click()
@@ -159,7 +159,7 @@ test.describe('a user with tickets', () => {
     await expect(page).toHaveURL('/usuarios?status=aberto')
   })
 
-  test('shows "Nenhum ticket com esses filtros." and clears them (AC-1.8)', async ({
+  test('shows "Nenhum ticket com esses filtros." and clears them', async ({
     page
   }) => {
     await page.goto('/usuarios?status=fechado&tipo=deploy')
@@ -172,9 +172,7 @@ test.describe('a user with tickets', () => {
     await expect(titles(page)).toHaveCount(3)
   })
 
-  test('reads an unknown value in the address as "all" (AC-1.6)', async ({
-    page
-  }) => {
+  test('reads an unknown value in the address as "all"', async ({ page }) => {
     await page.goto('/usuarios?status=xyz&tipo=nada&pagina=abc')
     await expect(statusLink(page, 'Todos')).toHaveAttribute(
       'aria-current',
@@ -187,7 +185,7 @@ test.describe('a user with tickets', () => {
   })
 })
 
-test('21 tickets make two pages of 20 (AC-1.7)', async ({ browser, page }) => {
+test('21 tickets make two pages of 20', async ({ browser, page }) => {
   const user = await registerComum(browser)
   insertOtherTickets(user.login, 21)
   await loginAs(page, user, '/usuarios')

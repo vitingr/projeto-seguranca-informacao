@@ -83,7 +83,7 @@ func TestAccessMatrix(t *testing.T) {
 		{flowLogin, http.MethodPatch, matrixAdminTicket + "/status", http.StatusOK},
 	}
 	if len(tests) != 48 {
-		t.Fatalf("matrix has %d cells, want 48 (18 of spec 001, 3 per spec 003 route)", len(tests))
+		t.Fatalf("matrix has %d cells, want 48", len(tests))
 	}
 	for _, tt := range tests {
 		t.Run(tt.caller+" "+tt.method+" "+tt.path, func(t *testing.T) {

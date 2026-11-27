@@ -30,7 +30,7 @@ describe('decideAccess: the page guard matrix', () => {
     )
   })
 
-  it('a ticket page sends its real path as next (spec 003 S-15)', () => {
+  it('a ticket page sends its real path as next', () => {
     expect(
       decideAccess(anonymous, '/usuarios/tickets/[id]', '/usuarios/tickets/12')
     ).toEqual({ kind: 'login', url: '/login?next=%2Fusuarios%2Ftickets%2F12' })

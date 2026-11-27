@@ -373,7 +373,7 @@ describe('createTicket', () => {
   })
 })
 
-describe('sendMessage (spec 003)', () => {
+describe('sendMessage', () => {
   const PAGE = '/usuarios/tickets/12'
   const OWN = 'POST /api/tickets/12/mensagens'
   const ADMIN = 'POST /api/administradores/tickets/12/mensagens'
@@ -476,7 +476,7 @@ describe('sendMessage (spec 003)', () => {
   })
 })
 
-describe('changeStatus (spec 003)', () => {
+describe('changeStatus', () => {
   const STATUS = 'PATCH /api/administradores/tickets/12/status'
   const change = { de: 'aberto', para: 'em_andamento', ticketId: 12 } as const
 
@@ -510,7 +510,7 @@ describe('changeStatus (spec 003)', () => {
   })
 })
 
-describe('loadThreadBefore (spec 003 P-4)', () => {
+describe('loadThreadBefore', () => {
   const OLDER = 'GET /api/tickets/12/mensagens?antes=40'
   const page = { entries: [], has_more: false }
 

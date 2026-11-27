@@ -246,10 +246,10 @@ func TestReplyOwnTicket(t *testing.T) {
 
 	after := a.store.ticket(ticket.ID)
 	if after.Status != domain.TicketStatusResolved {
-		t.Errorf("status = %s, want resolvido (a reply never changes it, Q-5)", after.Status)
+		t.Errorf("status = %s, want resolvido (a reply never changes it)", after.Status)
 	}
 	if !after.UpdatedAt.After(ticket.UpdatedAt) {
-		t.Errorf("updated_at = %v, want later than %v (BR-8)", after.UpdatedAt, ticket.UpdatedAt)
+		t.Errorf("updated_at = %v, want later than %v", after.UpdatedAt, ticket.UpdatedAt)
 	}
 	_, thread := a.get(t, path, a.mustLogin(t, comumLogin))
 	entries := entriesOf(t, thread)

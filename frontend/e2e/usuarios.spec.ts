@@ -20,7 +20,7 @@ test.describe('profile on /usuarios as comum', () => {
     await loginAs(page, comumUser(), '/usuarios')
   })
 
-  test('keeps the exact text, the area line and "Novo ticket" (AC-7.1)', async ({
+  test('keeps the exact text, the area line and "Novo ticket"', async ({
     page
   }) => {
     await expect(
@@ -34,7 +34,7 @@ test.describe('profile on /usuarios as comum', () => {
     await expect(page).toHaveURL('/usuarios/tickets/novo')
   })
 
-  test('shows the avatar of the login, the login, the role and "Membro desde" (AC-7.2, AC-7.3)', async ({
+  test('shows the avatar of the login, the login, the role and "Membro desde"', async ({
     page
   }) => {
     const { login } = comumUser()
@@ -53,16 +53,13 @@ test.describe('profile on /usuarios as comum', () => {
     await expect(page.locator('main img, main image')).toHaveCount(0)
   })
 
-  test('states the session and rate facts (AC-7.4)', async ({ page }) => {
+  test('states the session and rate facts', async ({ page }) => {
     const card = page.getByRole('region', { name: 'Sessão e limites' })
     await expect(card).toContainText('período sem atividade')
     await expect(card).toContainText('até 10 tickets por minuto')
   })
 
-  test('loads nothing from another origin (AC-7.2)', async ({
-    baseURL,
-    page
-  }) => {
+  test('loads nothing from another origin', async ({ baseURL, page }) => {
     const origins = new Set<string>()
     page.on('request', request => {
       origins.add(new URL(request.url()).origin)
@@ -74,7 +71,7 @@ test.describe('profile on /usuarios as comum', () => {
   })
 })
 
-test('an admin still gets the forbidden screen on /usuarios (AC-7.5)', async ({
+test('an admin still gets the forbidden screen on /usuarios', async ({
   page
 }) => {
   await loginAs(page, seedAdmin(), '/administradores')

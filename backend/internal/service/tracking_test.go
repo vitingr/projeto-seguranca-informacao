@@ -380,7 +380,7 @@ func TestChangeStatusRefusals(t *testing.T) {
 		want      error
 		calls     string
 	}{
-		{"pair BR-3 never allows", adminActor, forbidden, nil, domain.ErrInvalidInput, "CheckStatusChange"},
+		{"pair the transition table never allows", adminActor, forbidden, nil, domain.ErrInvalidInput, "CheckStatusChange"},
 		{"change from fechado", adminActor, fromClosed, nil, domain.ErrStaleStatus, "CheckStatusChange"},
 		{"stale status in the database", adminActor, nil, stale, domain.ErrStaleStatus, "CheckStatusChange,ChangeStatus"},
 		{"no actor is a server error", 0, nil, nil, errNoAuthor, ""},

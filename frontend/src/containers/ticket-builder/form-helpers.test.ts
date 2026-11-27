@@ -54,7 +54,7 @@ describe('previewTitle', () => {
     expect(previewTitle('outro', { titulo: '' })).toBeNull()
   })
 
-  it('follows the title rule of the server (BR-3)', () => {
+  it('follows the title rule of the server', () => {
     expect(previewTitle('acesso', { sistema: ' Grafana ' })).toBe(
       'Acesso a Grafana'
     )
@@ -98,7 +98,7 @@ describe('reviewRows', () => {
     ])
   })
 
-  it('gives null for the optional notes left out (AC-4.1)', () => {
+  it('gives null for the optional notes left out', () => {
     const rows = reviewRows({
       dados: {
         ambiente: 'homolog',
@@ -156,7 +156,7 @@ describe('reviewRows', () => {
 })
 
 describe('progressChips', () => {
-  it('names the type and the fields with a value, never the values (AC-5.5)', () => {
+  it('names the type and the fields with a value, never the values', () => {
     const chips = progressChips({
       dados: {
         ambiente: 'prod',

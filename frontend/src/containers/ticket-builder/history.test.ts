@@ -108,7 +108,7 @@ describe('step ↔ ?etapa=', () => {
 })
 
 describe('guardActive', () => {
-  it('is on only while something typed was not sent (AC-3.8)', () => {
+  it('is on only while something typed was not sent', () => {
     expect(guardActive({ dirty: true, sent: false })).toBe(true)
     expect(guardActive({ dirty: false, sent: false })).toBe(false)
     expect(guardActive({ dirty: true, sent: true })).toBe(false)
@@ -158,7 +158,7 @@ describe('decidePop', () => {
 })
 
 describe('createStepHistory', () => {
-  it('puts each step reached in the URL, and only the step (S-10)', () => {
+  it('puts each step reached in the URL, and only the step', () => {
     const browser = fakeBrowser()
     browser.history.start()
     expect(browser.url()).toBe(BUILDER)
@@ -207,7 +207,7 @@ describe('createStepHistory', () => {
     expect(browser.entries).toHaveLength(3)
   })
 
-  it('nothing moves while sending (AC-5.1)', () => {
+  it('nothing moves while sending', () => {
     const browser = fakeBrowser()
     reachReview(browser.history)
     browser.move(-1, true)
@@ -216,7 +216,7 @@ describe('createStepHistory', () => {
     expect(browser.url()).toBe(`${BUILDER}?etapa=revisao`)
   })
 
-  it('after sending, the first entry is the confirmation and Back leaves (AC-5.3)', () => {
+  it('after sending, the first entry is the confirmation and Back leaves', () => {
     const browser = fakeBrowser()
     reachReview(browser.history)
     browser.history.sent()
@@ -318,7 +318,7 @@ describe('createStepHistory passes the URL only when it changes', () => {
     })
   })
 
-  it('a reload on a later step still goes back to the bare URL (BR-7)', () => {
+  it('a reload on a later step still goes back to the bare URL', () => {
     const { calls, win } = nextLikeWindow('?etapa=revisao')
     createStepHistory(win, () => 'visit').start()
     expect(calls).toEqual([

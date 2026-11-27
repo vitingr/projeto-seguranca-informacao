@@ -59,7 +59,7 @@ test.beforeEach(async ({ page }) => {
   await loginAs(page, seedAdmin(), '/administradores')
 })
 
-test('moves through every allowed status, with a status line each (AC-6.1, AC-6.2, AC-6.5)', async ({
+test('moves through every allowed status, with a status line each', async ({
   browser,
   page
 }) => {
@@ -124,7 +124,7 @@ test('moves through every allowed status, with a status line each (AC-6.1, AC-6.
   })
 })
 
-test('a change made meanwhile shows the stale message and the fresh status (AC-6.3)', async ({
+test('a change made meanwhile shows the stale message and the fresh status', async ({
   browser,
   page
 }) => {
@@ -141,7 +141,7 @@ test('a change made meanwhile shows the stale message and the fresh status (AC-6
   await expect(header(page)).toContainText('Em andamento')
 })
 
-test('a status change and a reply move the ticket to the top of both lists; a reply keeps the status (BR-8)', async ({
+test('a status change and a reply move the ticket to the top of both lists; a reply keeps the status', async ({
   browser,
   page
 }) => {

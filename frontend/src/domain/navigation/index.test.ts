@@ -49,7 +49,7 @@ describe('safeNext', () => {
   })
 })
 
-describe('safeNext: ticket pages (spec 003 S-15)', () => {
+describe('safeNext: ticket pages', () => {
   it.each<[unknown, Role, string]>([
     ['/usuarios/tickets/12', 'comum', '/usuarios/tickets/12'],
     ['/administradores/tickets/12', 'admin', '/administradores/tickets/12'],

@@ -25,7 +25,7 @@ const options = (logoutRunning = false) => ({
   onRequest: vi.fn()
 })
 
-describe('installLeaveGuard (plan P-12)', () => {
+describe('installLeaveGuard', () => {
   it('listens for beforeunload and for clicks in the capture phase', () => {
     const win = fakeWindow()
     installLeaveGuard(win as never, options())

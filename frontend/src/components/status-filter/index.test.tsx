@@ -13,7 +13,7 @@ const links = (html: string) =>
     text
   }))
 
-describe('StatusFilter (spec 003 AC-1.5, P-13)', () => {
+describe('StatusFilter', () => {
   it('is a row of links, "Todos" first and active by default', () => {
     const html = renderToStaticMarkup(
       <StatusFilter query={readListQuery({}, 'own')} />

@@ -30,7 +30,7 @@ const headers = (html: string) =>
     match => match[1]
   )
 
-describe('TicketTable (spec 003 AC-1.2, AC-4.2)', () => {
+describe('TicketTable', () => {
   it('has the comum columns, a hidden caption and the number of each row', () => {
     const html = render()
     expect(headers(html)).toEqual([
@@ -94,7 +94,7 @@ describe('TicketTable (spec 003 AC-1.2, AC-4.2)', () => {
     '<script>alert(1)</script>',
     '<img src=x onerror=alert(1)>',
     'javascript:alert(1)'
-  ])('shows %s in a title or login as literal text (S-10)', payload => {
+  ])('shows %s in a title or login as literal text', payload => {
     const html = render({
       items: [{ ...TICKET, authorLogin: payload, title: payload }],
       scope: 'queue'

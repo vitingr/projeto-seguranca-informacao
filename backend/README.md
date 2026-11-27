@@ -242,6 +242,20 @@ Messages and status changes are logged at Info (`ticket message created`,
 fixed reason (`ticket message refused`, `ticket status refused`), with the
 ticket and actor ids; never a message text or a code the client sent.
 
+Every route with a ticket id runs the central `TicketAccess` check before
+its handler. Another user's ticket, a missing ticket and a malformed id
+share the generic 404; encoded paths such as `%31` are refused too. HTTP
+tests compare the serialized answers byte for byte after normalizing only
+the per-request id. No administrator login or id is included in the
+common user's thread response: administrators are shown as "Suporte".
+
+Each write first locks the ticket row with its conditional `UPDATE`, then
+inserts its history entry in the same transaction. The status condition
+compares `de` with the stored state; a reply checks that it is not closed.
+Both statements commit together or roll back together. The update returns
+`GREATEST(clock_timestamp(), updated_at)`, also used as the entry's time,
+so waiting for another write cannot move the last-update time backwards.
+
 Refused queries are logged at Info as `ticket query refused` with
 `user_id` and a fixed reason, never the query.
 
@@ -307,6 +321,17 @@ Fixed in code:
   30 per user in 60 seconds) and the status change limit
   (`StatusChangeLimit`, 30 per administrator in 60 seconds) have the same
   limitation.
+- **Tracking reads have no additional rate limit.** Ticket-id probes are
+  refused and logged by the ownership middleware; they do not reveal
+  another user's ticket contents.
+- **Bounded tracking pages.** Lists have 20 items, thread pages 100 entries
+  and the author filter at most 500 logins. The frontend currently shows
+  only the latest thread page, without an older-entry control. Offset list
+  pages can repeat or miss a row while other writes reorder tickets.
+- **Status compare-and-set uses the status itself.** If it changes and
+  then returns to the value an admin saw (ABA), that admin's next allowed
+  transition can apply. There is no version column or idempotency key;
+  retrying a reply after an uncertain network failure can duplicate it.
 
 ## Go version
 

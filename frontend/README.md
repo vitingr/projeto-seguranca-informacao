@@ -3,7 +3,8 @@
 Next.js 16 app for the backend in [`../backend`](../backend/README.md):
 login, the role areas (`admin` and `comum`, the latter with the user's
 profile), user registration for administrators, the ticket builder for
-`comum` users, and logout. The backend is the only authority on sessions
+`comum` users, ticket lists and conversations, administrator status changes,
+and logout. The backend is the only authority on sessions
 and roles; this app talks to it through a same-origin proxy and never
 handles the session cookie in JavaScript.
 
@@ -12,11 +13,13 @@ handles the session cookie in JavaScript.
 | Path | Who | What |
 |---|---|---|
 | `/` | everyone | Redirects: anonymous → `/login`, `admin` → `/administradores`, `comum` → `/usuarios`. |
-| `/login` | anonymous | Login form; `?next=` accepts only an exact protected path. |
-| `/administradores` | `admin` | Admin area. |
+| `/login` | anonymous | Login form; `?next=` accepts a protected path allowed for the role, including numeric ticket pages. |
+| `/administradores` | `admin` | Admin area and ticket queue, status summary and filters. |
 | `/cadastro` | `admin` | User registration. |
-| `/usuarios` | `comum` | `comum` area: the user's profile (generated avatar, login, role, registration date) and the "Novo ticket" action. |
+| `/usuarios` | `comum` | The user's profile (generated avatar, login, role, registration date), "Novo ticket" and "Meus tickets". |
 | `/usuarios/tickets/novo` | `comum` | Ticket builder (below). |
+| `/usuarios/tickets/<id>` | `comum`, author only | Ticket details and conversation. |
+| `/administradores/tickets/<id>` | `admin` | Any ticket's details, conversation and status action. |
 
 Any other path, including the old `/minha-conta`, `/admin` and
 `/cadastrar-usuarios`, is Next's 404.
@@ -88,21 +91,22 @@ The checks to run before every commit are listed in
   TLS verification is never disabled; with an untrusted certificate every
   backend call fails.
 - **The cookie** is handled only by the browser and the backend. The Next
-  server reads it only to forward it, alone, to `GET /api/me` and the area
-  endpoints, never caching the answer.
+  server reads it only to forward it, alone, to `GET /api/me`, the area
+  endpoints and ticket reads, never caching the answer.
 - **The CSRF token** lives in JavaScript memory only
-  (`src/lib/api/csrf`): fetched before the first POST, fetched again
+  (`src/lib/api/csrf`): fetched before the first write (POST or PATCH), fetched again
   after login, discarded at logout. It is never written to Web Storage,
   IndexedDB, cookies or URLs.
 - **Protected pages** (`/administradores`, `/cadastro` for `admin`,
-  `/usuarios` and `/usuarios/tickets/novo` for `comum`) check the session
+  `/usuarios` and `/usuarios/tickets/novo` for `comum`, plus each role's
+  dynamic ticket pages) check the session
   on the server in each page
   (`src/services/session`). No cookie or a 401 → `/login?next=<page>`;
   another role → the "no permission" screen. The area pages also call
   their backend endpoint, whose 403 has the last word. A role change in
   the database applies on the next page load.
 - **During use**, any 401 (except a wrong password on login) goes back to
-  the login page with "Sua sessão expirou". A 403 on a POST refreshes the
+  the login page with "Sua sessão expirou". A 403 on a write refreshes the
   token and retries once: that is how an expired session (which the
   backend answers with 403 on a POST, since CSRF runs before the role
   check) ends on the login page.
@@ -144,6 +148,73 @@ with the ticket number and the status "Aberto".
 - **Titles.** `ticketTitle` (`src/domain/tickets`) builds the title the
   server will store (BR-3), from the same test vectors as the Go service.
 
+## Ticket tracking
+
+"Meus tickets" and the administrator queue show 20 tickets per page,
+ordered by the latest update and then by number (descending). Status and
+type filters combine; the queue adds an author filter and a status summary
+over the whole queue. Only users with tickets appear in the author filter,
+up to the backend's limit of 500 logins. Long logins in the queue are
+truncated, with the full login in `title`. Tables become rows below 768 px.
+The exact area texts and the link to `/cadastro` are preserved.
+
+- **Addresses.** `status`, `tipo`, `usuario` (queue only) and `pagina`
+  preserve list filters and paging. Unknown values become "Todos" before
+  calling the backend. Ticket pages preserve `aba=conversa`; a validated
+  `de` address restores the list filters on return. The builder's
+  confirmation links to the stored ticket with "Ver ticket".
+- **Details and conversation.** Both roles use `screens/ticket-page`:
+  `ticket-header`, `detail-list`, `ticket-tabs`, `thread`, `thread-message`
+  and `thread-event`. Details preserve every stored field and line break;
+  HTML, Markdown and URLs remain plain text. Own messages appear as "Você";
+  administrators appear as "Suporte" to the author, without their logins
+  in the backend response. The admin view names the author and other admins.
+- **Reads and refresh.** `services/tickets` loads through the server-only
+  backend client; `repositories/tickets` validates each answer and refuses
+  unexpected fields or shapes. Lists and ticket pages load on navigation,
+  reload, after an accepted write and with "Atualizar". No polling,
+  WebSocket, automatic status update or notification is used.
+- **Replies.** `containers/ticket-conversation` owns the text and send
+  state; `components/reply-box` renders the growing textarea, counter,
+  square send button and separate gray visibility tray. Enter adds a
+  line; Ctrl+Enter (Command+Enter on macOS) sends. `domain/tickets` mirrors
+  the backend's 1–2000 code-point message rule. A single-flight guard
+  prevents duplicate simultaneous sends. Success clears the text,
+  refreshes the page and announces "Mensagem enviada."; errors keep the
+  text, except session expiry redirects to login and loses in-memory data.
+- **Leaving.** The shared `useLeaveGuard` hook lives in
+  `containers/leave-guard`, with the presentational inline bar. It is used
+  by the builder and the conversation; generic click rules live in
+  `utils/navigation-guard`. Closing/reloading uses `beforeunload`, while
+  links and "Sair" show the inline confirmation. Nothing is saved to
+  browser storage or URLs.
+- **Status.** `containers/status-action`, only on the admin page, offers
+  the transitions of `ALLOWED_NEXT_STATUSES`. Closing asks for inline
+  confirmation with an outlined red-text button. A reply never changes
+  status. A stale change (409) refreshes the page and asks the admin to
+  check the new state. "Fechado" is final: both sides keep reading, with
+  no reply box or status menu.
+- **Limits and errors.** Replies and status changes each allow 30 requests
+  per user in 60 seconds, enforced by separate backend limiters. A 429 is
+  not retried automatically. Own-ticket access denied, missing ticket and
+  invalid id share the not-found screen; wrong-role pages show the
+  forbidden screen. Backend checks remain authoritative.
+- **Known limits.** The page shows only the latest 100 thread entries.
+  Older-entry loading was deferred: the backend cursor API and client
+  parser exist, but there is no UI control yet. Offset pages can repeat or
+  miss a row when another ticket moves to the top between page loads.
+  There is no idempotency key for a retry after a network failure.
+
+The tracking Vitest suite covers contracts and parsers, route guards,
+queries, message/transition rules, components, contrast and write errors.
+Playwright adds the list, queue, details, conversation, replies, leave
+guard and status flows in `meus-tickets.spec.ts`, `fila.spec.ts`,
+`ticket-page.spec.ts`, `ticket-conversa.spec.ts`, `ticket-resposta.spec.ts`,
+`ticket-admin.spec.ts` and `ticket-status.spec.ts`. Test users are removed
+with the backend README cleanup, which deletes entries before tickets
+and users. Bruno runs the tracking collection after the existing ticket
+and access-matrix collections.
+
 ## Design rules
 
 - **Look.** Poppins, light theme only, thin borders, one blue accent
@@ -153,11 +224,9 @@ with the ticket number and the status "Aberto".
   only (plus `rounded-full` and `rounded-none`), no `shadow-*` or
   `box-shadow`, no gradients, no `tracking-*` classes. The shadow tokens in
   `globals.css` are empty shadows.
-- **Components.** shadcn first (`src/components/ui/shadcn`, adapted to the
-  rules above). Where shadcn has no fit, only affectUI components whose
-  page says "Free and open source (MIT)" may be added, with their styles
-  adapted to the tokens; anything marked "Part of affectUI Pro" is
-  forbidden. No affectUI component is used today.
+- **Components.** shadcn (`src/components/ui/shadcn`) and the existing
+  Base UI primitives, adapted to the rules above. Ticket tracking adds
+  no visual library; affectUI is not used.
 - **Avatars** are generated in the browser from the login (initials and a
   figure in an inline SVG, `src/domain/avatar`): no image, no request to
   another origin.

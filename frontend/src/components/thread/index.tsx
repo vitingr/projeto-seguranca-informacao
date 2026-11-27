@@ -75,6 +75,7 @@ export const Thread = ({
           )
         return (
           <ThreadMessage
+            entryId={entry.id}
             key={entry.id}
             mark={mark}
             name={name}

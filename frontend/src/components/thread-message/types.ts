@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 
 export interface ThreadMessageProps {
+  /** The entry id, so the page can find a message it just sent. */
+  entryId?: number
   /** The mark in front of a message of the other side; none for own ones. */
   mark?: ReactNode
   /** "Você", "Suporte" or a login. */

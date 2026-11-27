@@ -3,18 +3,34 @@
 import { cn } from 'cn'
 import { RotateCwIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useTransition } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition
+} from 'react'
 
+import { InlineAlert } from '@/components/inline-alert'
+import { ReplyBox } from '@/components/reply-box'
 import { Separator } from '@/components/ui/shadcn/separator'
 import { formatClock } from '@/domain/date-time'
+import { api } from '@/repositories/api'
+import { singleFlight } from '@/utils/single-flight'
 
+import { sendReply } from './reply'
 import type { TicketConversationProps } from './types'
 
 export const CONVERSATION_TEXTS = {
   refresh: 'Atualizar',
   refreshing: 'Atualizando…',
-  region: 'Mensagens do ticket'
+  region: 'Mensagens do ticket',
+  sent: 'Mensagem enviada.'
 } as const
+
+/** The fade-in of a new own message, only when motion is allowed. */
+export const NEW_ENTRY_CLASS = 'motion-safe:animate-enter-blur'
 
 /** "1 mensagem", "N mensagens" (status lines are not messages). */
 export const messageCountText = (count: number) =>
@@ -29,24 +45,41 @@ export const refreshedAtText = (iso: string) => {
 /** How close to the end still counts as "at the latest entry", in px. */
 const NEAR_END = 48
 
+const noSubscription = () => () => {}
+
+/** macOS shows "⌘+Enter"; the server and other systems "Ctrl+Enter". */
+const readMac = () => /Mac|iPhone|iPad/.test(navigator.platform)
+
+/** One reply at a time: a second click while sending starts nothing. */
+const sendOnce = singleFlight(sendReply)
+
 /**
- * The "Conversa" panel (spec 003 AC-3.1 to AC-3.4a, AC-3.10, D-4, plan 6.5):
- * a header row with the message count and "Atualizado às HH:MM ·
- * Atualizar", a hairline under it, then the thread in a bounded scroll
- * region (thin scrollbar) that opens on its latest entry. Nothing refreshes
- * by itself (BR-9): "Atualizar" renders the page again on the server; the
- * view stays at the end if the user was there, otherwise where it was.
+ * The "Conversa" panel (spec 003 AC-3.1 to AC-3.10, D-4, plan 6.5): a header
+ * row with the message count and "Atualizado às HH:MM · Atualizar", a
+ * hairline, the thread in a bounded scroll region that opens on its latest
+ * entry, and the reply box pinned under it. Nothing refreshes by itself
+ * (BR-9): "Atualizar" and a sent reply render the page again on the server.
+ * The view stays at the end if the user was there, otherwise where it was;
+ * after the user's own reply it goes to the end.
  */
 export const TicketConversation = ({
   children,
-  footer,
   messageCount,
-  renderedAt
+  renderedAt,
+  reply
 }: TicketConversationProps) => {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const scroller = useRef<HTMLDivElement>(null)
   const atEnd = useRef(true)
+  const newEntry = useRef<null | number>(null)
+  const textareaId = useId()
+  const [text, setText] = useState('')
+  const [fieldError, setFieldError] = useState<string | undefined>()
+  const [sendError, setSendError] = useState<null | string>(null)
+  const [sending, setSending] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
+  const mac = useSyncExternalStore(noSubscription, readMac, () => false)
 
   // The panel may start hidden (the "Detalhes" tab keeps it mounted), so the
   // jump to the end runs whenever the region or its content changes size:
@@ -60,6 +93,12 @@ export const TicketConversation = ({
       }
     }
     toEnd()
+    if (newEntry.current !== null) {
+      element
+        .querySelector(`[data-entry-id="${newEntry.current}"]`)
+        ?.classList.add(NEW_ENTRY_CLASS)
+      newEntry.current = null
+    }
     const observer = new ResizeObserver(toEnd)
     observer.observe(element)
     for (const child of element.children) observer.observe(child)
@@ -71,6 +110,33 @@ export const TicketConversation = ({
     startTransition(() => {
       router.refresh()
     })
+  }
+
+  const send = async () => {
+    if (!reply || sending) return
+    setSendError(null)
+    setSending(true)
+    const outcome = await sendOnce(
+      { send: api.sendMessage },
+      { raw: text, scope: reply.scope, ticketId: reply.ticketId }
+    )
+    setSending(false)
+    if (outcome === null) return
+    if (outcome.kind === 'invalid') {
+      setFieldError(outcome.message)
+      return
+    }
+    if (outcome.kind === 'failed') {
+      setSendError(outcome.message)
+      if (outcome.refresh) refresh()
+      return
+    }
+    setText('')
+    setFieldError(undefined)
+    setAnnouncement(CONVERSATION_TEXTS.sent)
+    atEnd.current = true
+    newEntry.current = outcome.entryId
+    refresh()
   }
 
   return (
@@ -118,7 +184,35 @@ export const TicketConversation = ({
       >
         {children}
       </div>
-      {footer}
+      {reply ? (
+        <>
+          <Separator />
+          {sendError ? (
+            <div className="px-3 pt-3">
+              <InlineAlert>{sendError}</InlineAlert>
+            </div>
+          ) : null}
+          <ReplyBox
+            onChange={value => {
+              setText(value)
+              if (fieldError) setFieldError(undefined)
+            }}
+            closed={reply.closed}
+            closedAction={reply.closedAction}
+            error={fieldError}
+            id={textareaId}
+            mac={mac}
+            onSend={send}
+            placeholder={reply.placeholder}
+            sending={sending}
+            trayText={reply.trayText}
+            value={text}
+          />
+        </>
+      ) : null}
+      <p aria-live="polite" className="sr-only" data-testid="reply-status">
+        {announcement}
+      </p>
     </div>
   )
 }

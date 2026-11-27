@@ -37,8 +37,11 @@ export const TICKET_PAGE_TEXTS = {
   createdAt: 'Criado em',
   details: 'Detalhes',
   detailsHint: 'Os campos exatamente como foram enviados.',
+  newTicket: 'Novo ticket',
   number: 'Número',
   request: 'Pedido',
+  replyPlaceholder: 'Escreva uma mensagem…',
+  replyTray: 'Visível para a equipe de suporte',
   requestHint: 'O tipo, o título e o andamento do ticket.',
   status: 'Status',
   title: 'Título',
@@ -120,6 +123,17 @@ const Conversation = ({ now, thread, ticket }: ConversationProps) => (
     messageCount={
       thread.entries.filter(entry => entry.kind === 'message').length
     }
+    reply={{
+      closed: ticket.status === 'fechado',
+      closedAction: {
+        href: '/usuarios/tickets/novo',
+        label: TICKET_PAGE_TEXTS.newTicket
+      },
+      placeholder: TICKET_PAGE_TEXTS.replyPlaceholder,
+      scope: 'own',
+      ticketId: ticket.id,
+      trayText: TICKET_PAGE_TEXTS.replyTray
+    }}
     renderedAt={now}
   >
     <Thread

@@ -29,6 +29,7 @@ export const ThreadTime = ({ iso, now }: ThreadTimeProps) => {
  * hover only the border darkens; nothing fades (D-3).
  */
 export const ThreadMessage = ({
+  entryId,
   mark,
   name,
   now,
@@ -38,6 +39,7 @@ export const ThreadMessage = ({
 }: ThreadMessageProps) => (
   <li
     className={cn('flex items-start gap-2', own && 'justify-end')}
+    data-entry-id={entryId}
     data-side={own ? 'own' : 'other'}
   >
     {own ? null : <span className="flex pt-2.5">{mark}</span>}

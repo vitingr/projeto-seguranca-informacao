@@ -1,22 +1,17 @@
-# Binários e artefatos
 /bin/
 *.test
 *.out
 coverage.*
 /bruno-report.xml
 
-# Certificados e chaves locais (gerados por "mage cert")
 /certs/
 
-# Segredos
 .env
 .env.*
 !.env.example
 
-# Editores e sistema
 .idea/
 *.swp
 .DS_Store
 
 /specs
-.claude/

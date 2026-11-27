@@ -2,7 +2,10 @@
 // Used by the server guard and the browser client.
 
 import { LOGIN_PATH } from '@/domain/login-path'
-import { PROTECTED_ROUTES } from '@/domain/protected-routes'
+import {
+  PROTECTED_ROUTES,
+  matchProtectedRoute
+} from '@/domain/protected-routes'
 import type { ProtectedRoute } from '@/domain/protected-routes/types'
 import type { Role } from '@/domain/roles/types'
 import type { Session } from '@/domain/session/types'
@@ -11,22 +14,17 @@ import type { Session } from '@/domain/session/types'
 export const landingFor = (role: Role): ProtectedRoute =>
   role === 'admin' ? '/administradores' : '/usuarios'
 
-const isProtectedRoute = (value: string): value is ProtectedRoute =>
-  Object.hasOwn(PROTECTED_ROUTES, value)
-
 /**
  * The page to open after login. `next` is accepted only when it is exactly
- * one of the protected routes and that route allows the user's role; any
- * other value (absolute URL, `//host`, `/login`, unknown path) is ignored,
- * so the login page cannot redirect anywhere else.
+ * one of the protected routes, or a ticket page with a well-formed number
+ * (spec 003 S-15), and that route allows the user's role; any other value
+ * (absolute URL, `//host`, `/login`, unknown path) is ignored, so the login
+ * page cannot redirect anywhere else.
  */
-export const safeNext = (next: unknown, role: Role): ProtectedRoute => {
-  if (
-    typeof next === 'string' &&
-    isProtectedRoute(next) &&
-    PROTECTED_ROUTES[next] === role
-  ) {
-    return next
+export const safeNext = (next: unknown, role: Role): string => {
+  if (typeof next === 'string') {
+    const route = matchProtectedRoute(next)
+    if (route !== null && PROTECTED_ROUTES[route] === role) return next
   }
   return landingFor(role)
 }

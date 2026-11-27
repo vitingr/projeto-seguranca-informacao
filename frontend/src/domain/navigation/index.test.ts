@@ -54,6 +54,24 @@ describe('safeNext', () => {
   })
 })
 
+describe('safeNext: ticket pages (spec 003 S-15)', () => {
+  it.each<[unknown, Role, string]>([
+    ['/usuarios/tickets/12', 'comum', '/usuarios/tickets/12'],
+    ['/administradores/tickets/12', 'admin', '/administradores/tickets/12'],
+    // the other role's ticket page
+    ['/usuarios/tickets/12', 'admin', '/administradores'],
+    ['/administradores/tickets/12', 'comum', '/usuarios'],
+    // malformed numbers and paths
+    ['/usuarios/tickets/012', 'comum', '/usuarios'],
+    ['/usuarios/tickets/abc', 'comum', '/usuarios'],
+    ['/usuarios/tickets/12/../x', 'comum', '/usuarios'],
+    ['/usuarios/tickets/%31%32', 'comum', '/usuarios'],
+    ['/usuarios/tickets/[id]', 'comum', '/usuarios']
+  ])('next=%j for %s → %s', (next, role, want) => {
+    expect(safeNext(next, role)).toBe(want)
+  })
+})
+
 describe('loginUrl', () => {
   it('keeps the path to come back to', () => {
     expect(loginUrl('/administradores')).toBe('/login?next=%2Fadministradores')

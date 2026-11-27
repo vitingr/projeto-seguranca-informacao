@@ -31,9 +31,10 @@ export const getSession = cache(async (): Promise<Session> =>
  * page, not in a layout (layouts do not re-render on navigation).
  */
 export const requireRole = async (
-  route: ProtectedRoute
+  route: ProtectedRoute,
+  path: string = route
 ): Promise<{ allowed: boolean; user: CurrentUser }> => {
-  const access = decideAccess(await getSession(), route)
+  const access = decideAccess(await getSession(), route, path)
   if (access.kind === 'login') redirect(access.url)
   return { allowed: access.kind === 'allowed', user: access.user }
 }

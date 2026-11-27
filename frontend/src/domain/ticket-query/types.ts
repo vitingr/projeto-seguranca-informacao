@@ -1,6 +1,9 @@
 import type { TicketStatus, TicketType } from '@/domain/tickets/types'
 
-import type { LIST_PATHS } from '.'
+import type { LIST_PATHS, TICKET_TABS } from '.'
+
+/** `detalhes` (default) or `conversa`, as kept in `?aba=` (AC-2.3). */
+export type TicketTab = (typeof TICKET_TABS)[number]
 
 /** "Meus tickets" (`own`) or the admin queue (`queue`). */
 export type ListScope = keyof typeof LIST_PATHS

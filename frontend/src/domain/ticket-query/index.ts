@@ -11,7 +11,8 @@ import type {
   ListQuery,
   ListQueryChange,
   ListScope,
-  SearchParams
+  SearchParams,
+  TicketTab
 } from './types'
 
 export const LIST_PATHS = {
@@ -93,6 +94,13 @@ export const listQueryHref = (
     ? LIST_PATHS[query.scope]
     : `${LIST_PATHS[query.scope]}?${search}`
 }
+
+/** The tabs of a ticket page, in screen order (spec 003 AC-2.1). */
+export const TICKET_TABS = ['detalhes', 'conversa'] as const
+
+/** The tab of an `aba` value (AC-2.3); anything else is "Detalhes". */
+export const readTicketTab = (aba: unknown): TicketTab =>
+  aba === 'conversa' ? 'conversa' : 'detalhes'
 
 /**
  * The way back from a ticket page to its list (`?de=`, AC-2.5, AC-5.5):
